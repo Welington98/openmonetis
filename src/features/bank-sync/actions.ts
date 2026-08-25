@@ -472,11 +472,18 @@ export type BulkImportSummary = {
  * fora — nunca adivinha categoria, só reaproveita o que o usuário já
  * categorizou antes para uma descrição parecida.
  */
-export async function bulkImportStatementLinesAction(): Promise<
-	ActionResult<BulkImportSummary>
-> {
+const bulkImportSchema = z.object({
+	fallbackExpenseCategoryId: z.string().uuid().nullable().optional(),
+	fallbackIncomeCategoryId: z.string().uuid().nullable().optional(),
+});
+
+export async function bulkImportStatementLinesAction(
+	input: z.infer<typeof bulkImportSchema> = {},
+): Promise<ActionResult<BulkImportSummary>> {
 	try {
 		const userId = await getUserId();
+		const { fallbackExpenseCategoryId, fallbackIncomeCategoryId } =
+			bulkImportSchema.parse(input);
 
 		const [lines, { defaultPayerId }] = await Promise.all([
 			fetchStatementLines(userId, "unmatched"),
@@ -505,8 +512,14 @@ export async function bulkImportStatementLinesAction(): Promise<
 				continue;
 			}
 
+			const fallbackForType =
+				line.type === "receita"
+					? fallbackIncomeCategoryId
+					: fallbackExpenseCategoryId;
 			const categoryId =
-				categoryMappings[normalizeDescriptionKey(line.description)];
+				categoryMappings[normalizeDescriptionKey(line.description)] ??
+				fallbackForType ??
+				null;
 			if (!categoryId) {
 				skippedNoCategory++;
 				continue;

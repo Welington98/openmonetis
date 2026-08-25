@@ -37,6 +37,13 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/shared/components/ui/select";
 import { formatCurrency } from "@/shared/utils/currency";
 import { formatDateOnly } from "@/shared/utils/date";
 
@@ -80,6 +87,19 @@ export function BankSyncPage({
 		useState<StatementLineWithCategory | null>(null);
 	const [lineToCreate, setLineToCreate] =
 		useState<StatementLineWithCategory | null>(null);
+	const [fallbackExpenseCategoryId, setFallbackExpenseCategoryId] = useState<
+		string | null
+	>(null);
+	const [fallbackIncomeCategoryId, setFallbackIncomeCategoryId] = useState<
+		string | null
+	>(null);
+
+	const expenseCategoryOptions = categoryOptions.filter(
+		(opt) => opt.group === "despesa",
+	);
+	const incomeCategoryOptions = categoryOptions.filter(
+		(opt) => opt.group === "receita",
+	);
 
 	const handleSync = async (connectionId: string) => {
 		setSyncingId(connectionId);
@@ -134,7 +154,10 @@ export function BankSyncPage({
 
 	const handleBulkImport = () => {
 		startBulkImport(async () => {
-			const result = await bulkImportStatementLinesAction();
+			const result = await bulkImportStatementLinesAction({
+				fallbackExpenseCategoryId,
+				fallbackIncomeCategoryId,
+			});
 			if (result.success) {
 				toast.success(result.message);
 			} else {
@@ -261,13 +284,56 @@ export function BankSyncPage({
 					)}
 				</div>
 				{statementLines.length > 0 && (
-					<p className="text-muted-foreground text-xs">
-						"Importar todos" cria lançamento automaticamente só para as linhas
-						com conta vinculada e categoria já conhecida (pela descrição). Se
-						uma transação sincronizou antes de você vincular a conta, use
-						"Corrigir vínculo de transações antigas" primeiro. As demais
-						continuam aqui para revisão manual.
-					</p>
+					<>
+						<p className="text-muted-foreground text-xs">
+							"Importar todos" cria lançamento automaticamente só para as linhas
+							com conta vinculada e categoria já conhecida (pela descrição). Se
+							uma transação sincronizou antes de você vincular a conta, use
+							"Corrigir vínculo de transações antigas" primeiro.
+						</p>
+						<div className="flex flex-wrap items-center gap-3 text-sm">
+							<span className="text-muted-foreground text-xs">
+								Categoria padrão para o que não tem descrição conhecida
+								(opcional):
+							</span>
+							<Select
+								value={fallbackExpenseCategoryId ?? "none"}
+								onValueChange={(value) =>
+									setFallbackExpenseCategoryId(value === "none" ? null : value)
+								}
+							>
+								<SelectTrigger className="w-44" size="sm">
+									<SelectValue placeholder="Despesas" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">Sem padrão (despesas)</SelectItem>
+									{expenseCategoryOptions.map((opt) => (
+										<SelectItem key={opt.value} value={opt.value}>
+											{opt.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+							<Select
+								value={fallbackIncomeCategoryId ?? "none"}
+								onValueChange={(value) =>
+									setFallbackIncomeCategoryId(value === "none" ? null : value)
+								}
+							>
+								<SelectTrigger className="w-44" size="sm">
+									<SelectValue placeholder="Receitas" />
+								</SelectTrigger>
+								<SelectContent>
+									<SelectItem value="none">Sem padrão (receitas)</SelectItem>
+									{incomeCategoryOptions.map((opt) => (
+										<SelectItem key={opt.value} value={opt.value}>
+											{opt.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					</>
 				)}
 				{statementLines.length === 0 ? (
 					<Empty>
