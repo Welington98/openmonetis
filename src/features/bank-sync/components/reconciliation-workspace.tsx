@@ -55,7 +55,7 @@ import { formatDateOnly } from "@/shared/utils/date";
 
 type FilterKey = "todos" | "pendentes" | "classificados" | "ia";
 
-const ALL_ACCOUNTS_VALUE = "__all__";
+const ALL_CONNECTIONS_VALUE = "__all__";
 
 interface ReconciliationWorkspaceProps {
 	data: ReconciliationWorkspaceData;
@@ -77,8 +77,8 @@ export function ReconciliationWorkspace({
 	const [lines, setLines] = useState<StatementLineWithCategory[]>(
 		data.statementLines,
 	);
-	const [selectedAccountId, setSelectedAccountId] = useState<string>(
-		linkedAccounts[0]?.id ?? ALL_ACCOUNTS_VALUE,
+	const [selectedConnectionId, setSelectedConnectionId] = useState<string>(
+		connections[0]?.id ?? ALL_CONNECTIONS_VALUE,
 	);
 	const [search, setSearch] = useState("");
 	const [filter, setFilter] = useState<FilterKey>("todos");
@@ -94,11 +94,9 @@ export function ReconciliationWorkspace({
 	const [isBackfilling, startBackfill] = useTransition();
 
 	const scopedLines = useMemo(() => {
-		if (selectedAccountId === ALL_ACCOUNTS_VALUE) return lines;
-		return lines.filter(
-			(l) => l.linkedFinancialAccountId === selectedAccountId,
-		);
-	}, [lines, selectedAccountId]);
+		if (selectedConnectionId === ALL_CONNECTIONS_VALUE) return lines;
+		return lines.filter((l) => l.bankConnectionId === selectedConnectionId);
+	}, [lines, selectedConnectionId]);
 
 	const counts = useMemo(
 		() => ({
@@ -126,8 +124,11 @@ export function ReconciliationWorkspace({
 		scopedLines.find((l) => l.id === selectedLineId) ??
 		null;
 
-	const selectedAccount = linkedAccounts.find(
-		(a) => a.id === selectedAccountId,
+	const selectedConnection = connections.find(
+		(c) => c.id === selectedConnectionId,
+	);
+	const linkedAccountsForConnection = linkedAccounts.filter(
+		(a) => a.connectionId === selectedConnectionId,
 	);
 
 	const selectNext = (fromId: string) => {
@@ -146,10 +147,10 @@ export function ReconciliationWorkspace({
 	};
 
 	const handleSync = () => {
-		if (!selectedAccount) return;
+		if (!selectedConnection) return;
 		startSync(async () => {
 			const result = await triggerManualSyncAction({
-				connectionId: selectedAccount.connectionId,
+				connectionId: selectedConnection.id,
 			});
 			if (result.success) {
 				toast.success(result.message);
@@ -248,27 +249,32 @@ export function ReconciliationWorkspace({
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<div className="flex items-center gap-3">
 					<Select
-						value={selectedAccountId}
-						onValueChange={setSelectedAccountId}
+						value={selectedConnectionId}
+						onValueChange={setSelectedConnectionId}
 					>
-						<SelectTrigger className="w-64">
-							<SelectValue placeholder="Conta" />
+						<SelectTrigger className="w-72">
+							<SelectValue placeholder="Conexão" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value={ALL_ACCOUNTS_VALUE}>
-								Todas as contas
+							<SelectItem value={ALL_CONNECTIONS_VALUE}>
+								Todas as conexões
 							</SelectItem>
-							{linkedAccounts.map((account) => (
-								<SelectItem key={account.id} value={account.id}>
-									{account.name} — {account.connectorName}
+							{connections.map((connection) => (
+								<SelectItem key={connection.id} value={connection.id}>
+									{connection.connectorName}
+									{linkedAccounts.filter(
+										(a) => a.connectionId === connection.id,
+									).length === 0
+										? " (sem conta vinculada)"
+										: ""}
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
-					{selectedAccount && (
+					{selectedConnection && (
 						<LinkAccountsDialog
-							connectionId={selectedAccount.connectionId}
-							connectorName={selectedAccount.connectorName}
+							connectionId={selectedConnection.id}
+							connectorName={selectedConnection.connectorName}
 							accountOptions={accountOptions}
 						/>
 					)}
@@ -276,11 +282,19 @@ export function ReconciliationWorkspace({
 				<ConnectBankButton pluggyConfigured={pluggyConfigured} />
 			</div>
 
+			{selectedConnection && linkedAccountsForConnection.length === 0 && (
+				<p className="text-amber-600 text-xs">
+					Essa conexão ainda não tem nenhuma conta vinculada — as transações
+					sincronizadas aparecem na lista, mas não vêm com a conta
+					pré-selecionada até você clicar em "Vincular contas".
+				</p>
+			)}
+
 			<div className="flex flex-wrap items-center gap-2">
 				<Button
 					variant="outline"
 					size="sm"
-					disabled={!selectedAccount || isSyncing}
+					disabled={!selectedConnection || isSyncing}
 					onClick={handleSync}
 				>
 					<RiRefreshLine className="size-4" />
@@ -314,15 +328,15 @@ export function ReconciliationWorkspace({
 						? "Corrigindo..."
 						: "Corrigir vínculo de transações antigas"}
 				</Button>
-				{selectedAccount && (
+				{selectedConnection && (
 					<Button
 						variant="ghost"
 						size="sm"
 						className="ml-auto text-destructive"
 						onClick={() =>
 							setConnectionToDelete({
-								id: selectedAccount.connectionId,
-								connectorName: selectedAccount.connectorName,
+								id: selectedConnection.id,
+								connectorName: selectedConnection.connectorName,
 							})
 						}
 					>
