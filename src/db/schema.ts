@@ -163,6 +163,11 @@ export const userPreferences = pgTable("preferencias_usuario", {
 	hideAnticipatedInstallments: boolean("ocultar_parcelas_antecipadas")
 		.notNull()
 		.default(false),
+	// "manual" = só reaproveita categoria já usada antes para descrição
+	// parecida; "ai" = também chama IA pra sugerir quando não há histórico.
+	statementCategorizationMode: text("modo_categorizacao_extrato")
+		.notNull()
+		.default("manual"),
 	dashboardWidgets: jsonb("dashboard_widgets").$type<{
 		order: string[];
 		hidden: string[];
@@ -860,9 +865,13 @@ export const statementLines = pgTable(
 		type: text("tipo").notNull(), // "despesa" | "receita"
 		externalId: text("external_id").notNull(), // id da transação no Pluggy
 		status: text("status").notNull().default("unmatched"), // unmatched | matched | ignored
+		// Categoria sugerida (mapeamento por descrição ou IA) — só sugestão,
+		// usuário sempre confirma antes de virar lançamento.
 		categoryId: uuid("categoria_id").references(() => categories.id, {
 			onDelete: "set null",
 		}),
+		// "mapping" | "ai" | null — de onde veio a sugestão de `categoryId`.
+		categorySource: text("origem_categoria"),
 		matchedTransactionId: uuid("lancamento_correspondente_id").references(
 			() => transactions.id,
 			{ onDelete: "set null" },

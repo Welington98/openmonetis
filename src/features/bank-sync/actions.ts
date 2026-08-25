@@ -1,12 +1,15 @@
 "use server";
 
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
 	bankConnections,
+	categories,
 	financialAccounts,
 	statementLines,
+	transactions,
 } from "@/db/schema";
+import { fetchStatementCategorizationMode } from "@/features/settings/queries";
 import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
 import { createTransactionAction } from "@/features/transactions/actions/single-actions";
 import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
@@ -18,6 +21,7 @@ import { getUserId } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
 import type { ActionResult } from "@/shared/lib/types/actions";
 import { toDateOnlyString } from "@/shared/utils/date";
+import { suggestCategoryForStatementLine } from "./lib/ai-categorize";
 import {
 	createPluggyConnectToken,
 	fetchPluggyAccounts,
@@ -498,10 +502,6 @@ export async function bulkImportStatementLinesAction(
 			};
 		}
 
-		const categoryMappings = await fetchCategoryMappings(
-			lines.map((line) => line.description),
-		);
-
 		let imported = 0;
 		let skippedNoAccount = 0;
 		let skippedNoCategory = 0;
@@ -516,10 +516,7 @@ export async function bulkImportStatementLinesAction(
 				line.type === "receita"
 					? fallbackIncomeCategoryId
 					: fallbackExpenseCategoryId;
-			const categoryId =
-				categoryMappings[normalizeDescriptionKey(line.description)] ??
-				fallbackForType ??
-				null;
+			const categoryId = line.categoryId ?? fallbackForType ?? null;
 			if (!categoryId) {
 				skippedNoCategory++;
 				continue;
@@ -651,5 +648,211 @@ export async function backfillStatementLineAccountsAction(): Promise<
 		};
 	} catch (error) {
 		return handleActionError(error) as ActionResult<{ updated: number }>;
+	}
+}
+
+export type TransactionMatchCandidate = {
+	id: string;
+	name: string;
+	amount: string;
+	purchaseDate: Date;
+	categoryName: string | null;
+	isSettled: boolean | null;
+};
+
+const searchTransactionsSchema = z.object({
+	query: z.string().trim().max(200),
+	accountId: z.string().uuid().nullable().optional(),
+});
+
+/**
+ * Busca lançamentos já existentes pra conciliar manualmente com uma linha de
+ * extrato, em vez de criar um novo (aba "Escolher lançamento existente").
+ */
+export async function searchTransactionsToMatchAction(
+	input: z.infer<typeof searchTransactionsSchema>,
+): Promise<ActionResult<{ transactions: TransactionMatchCandidate[] }>> {
+	try {
+		const userId = await getUserId();
+		const data = searchTransactionsSchema.parse(input);
+
+		const conditions = [eq(transactions.userId, userId)];
+		if (data.query.length > 0) {
+			conditions.push(ilike(transactions.name, `%${data.query}%`));
+		}
+		if (data.accountId) {
+			conditions.push(eq(transactions.accountId, data.accountId));
+		}
+
+		const rows = await db
+			.select({
+				id: transactions.id,
+				name: transactions.name,
+				amount: transactions.amount,
+				purchaseDate: transactions.purchaseDate,
+				categoryName: categories.name,
+				isSettled: transactions.isSettled,
+			})
+			.from(transactions)
+			.leftJoin(categories, eq(transactions.categoryId, categories.id))
+			.where(and(...conditions))
+			.orderBy(desc(transactions.purchaseDate))
+			.limit(25);
+
+		return {
+			success: true,
+			message: "Busca concluída.",
+			data: { transactions: rows },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<{
+			transactions: TransactionMatchCandidate[];
+		}>;
+	}
+}
+
+export type SuggestCategoriesSummary = {
+	byMapping: number;
+	byAi: number;
+	unresolved: number;
+};
+
+/**
+ * Preenche `categoryId`/`categorySource` (sugestão, nunca aplicada sozinha)
+ * em todas as linhas pendentes sem categoria ainda: primeiro tenta o
+ * mapeamento por descrição (grátis); se ainda faltar e o usuário tiver
+ * "Sugerir com IA" ativado nas configurações, chama a IA linha a linha.
+ */
+export async function suggestCategoriesForPendingLinesAction(): Promise<
+	ActionResult<SuggestCategoriesSummary>
+> {
+	try {
+		const userId = await getUserId();
+
+		const [lines, mode] = await Promise.all([
+			fetchStatementLines(userId, "unmatched"),
+			fetchStatementCategorizationMode(userId),
+		]);
+
+		const uncategorized = lines.filter((line) => !line.categoryId);
+
+		let byMapping = 0;
+		let byAi = 0;
+		let unresolved = 0;
+
+		if (uncategorized.length === 0) {
+			return {
+				success: true,
+				message: "Nenhuma linha pendente sem categoria.",
+				data: { byMapping, byAi, unresolved },
+			};
+		}
+
+		const categoryMappings = await fetchCategoryMappings(
+			uncategorized.map((line) => line.description),
+		);
+
+		const allCategories =
+			mode === "ai"
+				? await db
+						.select({
+							id: categories.id,
+							name: categories.name,
+							type: categories.type,
+						})
+						.from(categories)
+						.where(eq(categories.userId, userId))
+				: [];
+
+		for (const line of uncategorized) {
+			const mappedCategoryId =
+				categoryMappings[normalizeDescriptionKey(line.description)];
+
+			if (mappedCategoryId) {
+				await db
+					.update(statementLines)
+					.set({ categoryId: mappedCategoryId, categorySource: "mapping" })
+					.where(eq(statementLines.id, line.id));
+				byMapping++;
+				continue;
+			}
+
+			if (mode !== "ai") {
+				unresolved++;
+				continue;
+			}
+
+			const candidateCategories = allCategories.filter(
+				(c) => c.type === line.type,
+			);
+			const suggested = await suggestCategoryForStatementLine({
+				description: line.description,
+				amount: Number(line.amount),
+				type: line.type === "receita" ? "receita" : "despesa",
+				categories: candidateCategories,
+			});
+
+			if (suggested) {
+				await db
+					.update(statementLines)
+					.set({ categoryId: suggested, categorySource: "ai" })
+					.where(eq(statementLines.id, line.id));
+				byAi++;
+			} else {
+				unresolved++;
+			}
+		}
+
+		revalidateBankSync(userId);
+
+		const parts = [];
+		if (byMapping > 0) parts.push(`${byMapping} pelo histórico`);
+		if (byAi > 0) parts.push(`${byAi} pela IA`);
+		if (unresolved > 0) parts.push(`${unresolved} sem sugestão`);
+
+		return {
+			success: true,
+			message:
+				parts.length > 0
+					? `Categorias sugeridas: ${parts.join(", ")}.`
+					: "Nada pra sugerir.",
+			data: { byMapping, byAi, unresolved },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<SuggestCategoriesSummary>;
+	}
+}
+
+const setStatementLineCategorySchema = z.object({
+	statementLineId: z.string().uuid("Linha inválida."),
+	categoryId: z.string().uuid("Categoria inválida.").nullable(),
+});
+
+/** Usuário confirmando/trocando manualmente a categoria sugerida de uma linha. */
+export async function setStatementLineCategoryAction(
+	input: z.infer<typeof setStatementLineCategorySchema>,
+): Promise<ActionResult> {
+	try {
+		const userId = await getUserId();
+		const data = setStatementLineCategorySchema.parse(input);
+
+		await db
+			.update(statementLines)
+			.set({
+				categoryId: data.categoryId,
+				categorySource: data.categoryId ? "manual" : null,
+			})
+			.where(
+				and(
+					eq(statementLines.id, data.statementLineId),
+					eq(statementLines.userId, userId),
+				),
+			);
+
+		revalidateBankSync(userId);
+
+		return { success: true, message: "Categoria atualizada." };
+	} catch (error) {
+		return handleActionError(error);
 	}
 }

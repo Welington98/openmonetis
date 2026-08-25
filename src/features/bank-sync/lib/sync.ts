@@ -4,6 +4,8 @@ import {
 	financialAccounts,
 	statementLines,
 } from "@/db/schema";
+import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
+import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
 import { db } from "@/shared/lib/db";
 import { toDateOnlyString } from "@/shared/utils/date";
 import {
@@ -82,16 +84,29 @@ export async function syncBankConnection(
 
 		if (pluggyTransactions.length === 0) continue;
 
-		const rows = pluggyTransactions.map((transaction) => ({
-			userId,
-			bankConnectionId: connectionId,
-			pluggyAccountId: transaction.accountId,
-			date: new Date(transaction.date),
-			description: transaction.description,
-			amount: Math.abs(transaction.amount).toFixed(2),
-			type: pluggyTypeToLocal(transaction.type),
-			externalId: transaction.id,
-		}));
+		// Categoria sugerida de graça: reaproveita o mesmo mapeamento
+		// descrição → categoria que o import de OFX usa (sem chamar IA aqui —
+		// isso é feito sob demanda/em lote, é pago e o usuário escolhe quando).
+		const categoryMappings = await fetchCategoryMappings(
+			pluggyTransactions.map((t) => t.description),
+		);
+
+		const rows = pluggyTransactions.map((transaction) => {
+			const suggestedCategoryId =
+				categoryMappings[normalizeDescriptionKey(transaction.description)];
+			return {
+				userId,
+				bankConnectionId: connectionId,
+				pluggyAccountId: transaction.accountId,
+				date: new Date(transaction.date),
+				description: transaction.description,
+				amount: Math.abs(transaction.amount).toFixed(2),
+				type: pluggyTypeToLocal(transaction.type),
+				externalId: transaction.id,
+				categoryId: suggestedCategoryId ?? null,
+				categorySource: suggestedCategoryId ? "mapping" : null,
+			};
+		});
 
 		const inserted = await db
 			.insert(statementLines)
