@@ -1,0 +1,50 @@
+{
+	"name": "OpenMonetis",
+	"dockerComposeFile": ["../docker-compose.yml", "docker-compose.yml"],
+	"service": "workspace",
+	"workspaceFolder": "/workspace",
+	// Só sobe o banco (reaproveitando o serviço "db" já definido em docker-compose.yml
+	// na raiz) e o container de desenvolvimento. NÃO sobe o serviço "app" de produção
+	// (imagem do Docker Hub) — evita conflito com um container de produção já rodando.
+	"runServices": ["db", "workspace"],
+	"shutdownAction": "stopCompose",
+	"remoteUser": "node",
+	"postCreateCommand": "pnpm install",
+	"postStartCommand": "echo 'Ambiente pronto. Se ainda não existir um .env na raiz, copie .env.example e ajuste, depois rode: pnpm db:push && pnpm dev'",
+	"forwardPorts": [3000, 5432, 4983],
+	"portsAttributes": {
+		"3000": {
+			"label": "OpenMonetis (pnpm dev)",
+			"onAutoForward": "notify"
+		},
+		"5432": {
+			"label": "PostgreSQL"
+		},
+		"4983": {
+			"label": "Drizzle Studio"
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"biomejs.biome",
+				"bradlc.vscode-tailwindcss",
+				"ms-azuretools.vscode-docker",
+				"mikestead.dotenv",
+				"eamodio.gitlens",
+				"usernamehw.errorlens"
+			],
+			"settings": {
+				"editor.defaultFormatter": "biomejs.biome",
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"quickfix.biome": "explicit",
+					"source.organizeImports.biome": "explicit"
+				},
+				"[typescript]": { "editor.defaultFormatter": "biomejs.biome" },
+				"[typescriptreact]": { "editor.defaultFormatter": "biomejs.biome" },
+				"[json]": { "editor.defaultFormatter": "biomejs.biome" }
+			}
+		}
+	}
+}

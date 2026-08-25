@@ -1,0 +1,25 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/workspace:cached
+      - node_modules:/workspace/node_modules
+      - pnpm-store:/home/node/.local/share/pnpm/store
+    working_dir: /workspace
+    command: sleep infinity
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: ${DATABASE_URL:-postgresql://openmonetis:openmonetis_dev_password@db:5432/openmonetis_db}
+    depends_on:
+      db:
+        condition: service_healthy
+        required: false
+
+volumes:
+  node_modules:
+  pnpm-store:

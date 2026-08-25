@@ -124,7 +124,9 @@ export function NavDropdown({ items, financeLinks }: NavDropdownProps) {
 								{item.icon}
 							</span>
 							<span className="flex flex-col min-w-0">
-								<span className="font-semibold">{item.label}</span>
+								<span className="font-semibold break-words leading-tight">
+									{item.label}
+								</span>
 								{item.description && (
 									<span className="text-xs text-muted-foreground truncate lowercase">
 										{item.description}
