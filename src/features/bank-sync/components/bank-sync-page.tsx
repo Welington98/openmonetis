@@ -9,6 +9,7 @@ import {
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+	backfillStatementLineAccountsAction,
 	bulkImportStatementLinesAction,
 	deleteBankConnectionAction,
 	ignoreStatementLineAction,
@@ -72,6 +73,7 @@ export function BankSyncPage({
 }: BankSyncPageProps) {
 	const [syncingId, setSyncingId] = useState<string | null>(null);
 	const [isBulkImporting, startBulkImport] = useTransition();
+	const [isBackfilling, startBackfill] = useTransition();
 	const [connectionToDelete, setConnectionToDelete] =
 		useState<BankConnectionRow | null>(null);
 	const [lineToIgnore, setLineToIgnore] =
@@ -117,6 +119,17 @@ export function BankSyncPage({
 		}
 		toast.error(result.error);
 		throw new Error(result.error);
+	};
+
+	const handleBackfill = () => {
+		startBackfill(async () => {
+			const result = await backfillStatementLineAccountsAction();
+			if (result.success) {
+				toast.success(result.message);
+			} else {
+				toast.error(result.error);
+			}
+		});
 	};
 
 	const handleBulkImport = () => {
@@ -223,22 +236,37 @@ export function BankSyncPage({
 						Transações pendentes de revisão ({statementLines.length})
 					</h2>
 					{statementLines.length > 0 && (
-						<Button
-							variant="outline"
-							size="sm"
-							disabled={isBulkImporting}
-							onClick={handleBulkImport}
-						>
-							<RiDownload2Line className="size-4" />
-							{isBulkImporting ? "Importando..." : "Importar todos"}
-						</Button>
+						<div className="flex gap-2">
+							<Button
+								variant="ghost"
+								size="sm"
+								disabled={isBackfilling}
+								onClick={handleBackfill}
+								title="Recupera a conta de origem em transações sincronizadas antes do vínculo de contas existir"
+							>
+								{isBackfilling
+									? "Corrigindo..."
+									: "Corrigir vínculo de transações antigas"}
+							</Button>
+							<Button
+								variant="outline"
+								size="sm"
+								disabled={isBulkImporting}
+								onClick={handleBulkImport}
+							>
+								<RiDownload2Line className="size-4" />
+								{isBulkImporting ? "Importando..." : "Importar todos"}
+							</Button>
+						</div>
 					)}
 				</div>
 				{statementLines.length > 0 && (
 					<p className="text-muted-foreground text-xs">
 						"Importar todos" cria lançamento automaticamente só para as linhas
-						com conta vinculada e categoria já conhecida (pela descrição). As
-						outras continuam aqui para revisão manual.
+						com conta vinculada e categoria já conhecida (pela descrição). Se
+						uma transação sincronizou antes de você vincular a conta, use
+						"Corrigir vínculo de transações antigas" primeiro. As demais
+						continuam aqui para revisão manual.
 					</p>
 				)}
 				{statementLines.length === 0 ? (

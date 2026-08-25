@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
 	bankConnections,
@@ -22,6 +22,7 @@ import {
 	createPluggyConnectToken,
 	fetchPluggyAccounts,
 	fetchPluggyItem,
+	fetchPluggyTransactions,
 	isPluggyConfigured,
 } from "./lib/pluggy-client";
 import { syncBankConnection } from "./lib/sync";
@@ -563,5 +564,79 @@ export async function bulkImportStatementLinesAction(): Promise<
 		};
 	} catch (error) {
 		return handleActionError(error) as ActionResult<BulkImportSummary>;
+	}
+}
+
+/**
+ * Preenche `pluggy_conta_id` em linhas de extrato antigas, sincronizadas
+ * antes desse campo existir (por isso vieram nulas e nunca casam com o
+ * vínculo de conta feito em `linkPluggyAccountAction`). Rebusca o histórico
+ * de transações de cada conta do Pluggy (mesmo endpoint do sync normal, sem
+ * `dateFrom` = histórico completo) e casa por `externalId` — não inventa
+ * nada, só recupera um dado que já existia na API e não tinha sido salvo.
+ */
+export async function backfillStatementLineAccountsAction(): Promise<
+	ActionResult<{ updated: number }>
+> {
+	try {
+		const userId = await getUserId();
+
+		const pendingConnections = await db
+			.selectDistinct({
+				connectionId: statementLines.bankConnectionId,
+				pluggyItemId: bankConnections.pluggyItemId,
+			})
+			.from(statementLines)
+			.innerJoin(
+				bankConnections,
+				eq(statementLines.bankConnectionId, bankConnections.id),
+			)
+			.where(
+				and(
+					eq(statementLines.userId, userId),
+					isNull(statementLines.pluggyAccountId),
+				),
+			);
+
+		let updated = 0;
+
+		for (const { connectionId, pluggyItemId } of pendingConnections) {
+			const accounts = await fetchPluggyAccounts(pluggyItemId);
+			const bankAccounts = accounts.filter((a) => a.type === "BANK");
+
+			for (const account of bankAccounts) {
+				const transactions = await fetchPluggyTransactions(account.id);
+				const externalIds = transactions.map((t) => t.id);
+				if (externalIds.length === 0) continue;
+
+				const result = await db
+					.update(statementLines)
+					.set({ pluggyAccountId: account.id })
+					.where(
+						and(
+							eq(statementLines.userId, userId),
+							eq(statementLines.bankConnectionId, connectionId),
+							isNull(statementLines.pluggyAccountId),
+							inArray(statementLines.externalId, externalIds),
+						),
+					)
+					.returning({ id: statementLines.id });
+
+				updated += result.length;
+			}
+		}
+
+		revalidateBankSync(userId);
+
+		return {
+			success: true,
+			message:
+				updated > 0
+					? `${updated} transação(ões) antiga(s) recuperada(s).`
+					: "Nenhuma transação antiga precisava de correção.",
+			data: { updated },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<{ updated: number }>;
 	}
 }
