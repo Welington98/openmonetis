@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import { fetchPendingInboxCount } from "@/features/inbox/queries";
+import { fetchStatementCategorizationMode } from "@/features/settings/queries";
 import type { SelectOption } from "@/features/transactions/components/types";
 import {
 	buildOptionSets,
@@ -35,7 +36,7 @@ export type StatementLineWithCategory = StatementLine & {
 
 export async function fetchStatementLines(
 	userId: string,
-	status: "unmatched" | "matched" | "ignored" = "unmatched",
+	status: "unmatched" | "matched" | "ignored" | "all" = "unmatched",
 ): Promise<StatementLineWithCategory[]> {
 	const rows = await db
 		.select({
@@ -53,7 +54,12 @@ export async function fetchStatementLines(
 			),
 		)
 		.where(
-			and(eq(statementLines.userId, userId), eq(statementLines.status, status)),
+			status === "all"
+				? eq(statementLines.userId, userId)
+				: and(
+						eq(statementLines.userId, userId),
+						eq(statementLines.status, status),
+					),
 		)
 		.orderBy(desc(statementLines.date));
 
@@ -95,18 +101,27 @@ export type ReconciliationOverview = {
  * persistente (é revisado inteiramente no momento do upload), por isso não
  * entra aqui como contador — só como atalho na tela.
  */
-export async function fetchReconciliationOverview(
-	userId: string,
-): Promise<ReconciliationOverview> {
-	const pluggyConfigured = await fetchPluggyConfigured();
+export type LinkedBankAccount = {
+	id: string;
+	name: string;
+	pluggyAccountId: string | null;
+	connectorName: string;
+	pluggyItemId: string;
+	connectionId: string;
+};
 
-	const linkedAccounts = await db
+/** Contas locais vinculadas a uma conta do Pluggy (via `financialAccounts.pluggyAccountId`). */
+export async function fetchLinkedBankAccounts(
+	userId: string,
+): Promise<LinkedBankAccount[]> {
+	return db
 		.select({
 			id: financialAccounts.id,
 			name: financialAccounts.name,
 			pluggyAccountId: financialAccounts.pluggyAccountId,
 			connectorName: bankConnections.connectorName,
 			pluggyItemId: bankConnections.pluggyItemId,
+			connectionId: bankConnections.id,
 		})
 		.from(financialAccounts)
 		.innerJoin(
@@ -119,6 +134,13 @@ export async function fetchReconciliationOverview(
 				isNotNull(financialAccounts.pluggyAccountId),
 			),
 		);
+}
+
+export async function fetchReconciliationOverview(
+	userId: string,
+): Promise<ReconciliationOverview> {
+	const pluggyConfigured = await fetchPluggyConfigured();
+	const linkedAccounts = await fetchLinkedBankAccounts(userId);
 
 	const [dashboardAccounts, pendingLines, pendingInboxCount] =
 		await Promise.all([
@@ -177,6 +199,50 @@ export async function fetchReconciliationOverview(
 	);
 
 	return { pluggyConfigured, accounts, pendingInboxCount };
+}
+
+export type ReconciliationWorkspaceData = {
+	connections: BankConnection[];
+	linkedAccounts: LinkedBankAccount[];
+	statementLines: StatementLineWithCategory[];
+	pluggyConfigured: boolean;
+	statementCategorizationMode: "manual" | "ai";
+	payerOptions: SelectOption[];
+	splitPayerOptions: SelectOption[];
+	defaultPayerId: string | null;
+	accountOptions: SelectOption[];
+	cardOptions: SelectOption[];
+	categoryOptions: SelectOption[];
+};
+
+/** Tudo que a tela de Conciliação bancária (/bank-sync) precisa pra renderizar. */
+export async function fetchReconciliationWorkspaceData(
+	userId: string,
+): Promise<ReconciliationWorkspaceData> {
+	const [
+		connections,
+		linkedAccounts,
+		lines,
+		pluggyConfigured,
+		statementCategorizationMode,
+		dialogData,
+	] = await Promise.all([
+		fetchBankConnections(userId),
+		fetchLinkedBankAccounts(userId),
+		fetchStatementLines(userId, "all"),
+		fetchPluggyConfigured(),
+		fetchStatementCategorizationMode(userId),
+		fetchBankSyncDialogData(userId),
+	]);
+
+	return {
+		connections,
+		linkedAccounts,
+		statementLines: lines.filter((line) => line.status !== "ignored"),
+		pluggyConfigured,
+		statementCategorizationMode,
+		...dialogData,
+	};
 }
 
 /** Dados para o TransactionDialog reaproveitado na revisão de linhas de extrato. */
