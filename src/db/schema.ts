@@ -201,6 +201,10 @@ export const financialAccounts = pgTable("contas", {
 	userId: text("user_id")
 		.notNull()
 		.references(() => user.id, { onDelete: "cascade" }),
+	bankConnectionId: uuid("conexao_bancaria_id").references(
+		(): AnyPgColumn => bankConnections.id,
+		{ onDelete: "set null" },
+	),
 	createdAt: timestamp("created_at", {
 		mode: "date",
 		withTimezone: true,
@@ -793,6 +797,115 @@ export const transactions = pgTable(
 	}),
 );
 
+// ===================== SINCRONIZAÇÃO BANCÁRIA (OPEN FINANCE / PLUGGY) =====================
+
+export const bankConnections = pgTable(
+	"conexoes_bancarias",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		pluggyItemId: text("pluggy_item_id").notNull(),
+		connectorName: text("connector_name").notNull(),
+		status: text("status").notNull().default("updating"),
+		lastSyncedAt: timestamp("last_synced_at", {
+			mode: "date",
+			withTimezone: true,
+		}),
+		isActive: boolean("is_active").notNull().default(true),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		pluggyItemIdUnique: uniqueIndex("conexoes_bancarias_pluggy_item_id_key").on(
+			table.pluggyItemId,
+		),
+		userIdIdx: index("conexoes_bancarias_user_id_idx").on(table.userId),
+	}),
+);
+
+export const statementLines = pgTable(
+	"linhas_extrato",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		bankConnectionId: uuid("conexao_bancaria_id")
+			.notNull()
+			.references(() => bankConnections.id, { onDelete: "cascade" }),
+		date: date("data", { mode: "date" }).notNull(),
+		description: text("descricao").notNull(),
+		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+		type: text("tipo").notNull(), // "despesa" | "receita"
+		externalId: text("external_id").notNull(), // id da transação no Pluggy
+		status: text("status").notNull().default("unmatched"), // unmatched | matched | ignored
+		categoryId: uuid("categoria_id").references(() => categories.id, {
+			onDelete: "set null",
+		}),
+		matchedTransactionId: uuid("lancamento_correspondente_id").references(
+			() => transactions.id,
+			{ onDelete: "set null" },
+		),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdStatusIdx: index("linhas_extrato_user_id_status_idx").on(
+			table.userId,
+			table.status,
+		),
+		bankConnectionIdIdx: index("linhas_extrato_conexao_bancaria_id_idx").on(
+			table.bankConnectionId,
+		),
+		externalIdUnique: uniqueIndex("linhas_extrato_external_id_key").on(
+			table.externalId,
+		),
+		matchedTransactionIdUnique: uniqueIndex(
+			"linhas_extrato_lancamento_correspondente_id_key",
+		).on(table.matchedTransactionId),
+	}),
+);
+
+export const bankConnectionsRelations = relations(
+	bankConnections,
+	({ one, many }) => ({
+		user: one(user, {
+			fields: [bankConnections.userId],
+			references: [user.id],
+		}),
+		statementLines: many(statementLines),
+		financialAccounts: many(financialAccounts),
+	}),
+);
+
+export const statementLinesRelations = relations(statementLines, ({ one }) => ({
+	user: one(user, {
+		fields: [statementLines.userId],
+		references: [user.id],
+	}),
+	bankConnection: one(bankConnections, {
+		fields: [statementLines.bankConnectionId],
+		references: [bankConnections.id],
+	}),
+	category: one(categories, {
+		fields: [statementLines.categoryId],
+		references: [categories.id],
+	}),
+	matchedTransaction: one(transactions, {
+		fields: [statementLines.matchedTransactionId],
+		references: [transactions.id],
+	}),
+}));
+
+export type BankConnection = typeof bankConnections.$inferSelect;
+export type NewBankConnection = typeof bankConnections.$inferInsert;
+export type StatementLine = typeof statementLines.$inferSelect;
+export type NewStatementLine = typeof statementLines.$inferInsert;
+
 export const userRelations = relations(user, ({ many, one }) => ({
 	accounts: many(account),
 	sessions: many(session),
@@ -809,6 +922,8 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	apiTokens: many(apiTokens),
 	inboxItems: many(inboxItems),
 	establishmentLogos: many(establishmentLogos),
+	bankConnections: many(bankConnections),
+	statementLines: many(statementLines),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -831,6 +946,10 @@ export const financialAccountsRelations = relations(
 		user: one(user, {
 			fields: [financialAccounts.userId],
 			references: [user.id],
+		}),
+		bankConnection: one(bankConnections, {
+			fields: [financialAccounts.bankConnectionId],
+			references: [bankConnections.id],
 		}),
 		cards: many(cards),
 		transactions: many(transactions),

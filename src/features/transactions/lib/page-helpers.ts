@@ -526,14 +526,20 @@ export const buildTransactionWhere = ({
 		where.push(
 			and(
 				eq(transactions.isSettled, false),
-				lte(transactions.purchaseDate, parseLocalDateString(getBusinessDateString())),
+				lte(
+					transactions.purchaseDate,
+					parseLocalDateString(getBusinessDateString()),
+				),
 			) as SQL,
 		);
 	} else if (filters.statusFilter === TRANSACTION_STATUS_VALUES.SCHEDULED) {
 		where.push(
 			and(
 				eq(transactions.isSettled, false),
-				gt(transactions.purchaseDate, parseLocalDateString(getBusinessDateString())),
+				gt(
+					transactions.purchaseDate,
+					parseLocalDateString(getBusinessDateString()),
+				),
 			) as SQL,
 		);
 	}
