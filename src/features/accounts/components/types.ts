@@ -9,6 +9,8 @@ export type Account = {
 	balance?: number | null;
 	excludeFromBalance?: boolean;
 	excludeInitialBalanceFromIncome?: boolean;
+	bankConnectionId?: string | null;
+	pluggyConnectorName?: string | null;
 };
 
 export type AccountFormValues = {

@@ -12,6 +12,7 @@ import {
 } from "@remixicon/react";
 import Image from "next/image";
 import type { ReactNode } from "react";
+import { TransactionStatusBadge } from "@/features/transactions/components/shared/transaction-status-badge";
 import { EstablishmentLogo } from "@/shared/components/entity-avatar";
 import MoneyValues from "@/shared/components/money-values";
 import { Badge } from "@/shared/components/ui/badge";
@@ -260,6 +261,11 @@ function TransactionMobileCard({
 							<IconBadge label={item.condition} compact>
 								{getConditionIcon(item.condition)}
 							</IconBadge>
+							<TransactionStatusBadge
+								isSettled={item.isSettled}
+								purchaseDate={item.purchaseDate}
+								className="px-1.5"
+							/>
 							{installmentBadge ? (
 								<Badge variant="outline" className="px-1.5 text-xs">
 									{installmentBadge}

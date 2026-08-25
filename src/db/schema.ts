@@ -163,6 +163,11 @@ export const userPreferences = pgTable("preferencias_usuario", {
 	hideAnticipatedInstallments: boolean("ocultar_parcelas_antecipadas")
 		.notNull()
 		.default(false),
+	// "manual" = só reaproveita categoria já usada antes para descrição
+	// parecida; "ai" = também chama IA pra sugerir quando não há histórico.
+	statementCategorizationMode: text("modo_categorizacao_extrato")
+		.notNull()
+		.default("manual"),
 	dashboardWidgets: jsonb("dashboard_widgets").$type<{
 		order: string[];
 		hidden: string[];
@@ -184,30 +189,46 @@ export const userPreferences = pgTable("preferencias_usuario", {
 
 // ===================== PUBLIC TABLES =====================
 
-export const financialAccounts = pgTable("contas", {
-	id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-	name: text("nome").notNull(),
-	accountType: text("tipo_conta").notNull(),
-	note: text("anotacao"),
-	status: text("status").notNull(),
-	logo: text("logo").notNull(),
-	initialBalance: numeric("saldo_inicial", { precision: 12, scale: 2 })
-		.notNull()
-		.default("0"),
-	excludeFromBalance: boolean("excluir_do_saldo").notNull().default(false),
-	excludeInitialBalanceFromIncome: boolean("excluir_saldo_inicial_receitas")
-		.notNull()
-		.default(false),
-	userId: text("user_id")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
-	createdAt: timestamp("created_at", {
-		mode: "date",
-		withTimezone: true,
-	})
-		.notNull()
-		.defaultNow(),
-});
+export const financialAccounts = pgTable(
+	"contas",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		name: text("nome").notNull(),
+		accountType: text("tipo_conta").notNull(),
+		note: text("anotacao"),
+		status: text("status").notNull(),
+		logo: text("logo").notNull(),
+		initialBalance: numeric("saldo_inicial", { precision: 12, scale: 2 })
+			.notNull()
+			.default("0"),
+		excludeFromBalance: boolean("excluir_do_saldo").notNull().default(false),
+		excludeInitialBalanceFromIncome: boolean("excluir_saldo_inicial_receitas")
+			.notNull()
+			.default(false),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		bankConnectionId: uuid("conexao_bancaria_id").references(
+			(): AnyPgColumn => bankConnections.id,
+			{ onDelete: "set null" },
+		),
+		// Id da conta no Pluggy (dentro da conexão acima) vinculada a esta conta
+		// local — permite saber, ao sincronizar, em qual conta local cada
+		// transação do extrato deveria cair por padrão.
+		pluggyAccountId: text("pluggy_conta_id"),
+		createdAt: timestamp("created_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		pluggyAccountIdUnique: uniqueIndex("contas_pluggy_conta_id_key").on(
+			table.pluggyAccountId,
+		),
+	}),
+);
 
 export const categories = pgTable(
 	"categorias",
@@ -404,6 +425,45 @@ export const budgets = pgTable(
 	}),
 );
 
+export const savingsGoals = pgTable(
+	"metas",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		description: text("descricao").notNull(),
+		targetAmount: numeric("valor_alvo", { precision: 12, scale: 2 }).notNull(),
+		startDate: date("data_inicio", { mode: "date" }).notNull(),
+		targetDate: date("data_alvo", { mode: "date" }).notNull(),
+		destinationAccountId: uuid("conta_destino_id")
+			.notNull()
+			.references(() => financialAccounts.id, { onDelete: "cascade" }),
+		startingBalance: numeric("saldo_inicial", {
+			precision: 12,
+			scale: 2,
+		}).notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdIdx: index("metas_user_id_idx").on(table.userId),
+		destinationAccountIdIdx: index("metas_conta_destino_id_idx").on(
+			table.destinationAccountId,
+		),
+	}),
+);
+
 export const notes = pgTable(
 	"anotacoes",
 	{
@@ -504,9 +564,18 @@ export const inboxItems = pgTable(
 			withTimezone: true,
 		}).notNull(),
 
+		// Tipo do item: "notification" (Companion Android) ou "receipt_pdf" (upload de comprovante)
+		itemType: text("tipo_item").notNull().default("notification"),
+
 		// Dados parseados (editáveis pelo usuário antes de lançar)
 		parsedName: text("parsed_name"), // Nome do estabelecimento
 		parsedAmount: numeric("parsed_amount", { precision: 12, scale: 2 }),
+		parsedDate: date("parsed_date", { mode: "date" }),
+
+		// Anexo do comprovante em PDF, quando item_type = "receipt_pdf"
+		attachmentId: uuid("anexo_id").references(() => attachments.id, {
+			onDelete: "set null",
+		}),
 
 		// Status de processamento
 		status: text("status").notNull().default("pending"), // pending, processed, discarded
@@ -745,6 +814,129 @@ export const transactions = pgTable(
 	}),
 );
 
+// ===================== SINCRONIZAÇÃO BANCÁRIA (OPEN FINANCE / PLUGGY) =====================
+
+export const bankConnections = pgTable(
+	"conexoes_bancarias",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		pluggyItemId: text("pluggy_item_id").notNull(),
+		connectorName: text("connector_name").notNull(),
+		// Apelido opcional definido pelo usuário — exibido no lugar de
+		// `connectorName` quando presente. `connectorName` nunca é sobrescrito
+		// pelo apelido: continua vindo puro do Pluggy a cada reconexão.
+		nickname: text("apelido"),
+		status: text("status").notNull().default("updating"),
+		lastSyncedAt: timestamp("last_synced_at", {
+			mode: "date",
+			withTimezone: true,
+		}),
+		isActive: boolean("is_active").notNull().default(true),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		pluggyItemIdUnique: uniqueIndex("conexoes_bancarias_pluggy_item_id_key").on(
+			table.pluggyItemId,
+		),
+		userIdIdx: index("conexoes_bancarias_user_id_idx").on(table.userId),
+	}),
+);
+
+export const statementLines = pgTable(
+	"linhas_extrato",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		bankConnectionId: uuid("conexao_bancaria_id")
+			.notNull()
+			.references(() => bankConnections.id, { onDelete: "cascade" }),
+		// Id da conta no Pluggy de onde veio esta transação (dentro da conexão
+		// acima) — usado para resolver a conta local vinculada (ver
+		// `financialAccounts.pluggyAccountId`) e pré-selecionar o destino do
+		// lançamento na revisão. Nullable: linhas sincronizadas antes deste
+		// campo existir não têm como ser retroativamente preenchidas.
+		pluggyAccountId: text("pluggy_conta_id"),
+		date: date("data", { mode: "date" }).notNull(),
+		description: text("descricao").notNull(),
+		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+		type: text("tipo").notNull(), // "despesa" | "receita"
+		externalId: text("external_id").notNull(), // id da transação no Pluggy
+		status: text("status").notNull().default("unmatched"), // unmatched | matched | ignored
+		// Categoria sugerida (mapeamento por descrição ou IA) — só sugestão,
+		// usuário sempre confirma antes de virar lançamento.
+		categoryId: uuid("categoria_id").references(() => categories.id, {
+			onDelete: "set null",
+		}),
+		// "mapping" | "ai" | null — de onde veio a sugestão de `categoryId`.
+		categorySource: text("origem_categoria"),
+		matchedTransactionId: uuid("lancamento_correspondente_id").references(
+			() => transactions.id,
+			{ onDelete: "set null" },
+		),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdStatusIdx: index("linhas_extrato_user_id_status_idx").on(
+			table.userId,
+			table.status,
+		),
+		bankConnectionIdIdx: index("linhas_extrato_conexao_bancaria_id_idx").on(
+			table.bankConnectionId,
+		),
+		externalIdUnique: uniqueIndex("linhas_extrato_external_id_key").on(
+			table.externalId,
+		),
+		matchedTransactionIdUnique: uniqueIndex(
+			"linhas_extrato_lancamento_correspondente_id_key",
+		).on(table.matchedTransactionId),
+	}),
+);
+
+export const bankConnectionsRelations = relations(
+	bankConnections,
+	({ one, many }) => ({
+		user: one(user, {
+			fields: [bankConnections.userId],
+			references: [user.id],
+		}),
+		statementLines: many(statementLines),
+		financialAccounts: many(financialAccounts),
+	}),
+);
+
+export const statementLinesRelations = relations(statementLines, ({ one }) => ({
+	user: one(user, {
+		fields: [statementLines.userId],
+		references: [user.id],
+	}),
+	bankConnection: one(bankConnections, {
+		fields: [statementLines.bankConnectionId],
+		references: [bankConnections.id],
+	}),
+	category: one(categories, {
+		fields: [statementLines.categoryId],
+		references: [categories.id],
+	}),
+	matchedTransaction: one(transactions, {
+		fields: [statementLines.matchedTransactionId],
+		references: [transactions.id],
+	}),
+}));
+
+export type BankConnection = typeof bankConnections.$inferSelect;
+export type NewBankConnection = typeof bankConnections.$inferInsert;
+export type StatementLine = typeof statementLines.$inferSelect;
+export type NewStatementLine = typeof statementLines.$inferInsert;
+
 export const userRelations = relations(user, ({ many, one }) => ({
 	accounts: many(account),
 	sessions: many(session),
@@ -755,11 +947,14 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	invoices: many(invoices),
 	transactions: many(transactions),
 	budgets: many(budgets),
+	savingsGoals: many(savingsGoals),
 	payers: many(payers),
 	installmentAnticipations: many(installmentAnticipations),
 	apiTokens: many(apiTokens),
 	inboxItems: many(inboxItems),
 	establishmentLogos: many(establishmentLogos),
+	bankConnections: many(bankConnections),
+	statementLines: many(statementLines),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -783,8 +978,13 @@ export const financialAccountsRelations = relations(
 			fields: [financialAccounts.userId],
 			references: [user.id],
 		}),
+		bankConnection: one(bankConnections, {
+			fields: [financialAccounts.bankConnectionId],
+			references: [bankConnections.id],
+		}),
 		cards: many(cards),
 		transactions: many(transactions),
+		savingsGoals: many(savingsGoals),
 	}),
 );
 
@@ -853,6 +1053,17 @@ export const budgetsRelations = relations(budgets, ({ one }) => ({
 	category: one(categories, {
 		fields: [budgets.categoryId],
 		references: [categories.id],
+	}),
+}));
+
+export const savingsGoalsRelations = relations(savingsGoals, ({ one }) => ({
+	user: one(user, {
+		fields: [savingsGoals.userId],
+		references: [user.id],
+	}),
+	destinationAccount: one(financialAccounts, {
+		fields: [savingsGoals.destinationAccountId],
+		references: [financialAccounts.id],
 	}),
 }));
 
@@ -1055,6 +1266,7 @@ export type Payer = typeof payers.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
+export type SavingsGoal = typeof savingsGoals.$inferSelect;
 export type Note = typeof notes.$inferSelect;
 export type SavedInsight = typeof savedInsights.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;

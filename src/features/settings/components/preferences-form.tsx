@@ -45,6 +45,7 @@ interface PreferencesFormProps {
 	showTransactionSummary: boolean;
 	groupTransactionsByDate: boolean;
 	hideAnticipatedInstallments: boolean;
+	statementCategorizationMode: string;
 }
 
 function SortableColumnItem({ id }: { id: string }) {
@@ -91,6 +92,7 @@ export function PreferencesForm({
 	showTransactionSummary: initialShowTransactionSummary,
 	groupTransactionsByDate: initialGroupTransactionsByDate,
 	hideAnticipatedInstallments: initialHideAnticipatedInstallments,
+	statementCategorizationMode: initialStatementCategorizationMode,
 }: PreferencesFormProps) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
@@ -118,6 +120,10 @@ export function PreferencesForm({
 	);
 	const [hideAnticipatedInstallments, setHideAnticipatedInstallments] =
 		useState(initialHideAnticipatedInstallments);
+	const [statementCategorizationMode, setStatementCategorizationMode] =
+		useState<"manual" | "ai">(
+			initialStatementCategorizationMode === "ai" ? "ai" : "manual",
+		);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -146,6 +152,7 @@ export function PreferencesForm({
 				showTransactionSummary,
 				groupTransactionsByDate,
 				hideAnticipatedInstallments,
+				statementCategorizationMode,
 			});
 
 			if (result.success) {
@@ -271,6 +278,40 @@ export function PreferencesForm({
 							</div>
 						</SortableContext>
 					</DndContext>
+				</section>
+
+				<Separator />
+
+				<section className="space-y-2 max-w-md">
+					<Label className="text-sm">
+						Categorização na conciliação bancária
+					</Label>
+					<p className="text-sm text-muted-foreground">
+						Como sugerir categoria para transações sincronizadas sem histórico
+						conhecido, na tela de Conciliação bancária.
+					</p>
+					<ToggleGroup
+						type="single"
+						value={statementCategorizationMode}
+						onValueChange={(val) => {
+							if (val) setStatementCategorizationMode(val as "manual" | "ai");
+						}}
+						className="flex flex-wrap gap-2 justify-start pt-2"
+					>
+						<ToggleGroupItem value="manual" aria-label="Somente manual">
+							Somente manual
+						</ToggleGroupItem>
+						<ToggleGroupItem value="ai" aria-label="Sugerir com IA">
+							Sugerir com IA
+						</ToggleGroupItem>
+					</ToggleGroup>
+					{statementCategorizationMode === "ai" && (
+						<p className="text-muted-foreground text-xs">
+							Usa o mesmo provedor de IA configurado para os Insights. A
+							sugestão nunca é aplicada sozinha — você sempre confirma antes de
+							criar o lançamento.
+						</p>
+					)}
 				</section>
 
 				<Separator />

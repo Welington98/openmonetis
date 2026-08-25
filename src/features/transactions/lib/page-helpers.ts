@@ -2,6 +2,7 @@ import type { SQL } from "drizzle-orm";
 import {
 	and,
 	eq,
+	gt,
 	gte,
 	ilike,
 	inArray,
@@ -30,6 +31,7 @@ import {
 	TRANSACTION_CONDITIONS,
 	TRANSACTION_TYPES,
 } from "@/features/transactions/lib/constants";
+import { TRANSACTION_STATUS_VALUES } from "@/features/transactions/lib/transaction-status";
 import {
 	ACCOUNT_AUTO_INVOICE_NOTE_PREFIX,
 	INITIAL_BALANCE_CONDITION,
@@ -41,7 +43,11 @@ import {
 	PAYER_ROLE_ADMIN,
 	PAYER_ROLE_THIRD_PARTY,
 } from "@/shared/lib/payers/constants";
-import { parseLocalDateString, toDateOnlyString } from "@/shared/utils/date";
+import {
+	getBusinessDateString,
+	parseLocalDateString,
+	toDateOnlyString,
+} from "@/shared/utils/date";
 import { slugify } from "@/shared/utils/string";
 
 type PayerRow = typeof payers.$inferSelect;
@@ -65,6 +71,7 @@ export type TransactionSearchFilters = {
 	accountCardFilters: string[];
 	searchFilter: string | null;
 	settledFilter: string | null;
+	statusFilter: string | null;
 	attachmentFilter: string | null;
 	dividedFilter: string | null;
 	amountMinFilter: number | null;
@@ -186,6 +193,7 @@ export const extractTransactionSearchFilters = (
 	accountCardFilters: getMultiParam(params, "accountCard"),
 	searchFilter: getSingleParam(params, "q"),
 	settledFilter: getSingleParam(params, "settled"),
+	statusFilter: getSingleParam(params, "status"),
 	attachmentFilter: getSingleParam(params, "hasAttachment"),
 	dividedFilter: getSingleParam(params, "isDivided"),
 	amountMinFilter: parsePositiveAmount(
@@ -510,6 +518,30 @@ export const buildTransactionWhere = ({
 		where.push(eq(transactions.isSettled, true));
 	} else if (filters.settledFilter === SETTLED_FILTER_VALUES.UNPAID) {
 		where.push(eq(transactions.isSettled, false));
+	}
+
+	if (filters.statusFilter === TRANSACTION_STATUS_VALUES.CONFIRMED) {
+		where.push(eq(transactions.isSettled, true));
+	} else if (filters.statusFilter === TRANSACTION_STATUS_VALUES.PENDING) {
+		where.push(
+			and(
+				eq(transactions.isSettled, false),
+				lte(
+					transactions.purchaseDate,
+					parseLocalDateString(getBusinessDateString()),
+				),
+			) as SQL,
+		);
+	} else if (filters.statusFilter === TRANSACTION_STATUS_VALUES.SCHEDULED) {
+		where.push(
+			and(
+				eq(transactions.isSettled, false),
+				gt(
+					transactions.purchaseDate,
+					parseLocalDateString(getBusinessDateString()),
+				),
+			) as SQL,
+		);
 	}
 
 	if (filters.attachmentFilter === "true") {

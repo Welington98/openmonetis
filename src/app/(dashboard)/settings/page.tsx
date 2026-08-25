@@ -91,6 +91,9 @@ export default async function Page() {
 								hideAnticipatedInstallments={
 									userPreferences?.hideAnticipatedInstallments ?? false
 								}
+								statementCategorizationMode={
+									userPreferences?.statementCategorizationMode ?? "manual"
+								}
 							/>
 						</div>
 					</Card>

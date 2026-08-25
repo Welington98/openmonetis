@@ -7,6 +7,7 @@ type TransactionExportFilters = {
 	accountCardFilters: string[];
 	searchFilter: string | null;
 	settledFilter: string | null;
+	statusFilter: string | null;
 	attachmentFilter: string | null;
 	dividedFilter: string | null;
 	amountMinFilter: number | null;

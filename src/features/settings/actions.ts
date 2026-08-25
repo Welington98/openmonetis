@@ -71,6 +71,7 @@ const updatePreferencesSchema = z.object({
 	showTransactionSummary: z.boolean(),
 	groupTransactionsByDate: z.boolean(),
 	hideAnticipatedInstallments: z.boolean(),
+	statementCategorizationMode: z.enum(["manual", "ai"]),
 });
 
 type ResettableUser = {
@@ -588,6 +589,7 @@ export async function updatePreferencesAction(
 					showTransactionSummary: validated.showTransactionSummary,
 					groupTransactionsByDate: validated.groupTransactionsByDate,
 					hideAnticipatedInstallments: validated.hideAnticipatedInstallments,
+					statementCategorizationMode: validated.statementCategorizationMode,
 					updatedAt: new Date(),
 				})
 				.where(eq(schema.userPreferences.userId, session.user.id));
@@ -601,6 +603,7 @@ export async function updatePreferencesAction(
 				showTransactionSummary: validated.showTransactionSummary,
 				groupTransactionsByDate: validated.groupTransactionsByDate,
 				hideAnticipatedInstallments: validated.hideAnticipatedInstallments,
+				statementCategorizationMode: validated.statementCategorizationMode,
 			});
 		}
 

@@ -28,6 +28,12 @@ export async function fetchAccountData(userId: string, accountId: string) {
 			initialBalance: true,
 			logo: true,
 			note: true,
+			bankConnectionId: true,
+		},
+		with: {
+			bankConnection: {
+				columns: { connectorName: true, nickname: true },
+			},
 		},
 		where: and(
 			eq(financialAccounts.id, accountId),
@@ -35,7 +41,15 @@ export async function fetchAccountData(userId: string, accountId: string) {
 		),
 	});
 
-	return account;
+	if (!account) return account;
+
+	const { bankConnection, ...rest } = account;
+	return {
+		...rest,
+		pluggyConnectorName: bankConnection
+			? (bankConnection.nickname ?? bankConnection.connectorName)
+			: null,
+	};
 }
 
 export async function fetchAccountSummary(

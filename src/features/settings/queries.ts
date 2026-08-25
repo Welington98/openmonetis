@@ -9,6 +9,7 @@ interface UserPreferences {
 	showTransactionSummary: boolean;
 	groupTransactionsByDate: boolean;
 	hideAnticipatedInstallments: boolean;
+	statementCategorizationMode: string;
 }
 
 interface ApiToken {
@@ -41,6 +42,8 @@ export async function fetchUserPreferences(
 			groupTransactionsByDate: schema.userPreferences.groupTransactionsByDate,
 			hideAnticipatedInstallments:
 				schema.userPreferences.hideAnticipatedInstallments,
+			statementCategorizationMode:
+				schema.userPreferences.statementCategorizationMode,
 		})
 		.from(schema.userPreferences)
 		.where(eq(schema.userPreferences.userId, userId))
@@ -49,6 +52,20 @@ export async function fetchUserPreferences(
 	if (!result[0]) return null;
 
 	return result[0];
+}
+
+export async function fetchStatementCategorizationMode(
+	userId: string,
+): Promise<"manual" | "ai"> {
+	const [row] = await db
+		.select({
+			mode: schema.userPreferences.statementCategorizationMode,
+		})
+		.from(schema.userPreferences)
+		.where(eq(schema.userPreferences.userId, userId))
+		.limit(1);
+
+	return row?.mode === "ai" ? "ai" : "manual";
 }
 
 async function fetchApiTokens(userId: string): Promise<ApiToken[]> {

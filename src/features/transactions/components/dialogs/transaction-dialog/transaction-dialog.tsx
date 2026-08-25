@@ -409,7 +409,7 @@ export function TransactionDialog({
 						}
 					}
 					toast.success(result.message);
-					onSuccess?.();
+					onSuccess?.(result.data?.ids);
 					setDialogOpen(false);
 					return;
 				}

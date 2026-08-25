@@ -11,6 +11,8 @@ import {
 	fetchAccountSummary,
 	fetchAccountTransactionsPage,
 } from "@/features/accounts/statement-queries";
+import { LinkAccountToPluggyButton } from "@/features/bank-sync/components/link-account-to-pluggy-button";
+import { fetchBankConnections } from "@/features/bank-sync/queries";
 import { fetchUserPreferences } from "@/features/settings/queries";
 import { TransactionsPage as LancamentosSection } from "@/features/transactions/components/page/transactions-page";
 import {
@@ -93,12 +95,14 @@ export default async function Page({ params, searchParams }: PageProps) {
 		accountSummary,
 		estabelecimentos,
 		userPreferences,
+		bankConnections,
 	] = await Promise.all([
 		fetchTransactionFilterSources(userId),
 		loadLogoOptions(),
 		fetchAccountSummary(userId, accountId, selectedPeriod),
 		fetchRecentEstablishments(userId),
 		fetchUserPreferences(userId),
+		fetchBankConnections(userId),
 	]);
 	const sluggedFilters = buildSluggedFilters(filterSources);
 	const slugMaps = buildSlugMaps(sluggedFilters);
@@ -177,6 +181,15 @@ export default async function Page({ params, searchParams }: PageProps) {
 							accountId={account.id}
 							period={selectedPeriod}
 							currentBalance={currentBalance}
+						/>
+						<LinkAccountToPluggyButton
+							financialAccountId={account.id}
+							financialAccountName={account.name}
+							currentConnectorName={account.pluggyConnectorName}
+							connections={bankConnections.map((c) => ({
+								id: c.id,
+								connectorName: c.connectorName,
+							}))}
 						/>
 					</>
 				}

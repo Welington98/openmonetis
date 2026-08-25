@@ -7,6 +7,7 @@ import {
 import type { ColumnDef } from "@tanstack/react-table";
 import Image from "next/image";
 import Link from "next/link";
+import { TransactionStatusBadge } from "@/features/transactions/components/shared/transaction-status-badge";
 import { DEFAULT_TRANSACTIONS_COLUMN_ORDER } from "@/features/transactions/lib/column-order";
 import {
 	CategoryIconBadge,
@@ -176,6 +177,7 @@ function buildColumns({
 					isDivided,
 					isAnticipated,
 					hasAttachments,
+					isSettled,
 				} = row.original;
 
 				const installmentBadge =
@@ -251,6 +253,11 @@ function buildColumns({
 										<TooltipContent side="top">Última parcela!</TooltipContent>
 									</Tooltip>
 								) : null}
+
+								<TransactionStatusBadge
+									isSettled={isSettled}
+									purchaseDate={purchaseDate}
+								/>
 
 								{installmentBadge ? (
 									<Badge variant="outline" className="px-2 text-xs">

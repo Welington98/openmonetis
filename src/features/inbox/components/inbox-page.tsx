@@ -27,6 +27,7 @@ import { InboxDetailsDialog } from "./inbox-details-dialog";
 import { InboxItemsList } from "./inbox-items-list";
 import { InboxPagination } from "./inbox-pagination";
 import { InboxTabs } from "./inbox-tabs";
+import { ReceiptUploadDialog } from "./receipt-upload-dialog";
 import type {
 	InboxItem,
 	InboxPaginationState,
@@ -345,10 +346,11 @@ export function InboxPage({
 		throw new Error(result.error);
 	};
 
-	const handleLancamentoSuccess = async () => {
+	const handleLancamentoSuccess = async (createdIds?: string[]) => {
 		if (!itemToProcess) return;
 		const result = await markInboxAsProcessedAction({
 			inboxItemId: itemToProcess.id,
+			transactionId: createdIds?.[0],
 		});
 		if (result.success) {
 			toast.success("Notificação processada!");
@@ -366,7 +368,9 @@ export function InboxPage({
 	};
 
 	const defaultPurchaseDate =
-		getDateString(itemToProcess?.notificationTimestamp) ?? null;
+		getDateString(itemToProcess?.parsedDate) ??
+		getDateString(itemToProcess?.notificationTimestamp) ??
+		null;
 	const defaultName = itemToProcess?.parsedName
 		? itemToProcess.parsedName
 				.toLowerCase()
@@ -393,6 +397,10 @@ export function InboxPage({
 
 	return (
 		<>
+			<div className="mb-4 flex justify-end">
+				<ReceiptUploadDialog onUploaded={() => router.refresh()} />
+			</div>
+
 			<Tabs
 				value={activeStatus}
 				onValueChange={handleTabChange}
