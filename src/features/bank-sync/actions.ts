@@ -16,6 +16,7 @@ import { db } from "@/shared/lib/db";
 import type { ActionResult } from "@/shared/lib/types/actions";
 import {
 	createPluggyConnectToken,
+	fetchPluggyAccounts,
 	fetchPluggyItem,
 	isPluggyConfigured,
 } from "./lib/pluggy-client";
@@ -268,6 +269,163 @@ export async function matchStatementLineAction(
  * TransactionDialog, que é compartilhado por várias features; deixado de fora
  * deste primeiro corte por prudência.
  */
+export type PluggyAccountLinkRow = {
+	pluggyAccountId: string;
+	name: string;
+	balance: number;
+	linkedFinancialAccountId: string | null;
+};
+
+/**
+ * Lista as contas bancárias (tipo BANK) trazidas pelo Pluggy para uma conexão,
+ * já indicando qual conta local (se alguma) está vinculada a cada uma — para
+ * montar a tela de "vincular contas".
+ */
+export async function fetchPluggyAccountsForConnectionAction(
+	input: z.infer<typeof connectionIdSchema>,
+): Promise<ActionResult<{ accounts: PluggyAccountLinkRow[] }>> {
+	try {
+		const userId = await getUserId();
+		const data = connectionIdSchema.parse(input);
+
+		const [connection] = await db
+			.select({ pluggyItemId: bankConnections.pluggyItemId })
+			.from(bankConnections)
+			.where(
+				and(
+					eq(bankConnections.id, data.connectionId),
+					eq(bankConnections.userId, userId),
+				),
+			)
+			.limit(1);
+
+		if (!connection) {
+			return { success: false, error: "Conexão não encontrada." };
+		}
+
+		const [pluggyAccounts, linkedAccounts] = await Promise.all([
+			fetchPluggyAccounts(connection.pluggyItemId),
+			db
+				.select({
+					id: financialAccounts.id,
+					pluggyAccountId: financialAccounts.pluggyAccountId,
+				})
+				.from(financialAccounts)
+				.where(
+					and(
+						eq(financialAccounts.userId, userId),
+						eq(financialAccounts.bankConnectionId, data.connectionId),
+					),
+				),
+		]);
+
+		const linkedByPluggyId = new Map(
+			linkedAccounts
+				.filter((row) => row.pluggyAccountId)
+				.map((row) => [row.pluggyAccountId as string, row.id]),
+		);
+
+		const accounts = pluggyAccounts
+			.filter((account) => account.type === "BANK")
+			.map((account) => ({
+				pluggyAccountId: account.id,
+				name: account.name,
+				balance: account.balance,
+				linkedFinancialAccountId: linkedByPluggyId.get(account.id) ?? null,
+			}));
+
+		return { success: true, message: "Contas carregadas.", data: { accounts } };
+	} catch (error) {
+		return handleActionError(error) as ActionResult<{
+			accounts: PluggyAccountLinkRow[];
+		}>;
+	}
+}
+
+const linkPluggyAccountSchema = z.object({
+	connectionId: z.string().uuid("Conexão inválida."),
+	pluggyAccountId: z.string().min(1, "Conta do Pluggy inválida."),
+	financialAccountId: z.string().uuid("Conta inválida.").nullable(),
+});
+
+/**
+ * Vincula (ou desvincula, se `financialAccountId` for null) uma conta do
+ * Pluggy a uma conta local — para que as transações sincronizadas dessa conta
+ * caiam na conta certa ao criar o lançamento.
+ */
+export async function linkPluggyAccountAction(
+	input: z.infer<typeof linkPluggyAccountSchema>,
+): Promise<ActionResult> {
+	try {
+		const userId = await getUserId();
+		const data = linkPluggyAccountSchema.parse(input);
+
+		const [connection] = await db
+			.select({ id: bankConnections.id })
+			.from(bankConnections)
+			.where(
+				and(
+					eq(bankConnections.id, data.connectionId),
+					eq(bankConnections.userId, userId),
+				),
+			)
+			.limit(1);
+
+		if (!connection) {
+			return { success: false, error: "Conexão não encontrada." };
+		}
+
+		// Libera essa conta do Pluggy de qualquer outra conta local que a
+		// tivesse antes (o índice único não permite a mesma conta do Pluggy
+		// vinculada a duas contas locais ao mesmo tempo).
+		await db
+			.update(financialAccounts)
+			.set({ bankConnectionId: null, pluggyAccountId: null })
+			.where(
+				and(
+					eq(financialAccounts.userId, userId),
+					eq(financialAccounts.pluggyAccountId, data.pluggyAccountId),
+				),
+			);
+
+		if (data.financialAccountId) {
+			const [target] = await db
+				.select({ id: financialAccounts.id })
+				.from(financialAccounts)
+				.where(
+					and(
+						eq(financialAccounts.id, data.financialAccountId),
+						eq(financialAccounts.userId, userId),
+					),
+				)
+				.limit(1);
+
+			if (!target) {
+				return { success: false, error: "Conta local não encontrada." };
+			}
+
+			await db
+				.update(financialAccounts)
+				.set({
+					bankConnectionId: data.connectionId,
+					pluggyAccountId: data.pluggyAccountId,
+				})
+				.where(eq(financialAccounts.id, data.financialAccountId));
+		}
+
+		revalidateBankSync(userId);
+
+		return {
+			success: true,
+			message: data.financialAccountId
+				? "Conta vinculada."
+				: "Vínculo removido.",
+		};
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
 export async function markStatementLineMatchedAction(
 	input: z.infer<typeof statementLineIdSchema>,
 ): Promise<ActionResult> {

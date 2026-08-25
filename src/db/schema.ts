@@ -184,34 +184,46 @@ export const userPreferences = pgTable("preferencias_usuario", {
 
 // ===================== PUBLIC TABLES =====================
 
-export const financialAccounts = pgTable("contas", {
-	id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
-	name: text("nome").notNull(),
-	accountType: text("tipo_conta").notNull(),
-	note: text("anotacao"),
-	status: text("status").notNull(),
-	logo: text("logo").notNull(),
-	initialBalance: numeric("saldo_inicial", { precision: 12, scale: 2 })
-		.notNull()
-		.default("0"),
-	excludeFromBalance: boolean("excluir_do_saldo").notNull().default(false),
-	excludeInitialBalanceFromIncome: boolean("excluir_saldo_inicial_receitas")
-		.notNull()
-		.default(false),
-	userId: text("user_id")
-		.notNull()
-		.references(() => user.id, { onDelete: "cascade" }),
-	bankConnectionId: uuid("conexao_bancaria_id").references(
-		(): AnyPgColumn => bankConnections.id,
-		{ onDelete: "set null" },
-	),
-	createdAt: timestamp("created_at", {
-		mode: "date",
-		withTimezone: true,
-	})
-		.notNull()
-		.defaultNow(),
-});
+export const financialAccounts = pgTable(
+	"contas",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		name: text("nome").notNull(),
+		accountType: text("tipo_conta").notNull(),
+		note: text("anotacao"),
+		status: text("status").notNull(),
+		logo: text("logo").notNull(),
+		initialBalance: numeric("saldo_inicial", { precision: 12, scale: 2 })
+			.notNull()
+			.default("0"),
+		excludeFromBalance: boolean("excluir_do_saldo").notNull().default(false),
+		excludeInitialBalanceFromIncome: boolean("excluir_saldo_inicial_receitas")
+			.notNull()
+			.default(false),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		bankConnectionId: uuid("conexao_bancaria_id").references(
+			(): AnyPgColumn => bankConnections.id,
+			{ onDelete: "set null" },
+		),
+		// Id da conta no Pluggy (dentro da conexão acima) vinculada a esta conta
+		// local — permite saber, ao sincronizar, em qual conta local cada
+		// transação do extrato deveria cair por padrão.
+		pluggyAccountId: text("pluggy_conta_id"),
+		createdAt: timestamp("created_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		pluggyAccountIdUnique: uniqueIndex("contas_pluggy_conta_id_key").on(
+			table.pluggyAccountId,
+		),
+	}),
+);
 
 export const categories = pgTable(
 	"categorias",
@@ -836,6 +848,12 @@ export const statementLines = pgTable(
 		bankConnectionId: uuid("conexao_bancaria_id")
 			.notNull()
 			.references(() => bankConnections.id, { onDelete: "cascade" }),
+		// Id da conta no Pluggy de onde veio esta transação (dentro da conexão
+		// acima) — usado para resolver a conta local vinculada (ver
+		// `financialAccounts.pluggyAccountId`) e pré-selecionar o destino do
+		// lançamento na revisão. Nullable: linhas sincronizadas antes deste
+		// campo existir não têm como ser retroativamente preenchidas.
+		pluggyAccountId: text("pluggy_conta_id"),
 		date: date("data", { mode: "date" }).notNull(),
 		description: text("descricao").notNull(),
 		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),

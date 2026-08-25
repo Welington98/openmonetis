@@ -10,6 +10,7 @@ import {
 	triggerManualSyncAction,
 } from "@/features/bank-sync/actions";
 import { ConnectBankButton } from "@/features/bank-sync/components/connect-bank-button";
+import { LinkAccountsDialog } from "@/features/bank-sync/components/link-accounts-dialog";
 import type { StatementLineWithCategory } from "@/features/bank-sync/queries";
 import { TransactionDialog } from "@/features/transactions/components/dialogs/transaction-dialog/transaction-dialog";
 import type { SelectOption } from "@/features/transactions/components/types";
@@ -167,7 +168,7 @@ export function BankSyncPage({
 											? formatDateOnly(connection.lastSyncedAt)
 											: "nunca"}
 									</p>
-									<div className="flex gap-2">
+									<div className="flex flex-wrap gap-2">
 										<Button
 											variant="outline"
 											size="sm"
@@ -177,6 +178,11 @@ export function BankSyncPage({
 											<RiRefreshLine className="size-4" />
 											Sincronizar
 										</Button>
+										<LinkAccountsDialog
+											connectionId={connection.id}
+											connectorName={connection.connectorName}
+											accountOptions={accountOptions}
+										/>
 										<Button
 											variant="ghost"
 											size="sm"
@@ -257,6 +263,7 @@ export function BankSyncPage({
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
 				estabelecimentos={[]}
+				defaultAccountId={lineToCreate?.linkedFinancialAccountId ?? null}
 				defaultPurchaseDate={
 					lineToCreate?.date.toISOString().slice(0, 10) ?? null
 				}

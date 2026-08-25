@@ -85,6 +85,7 @@ export async function syncBankConnection(
 		const rows = pluggyTransactions.map((transaction) => ({
 			userId,
 			bankConnectionId: connectionId,
+			pluggyAccountId: transaction.accountId,
 			date: new Date(transaction.date),
 			description: transaction.description,
 			amount: Math.abs(transaction.amount).toFixed(2),
