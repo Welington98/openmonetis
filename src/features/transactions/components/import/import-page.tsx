@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useRef, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { ReceiptUploadDialog } from "@/features/inbox/components/receipt-upload-dialog";
 import {
 	fetchCategoryMappings,
 	saveCategoryMappings,
@@ -402,7 +403,12 @@ export function ImportPage({
 							exportado pelo seu banco.
 						</CardDescription>
 					</div>
-					<ImportSteps current={currentStep} />
+					<div className="flex items-center gap-3">
+						{!statement && (
+							<ReceiptUploadDialog onUploaded={() => router.push("/inbox")} />
+						)}
+						<ImportSteps current={currentStep} />
+					</div>
 				</div>
 			</CardHeader>
 			<CardContent>
