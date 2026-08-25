@@ -34,6 +34,10 @@ import {
 	parseDateFilterParam,
 	parsePositiveAmount,
 } from "@/features/transactions/lib/page-helpers";
+import {
+	TRANSACTION_STATUS_LABELS,
+	TRANSACTION_STATUS_VALUES,
+} from "@/features/transactions/lib/transaction-status";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -613,6 +617,7 @@ export function TransactionsFilters({
 		searchParams.getAll("category").length > 0,
 		searchParams.getAll("accountCard").length > 0,
 		Boolean(searchParams.get("settled")),
+		Boolean(searchParams.get("status")),
 		Boolean(searchParams.get("hasAttachment")),
 		Boolean(searchParams.get("isDivided")),
 		hasAmountFilter,
@@ -620,6 +625,7 @@ export function TransactionsFilters({
 	].filter(Boolean).length;
 	const hasActiveFilters = activeFilterCount > 0;
 	const settledFilterValue = searchParams.get("settled") ?? FILTER_EMPTY_VALUE;
+	const statusFilterValue = searchParams.get("status") ?? FILTER_EMPTY_VALUE;
 
 	const handleResetFilters = () => {
 		handleReset();
@@ -718,6 +724,19 @@ export function TransactionsFilters({
 					? "Status: Pago"
 					: "Status: Não pago",
 			onRemove: () => handleRemoveParams(["settled"]),
+		});
+	}
+
+	const statusValue = searchParams.get("status");
+	if (statusValue && statusValue in TRANSACTION_STATUS_LABELS) {
+		activeFilterChips.push({
+			key: `status-${statusValue}`,
+			label: `Status: ${
+				TRANSACTION_STATUS_LABELS[
+					statusValue as keyof typeof TRANSACTION_STATUS_LABELS
+				]
+			}`,
+			onRemove: () => handleRemoveParams(["status"]),
 		});
 	}
 
@@ -1118,6 +1137,52 @@ export function TransactionsFilters({
 												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
 											>
 												Não pagos
+											</ToggleGroupItem>
+										</ToggleGroup>
+									</div>
+
+									<div className="space-y-3">
+										<span className="text-sm font-medium">
+											Status do lançamento
+										</span>
+										<ToggleGroup
+											type="single"
+											value={statusFilterValue}
+											onValueChange={(value) => {
+												if (!value) return;
+												handleFilterChange(
+													"status",
+													value === FILTER_EMPTY_VALUE ? null : value,
+												);
+											}}
+											variant="outline"
+											size="sm"
+											className="grid w-full grid-cols-4 rounded-md bg-muted/30 p-0.5"
+											aria-label="Status do lançamento"
+										>
+											<ToggleGroupItem
+												value={FILTER_EMPTY_VALUE}
+												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
+											>
+												Todos
+											</ToggleGroupItem>
+											<ToggleGroupItem
+												value={TRANSACTION_STATUS_VALUES.SCHEDULED}
+												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
+											>
+												Agendado
+											</ToggleGroupItem>
+											<ToggleGroupItem
+												value={TRANSACTION_STATUS_VALUES.PENDING}
+												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
+											>
+												Pendente
+											</ToggleGroupItem>
+											<ToggleGroupItem
+												value={TRANSACTION_STATUS_VALUES.CONFIRMED}
+												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
+											>
+												Confirmado
 											</ToggleGroupItem>
 										</ToggleGroup>
 									</div>

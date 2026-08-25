@@ -83,6 +83,7 @@ const EMPTY_FILTERS: TransactionSearchFilters = {
 	accountCardFilters: [],
 	searchFilter: null,
 	settledFilter: null,
+	statusFilter: null,
 	attachmentFilter: null,
 	dividedFilter: null,
 	amountMinFilter: null,
