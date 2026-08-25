@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, isNotNull } from "drizzle-orm";
 import {
 	type BankConnection,
 	bankConnections,
@@ -7,6 +7,8 @@ import {
 	type StatementLine,
 	statementLines,
 } from "@/db/schema";
+import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
+import { fetchPendingInboxCount } from "@/features/inbox/queries";
 import type { SelectOption } from "@/features/transactions/components/types";
 import {
 	buildOptionSets,
@@ -14,6 +16,7 @@ import {
 } from "@/features/transactions/lib/page-helpers";
 import { fetchTransactionFilterSources } from "@/features/transactions/queries";
 import { db } from "@/shared/lib/db";
+import { fetchPluggyAccounts } from "./lib/pluggy-client";
 
 export async function fetchBankConnections(
 	userId: string,
@@ -65,6 +68,115 @@ export async function fetchPluggyConfigured(): Promise<boolean> {
 	return Boolean(
 		process.env.PLUGGY_CLIENT_ID && process.env.PLUGGY_CLIENT_SECRET,
 	);
+}
+
+export type ReconciliationAccountRow = {
+	accountId: string;
+	accountName: string;
+	connectorName: string;
+	localBalance: number;
+	pluggyBalance: number | null; // null = não configurado ou falhou ao buscar
+	pendingCount: number;
+};
+
+export type ReconciliationOverview = {
+	pluggyConfigured: boolean;
+	accounts: ReconciliationAccountRow[];
+	pendingInboxCount: number;
+};
+
+/**
+ * Painel de conciliação: para cada conta local vinculada a uma conexão
+ * Pluggy, compara o saldo que o banco declara (ao vivo, via API) com o saldo
+ * calculado localmente pelos lançamentos, e conta quantas linhas de extrato
+ * dessa conta ainda estão pendentes de revisão. Traz também um contador
+ * global de pré-lançamentos pendentes (Companion + PDF), já que esses não têm
+ * vínculo com uma conta específica. Import de OFX/planilha não tem fila
+ * persistente (é revisado inteiramente no momento do upload), por isso não
+ * entra aqui como contador — só como atalho na tela.
+ */
+export async function fetchReconciliationOverview(
+	userId: string,
+): Promise<ReconciliationOverview> {
+	const pluggyConfigured = await fetchPluggyConfigured();
+
+	const linkedAccounts = await db
+		.select({
+			id: financialAccounts.id,
+			name: financialAccounts.name,
+			pluggyAccountId: financialAccounts.pluggyAccountId,
+			connectorName: bankConnections.connectorName,
+			pluggyItemId: bankConnections.pluggyItemId,
+		})
+		.from(financialAccounts)
+		.innerJoin(
+			bankConnections,
+			eq(financialAccounts.bankConnectionId, bankConnections.id),
+		)
+		.where(
+			and(
+				eq(financialAccounts.userId, userId),
+				isNotNull(financialAccounts.pluggyAccountId),
+			),
+		);
+
+	const [dashboardAccounts, pendingLines, pendingInboxCount] =
+		await Promise.all([
+			fetchDashboardAccounts(userId),
+			fetchStatementLines(userId, "unmatched"),
+			fetchPendingInboxCount(userId),
+		]);
+
+	const localBalanceById = new Map(
+		dashboardAccounts.accounts.map((account) => [account.id, account.balance]),
+	);
+
+	const pendingCountByAccountId = new Map<string, number>();
+	for (const line of pendingLines) {
+		if (!line.linkedFinancialAccountId) continue;
+		pendingCountByAccountId.set(
+			line.linkedFinancialAccountId,
+			(pendingCountByAccountId.get(line.linkedFinancialAccountId) ?? 0) + 1,
+		);
+	}
+
+	// Busca o saldo ao vivo no Pluggy uma vez por conexão (não por conta), e
+	// nunca deixa a falha de uma conexão (ex.: credenciais expiradas) derrubar
+	// o painel inteiro — só aquela(s) conta(s) ficam sem saldo declarado.
+	const pluggyBalanceByAccountId = new Map<string, number>();
+	if (pluggyConfigured) {
+		const itemIds = [...new Set(linkedAccounts.map((a) => a.pluggyItemId))];
+		await Promise.all(
+			itemIds.map(async (itemId) => {
+				try {
+					const accounts = await fetchPluggyAccounts(itemId);
+					for (const account of accounts) {
+						pluggyBalanceByAccountId.set(account.id, account.balance);
+					}
+				} catch (error) {
+					console.error(
+						`[reconciliation] Falha ao buscar saldo da conexão ${itemId}:`,
+						error,
+					);
+				}
+			}),
+		);
+	}
+
+	const accounts: ReconciliationAccountRow[] = linkedAccounts.map(
+		(account) => ({
+			accountId: account.id,
+			accountName: account.name,
+			connectorName: account.connectorName,
+			localBalance: localBalanceById.get(account.id) ?? 0,
+			pluggyBalance: account.pluggyAccountId
+				? (pluggyBalanceByAccountId.get(account.pluggyAccountId) ?? null)
+				: null,
+			pendingCount: pendingCountByAccountId.get(account.id) ?? 0,
+		}),
+	);
+
+	return { pluggyConfigured, accounts, pendingInboxCount };
 }
 
 /** Dados para o TransactionDialog reaproveitado na revisão de linhas de extrato. */

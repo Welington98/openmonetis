@@ -1,9 +1,15 @@
 "use client";
 
-import { RiBankLine, RiCloseLine, RiRefreshLine } from "@remixicon/react";
-import { useState } from "react";
+import {
+	RiBankLine,
+	RiCloseLine,
+	RiDownload2Line,
+	RiRefreshLine,
+} from "@remixicon/react";
+import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+	bulkImportStatementLinesAction,
 	deleteBankConnectionAction,
 	ignoreStatementLineAction,
 	markStatementLineMatchedAction,
@@ -65,6 +71,7 @@ export function BankSyncPage({
 	categoryOptions,
 }: BankSyncPageProps) {
 	const [syncingId, setSyncingId] = useState<string | null>(null);
+	const [isBulkImporting, startBulkImport] = useTransition();
 	const [connectionToDelete, setConnectionToDelete] =
 		useState<BankConnectionRow | null>(null);
 	const [lineToIgnore, setLineToIgnore] =
@@ -110,6 +117,17 @@ export function BankSyncPage({
 		}
 		toast.error(result.error);
 		throw new Error(result.error);
+	};
+
+	const handleBulkImport = () => {
+		startBulkImport(async () => {
+			const result = await bulkImportStatementLinesAction();
+			if (result.success) {
+				toast.success(result.message);
+			} else {
+				toast.error(result.error);
+			}
+		});
 	};
 
 	const handleTransactionSuccess = async () => {
@@ -200,9 +218,29 @@ export function BankSyncPage({
 			</section>
 
 			<section className="flex flex-col gap-3">
-				<h2 className="font-medium text-sm text-muted-foreground">
-					Transações pendentes de revisão ({statementLines.length})
-				</h2>
+				<div className="flex items-center justify-between gap-4">
+					<h2 className="font-medium text-sm text-muted-foreground">
+						Transações pendentes de revisão ({statementLines.length})
+					</h2>
+					{statementLines.length > 0 && (
+						<Button
+							variant="outline"
+							size="sm"
+							disabled={isBulkImporting}
+							onClick={handleBulkImport}
+						>
+							<RiDownload2Line className="size-4" />
+							{isBulkImporting ? "Importando..." : "Importar todos"}
+						</Button>
+					)}
+				</div>
+				{statementLines.length > 0 && (
+					<p className="text-muted-foreground text-xs">
+						"Importar todos" cria lançamento automaticamente só para as linhas
+						com conta vinculada e categoria já conhecida (pela descrição). As
+						outras continuam aqui para revisão manual.
+					</p>
+				)}
 				{statementLines.length === 0 ? (
 					<Empty>
 						<EmptyHeader>

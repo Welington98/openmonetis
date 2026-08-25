@@ -7,6 +7,9 @@ import {
 	financialAccounts,
 	statementLines,
 } from "@/db/schema";
+import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
+import { createTransactionAction } from "@/features/transactions/actions/single-actions";
+import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
 import {
 	handleActionError,
 	revalidateForEntity,
@@ -14,6 +17,7 @@ import {
 import { getUserId } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
 import type { ActionResult } from "@/shared/lib/types/actions";
+import { toDateOnlyString } from "@/shared/utils/date";
 import {
 	createPluggyConnectToken,
 	fetchPluggyAccounts,
@@ -21,6 +25,7 @@ import {
 	isPluggyConfigured,
 } from "./lib/pluggy-client";
 import { syncBankConnection } from "./lib/sync";
+import { fetchBankSyncDialogData, fetchStatementLines } from "./queries";
 
 function revalidateBankSync(userId: string) {
 	revalidateForEntity("bankSync", userId);
@@ -449,5 +454,114 @@ export async function markStatementLineMatchedAction(
 		return { success: true, message: "Linha marcada como lançada." };
 	} catch (error) {
 		return handleActionError(error);
+	}
+}
+
+export type BulkImportSummary = {
+	imported: number;
+	skippedNoAccount: number;
+	skippedNoCategory: number;
+};
+
+/**
+ * Cria lançamento em lote para todas as linhas de extrato pendentes que já
+ * têm conta local vinculada (via `financialAccounts.pluggyAccountId`) e
+ * categoria conhecida (mesmo mapeamento description → categoria que o import
+ * de OFX/planilha usa). Linhas sem conta ou sem categoria conhecida ficam de
+ * fora — nunca adivinha categoria, só reaproveita o que o usuário já
+ * categorizou antes para uma descrição parecida.
+ */
+export async function bulkImportStatementLinesAction(): Promise<
+	ActionResult<BulkImportSummary>
+> {
+	try {
+		const userId = await getUserId();
+
+		const [lines, { defaultPayerId }] = await Promise.all([
+			fetchStatementLines(userId, "unmatched"),
+			fetchBankSyncDialogData(userId),
+		]);
+
+		if (lines.length === 0) {
+			return {
+				success: true,
+				message: "Nenhuma transação pendente.",
+				data: { imported: 0, skippedNoAccount: 0, skippedNoCategory: 0 },
+			};
+		}
+
+		const categoryMappings = await fetchCategoryMappings(
+			lines.map((line) => line.description),
+		);
+
+		let imported = 0;
+		let skippedNoAccount = 0;
+		let skippedNoCategory = 0;
+
+		for (const line of lines) {
+			if (!line.linkedFinancialAccountId) {
+				skippedNoAccount++;
+				continue;
+			}
+
+			const categoryId =
+				categoryMappings[normalizeDescriptionKey(line.description)];
+			if (!categoryId) {
+				skippedNoCategory++;
+				continue;
+			}
+
+			const purchaseDate = toDateOnlyString(line.date);
+			if (!purchaseDate) {
+				skippedNoCategory++;
+				continue;
+			}
+
+			const result = await createTransactionAction({
+				name: line.description,
+				transactionType: line.type === "receita" ? "Receita" : "Despesa",
+				amount: Number(line.amount),
+				paymentMethod: "Pix",
+				condition: "À vista",
+				purchaseDate,
+				accountId: line.linkedFinancialAccountId,
+				categoryId,
+				payerId: defaultPayerId,
+				isSettled: true,
+				isSplit: false,
+				note: null,
+			});
+
+			if (!result.success || !result.data) continue;
+
+			await db
+				.update(statementLines)
+				.set({
+					status: "matched",
+					matchedTransactionId: result.data.ids[0],
+				})
+				.where(eq(statementLines.id, line.id));
+
+			imported++;
+		}
+
+		revalidateBankSync(userId);
+		revalidateForEntity("transactions", userId);
+
+		const parts = [`${imported} lançamento(s) importado(s)`];
+		if (skippedNoAccount > 0) {
+			parts.push(`${skippedNoAccount} sem conta vinculada`);
+		}
+		if (skippedNoCategory > 0) {
+			parts.push(`${skippedNoCategory} sem categoria conhecida`);
+		}
+
+		return {
+			success: true,
+			message: `${parts.join(", ")}.`,
+			data: { imported, skippedNoAccount, skippedNoCategory },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<BulkImportSummary>;
 	}
 }
