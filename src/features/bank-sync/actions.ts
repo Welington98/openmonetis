@@ -208,6 +208,47 @@ export async function deleteBankConnectionAction(
 	}
 }
 
+const renameBankConnectionSchema = z.object({
+	connectionId: z.string().uuid("Conexão inválida."),
+	nickname: z.string().trim().max(60, "Máximo de 60 caracteres.").nullable(),
+});
+
+/**
+ * Define (ou limpa, se `nickname` vier vazio/null) um apelido pra conexão,
+ * exibido no lugar do nome do conector. Nunca sobrescreve `connectorName` —
+ * esse continua vindo puro do Pluggy a cada reconexão.
+ */
+export async function renameBankConnectionAction(
+	input: z.infer<typeof renameBankConnectionSchema>,
+): Promise<ActionResult> {
+	try {
+		const userId = await getUserId();
+		const data = renameBankConnectionSchema.parse(input);
+		const nickname =
+			data.nickname && data.nickname.length > 0 ? data.nickname : null;
+
+		await db
+			.update(bankConnections)
+			.set({ nickname })
+			.where(
+				and(
+					eq(bankConnections.id, data.connectionId),
+					eq(bankConnections.userId, userId),
+				),
+			);
+
+		revalidateBankSync(userId);
+		revalidateForEntity("accounts", userId);
+
+		return {
+			success: true,
+			message: nickname ? "Apelido salvo." : "Apelido removido.",
+		};
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
 const statementLineIdSchema = z.object({
 	statementLineId: z.string().uuid("Linha inválida."),
 });

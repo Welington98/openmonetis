@@ -1,0 +1,1 @@
+ALTER TABLE "conexoes_bancarias" ADD COLUMN "apelido" text;

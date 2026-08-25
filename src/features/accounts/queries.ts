@@ -40,7 +40,9 @@ async function fetchAccountsByStatus(
 				excludeInitialBalanceFromIncome:
 					financialAccounts.excludeInitialBalanceFromIncome,
 				bankConnectionId: financialAccounts.bankConnectionId,
-				pluggyConnectorName: bankConnections.connectorName,
+				pluggyConnectorName: sql<
+					string | null
+				>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
 				balanceMovements: sql<number>`
           coalesce(
             sum(
@@ -87,6 +89,7 @@ async function fetchAccountsByStatus(
 				financialAccounts.excludeInitialBalanceFromIncome,
 				financialAccounts.bankConnectionId,
 				bankConnections.connectorName,
+				bankConnections.nickname,
 			),
 		loadLogoOptions(),
 	]);

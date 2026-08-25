@@ -22,6 +22,7 @@ import { ClassifyLineForm } from "@/features/bank-sync/components/classify-line-
 import { ConnectBankButton } from "@/features/bank-sync/components/connect-bank-button";
 import { LinkAccountsDialog } from "@/features/bank-sync/components/link-accounts-dialog";
 import { MatchExistingTab } from "@/features/bank-sync/components/match-existing-tab";
+import { RenameConnectionDialog } from "@/features/bank-sync/components/rename-connection-dialog";
 import type {
 	ReconciliationWorkspaceData,
 	StatementLineWithCategory,
@@ -272,11 +273,18 @@ export function ReconciliationWorkspace({
 						</SelectContent>
 					</Select>
 					{selectedConnection && (
-						<LinkAccountsDialog
-							connectionId={selectedConnection.id}
-							connectorName={selectedConnection.connectorName}
-							accountOptions={accountOptions}
-						/>
+						<>
+							<RenameConnectionDialog
+								connectionId={selectedConnection.id}
+								currentName={selectedConnection.officialConnectorName}
+								currentNickname={selectedConnection.nickname}
+							/>
+							<LinkAccountsDialog
+								connectionId={selectedConnection.id}
+								connectorName={selectedConnection.connectorName}
+								accountOptions={accountOptions}
+							/>
+						</>
 					)}
 				</div>
 				<ConnectBankButton pluggyConfigured={pluggyConfigured} />

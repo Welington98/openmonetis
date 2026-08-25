@@ -1,4 +1,4 @@
-import { and, desc, eq, isNotNull } from "drizzle-orm";
+import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import {
 	type BankConnection,
 	bankConnections,
@@ -19,11 +19,32 @@ import { fetchTransactionFilterSources } from "@/features/transactions/queries";
 import { db } from "@/shared/lib/db";
 import { fetchPluggyAccounts } from "./lib/pluggy-client";
 
+export type BankConnectionWithDisplay = Omit<
+	BankConnection,
+	"connectorName"
+> & {
+	/** Apelido, quando definido, no lugar do nome do conector. */
+	connectorName: string;
+	/** Nome oficial do conector no Pluggy, nunca sobrescrito pelo apelido. */
+	officialConnectorName: string;
+};
+
 export async function fetchBankConnections(
 	userId: string,
-): Promise<BankConnection[]> {
+): Promise<BankConnectionWithDisplay[]> {
 	return db
-		.select()
+		.select({
+			id: bankConnections.id,
+			userId: bankConnections.userId,
+			pluggyItemId: bankConnections.pluggyItemId,
+			connectorName: sql<string>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
+			officialConnectorName: bankConnections.connectorName,
+			nickname: bankConnections.nickname,
+			status: bankConnections.status,
+			lastSyncedAt: bankConnections.lastSyncedAt,
+			isActive: bankConnections.isActive,
+			createdAt: bankConnections.createdAt,
+		})
 		.from(bankConnections)
 		.where(eq(bankConnections.userId, userId))
 		.orderBy(desc(bankConnections.createdAt));
@@ -119,7 +140,7 @@ export async function fetchLinkedBankAccounts(
 			id: financialAccounts.id,
 			name: financialAccounts.name,
 			pluggyAccountId: financialAccounts.pluggyAccountId,
-			connectorName: bankConnections.connectorName,
+			connectorName: sql<string>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
 			pluggyItemId: bankConnections.pluggyItemId,
 			connectionId: bankConnections.id,
 		})
@@ -202,7 +223,7 @@ export async function fetchReconciliationOverview(
 }
 
 export type ReconciliationWorkspaceData = {
-	connections: BankConnection[];
+	connections: BankConnectionWithDisplay[];
 	linkedAccounts: LinkedBankAccount[];
 	statementLines: StatementLineWithCategory[];
 	pluggyConfigured: boolean;

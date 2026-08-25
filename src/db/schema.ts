@@ -825,6 +825,10 @@ export const bankConnections = pgTable(
 			.references(() => user.id, { onDelete: "cascade" }),
 		pluggyItemId: text("pluggy_item_id").notNull(),
 		connectorName: text("connector_name").notNull(),
+		// Apelido opcional definido pelo usuário — exibido no lugar de
+		// `connectorName` quando presente. `connectorName` nunca é sobrescrito
+		// pelo apelido: continua vindo puro do Pluggy a cada reconexão.
+		nickname: text("apelido"),
 		status: text("status").notNull().default("updating"),
 		lastSyncedAt: timestamp("last_synced_at", {
 			mode: "date",
