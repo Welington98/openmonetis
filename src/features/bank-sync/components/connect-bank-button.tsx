@@ -85,7 +85,15 @@ export function ConnectBankButton({
 				},
 				onError: (error) => {
 					console.error("[pluggy-connect]", error);
-					toast.error("Não foi possível conectar ao banco. Tente novamente.");
+					const message =
+						error && typeof error === "object" && "message" in error
+							? String((error as { message?: unknown }).message)
+							: null;
+					toast.error(
+						message
+							? `Não foi possível conectar: ${message}`
+							: "Não foi possível conectar ao banco. Tente novamente.",
+					);
 				},
 			});
 

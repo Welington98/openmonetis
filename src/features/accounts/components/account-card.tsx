@@ -5,10 +5,12 @@ import {
 	RiDeleteBin5Line,
 	RiFileList2Line,
 	RiInformationLine,
+	RiLink,
 	RiPencilLine,
 } from "@remixicon/react";
 import type React from "react";
 import MoneyValues from "@/shared/components/money-values";
+import { Badge } from "@/shared/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/shared/components/ui/card";
 import {
 	Tooltip,
@@ -26,10 +28,12 @@ interface AccountCardProps {
 	icon?: React.ReactNode;
 	excludeFromBalance?: boolean;
 	excludeInitialBalanceFromIncome?: boolean;
+	pluggyConnectorName?: string | null;
 	onViewStatement?: () => void;
 	onEdit?: () => void;
 	onRemove?: () => void;
 	onTransfer?: () => void;
+	onLinkPluggy?: () => void;
 	className?: string;
 }
 
@@ -41,10 +45,12 @@ export function AccountCard({
 	icon,
 	excludeFromBalance,
 	excludeInitialBalanceFromIncome,
+	pluggyConnectorName,
 	onViewStatement,
 	onEdit,
 	onRemove,
 	onTransfer,
+	onLinkPluggy,
 	className,
 }: AccountCardProps) {
 	const isInactive = isAccountInactive(status);
@@ -73,6 +79,12 @@ export function AccountCard({
 			label: "transferir",
 			icon: <RiArrowLeftRightLine className="size-4" aria-hidden />,
 			onClick: onTransfer,
+			variant: "default" as const,
+		},
+		{
+			label: pluggyConnectorName ? "vínculo pluggy" : "vincular pluggy",
+			icon: <RiLink className="size-4" aria-hidden />,
+			onClick: onLinkPluggy,
 			variant: "default" as const,
 		},
 		{
@@ -138,7 +150,15 @@ export function AccountCard({
 					</div>
 				</div>
 
-				<p className="text-xs text-muted-foreground">{accountType}</p>
+				<div className="flex flex-col items-end gap-1">
+					<p className="text-xs text-muted-foreground">{accountType}</p>
+					{pluggyConnectorName && (
+						<Badge variant="outline" className="gap-1 text-[10px]">
+							<RiLink className="size-2.5" />
+							{pluggyConnectorName}
+						</Badge>
+					)}
+				</div>
 			</div>
 
 			<CardContent className="flex flex-1 flex-col gap-2 px-0 pb-2">

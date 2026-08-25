@@ -1,5 +1,5 @@
 import { and, eq, ilike, not, sql } from "drizzle-orm";
-import { financialAccounts, transactions } from "@/db/schema";
+import { bankConnections, financialAccounts, transactions } from "@/db/schema";
 import { INITIAL_BALANCE_NOTE } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
 import { loadLogoOptions } from "@/shared/lib/logo/options";
@@ -16,6 +16,8 @@ export type AccountData = {
 	balance: number;
 	excludeFromBalance: boolean;
 	excludeInitialBalanceFromIncome: boolean;
+	bankConnectionId: string | null;
+	pluggyConnectorName: string | null;
 };
 
 async function fetchAccountsByStatus(
@@ -37,6 +39,8 @@ async function fetchAccountsByStatus(
 				excludeFromBalance: financialAccounts.excludeFromBalance,
 				excludeInitialBalanceFromIncome:
 					financialAccounts.excludeInitialBalanceFromIncome,
+				bankConnectionId: financialAccounts.bankConnectionId,
+				pluggyConnectorName: bankConnections.connectorName,
 				balanceMovements: sql<number>`
           coalesce(
             sum(
@@ -59,6 +63,10 @@ async function fetchAccountsByStatus(
 					adminPayerId ? eq(transactions.payerId, adminPayerId) : sql`false`,
 				),
 			)
+			.leftJoin(
+				bankConnections,
+				eq(financialAccounts.bankConnectionId, bankConnections.id),
+			)
 			.where(
 				and(
 					eq(financialAccounts.userId, userId),
@@ -77,6 +85,8 @@ async function fetchAccountsByStatus(
 				financialAccounts.initialBalance,
 				financialAccounts.excludeFromBalance,
 				financialAccounts.excludeInitialBalanceFromIncome,
+				financialAccounts.bankConnectionId,
+				bankConnections.connectorName,
 			),
 		loadLogoOptions(),
 	]);
@@ -94,6 +104,8 @@ async function fetchAccountsByStatus(
 			Number(account.balanceMovements ?? 0),
 		excludeFromBalance: account.excludeFromBalance,
 		excludeInitialBalanceFromIncome: account.excludeInitialBalanceFromIncome,
+		bankConnectionId: account.bankConnectionId,
+		pluggyConnectorName: account.pluggyConnectorName,
 	}));
 
 	return { accounts, logoOptions };

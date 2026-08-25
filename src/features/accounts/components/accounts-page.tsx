@@ -7,6 +7,8 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { deleteAccountAction } from "@/features/accounts/actions";
 import { AccountCard } from "@/features/accounts/components/account-card";
+import type { BankConnectionOption } from "@/features/bank-sync/components/link-account-to-pluggy-dialog";
+import { LinkAccountToPluggyDialog } from "@/features/bank-sync/components/link-account-to-pluggy-dialog";
 import { ConfirmActionDialog } from "@/shared/components/confirm-action-dialog";
 import { EmptyState } from "@/shared/components/feedback/empty-state";
 import { Button } from "@/shared/components/ui/button";
@@ -27,12 +29,14 @@ interface AccountsPageProps {
 	accounts: Account[];
 	archivedAccounts: Account[];
 	logoOptions: string[];
+	bankConnections: BankConnectionOption[];
 }
 
 export function AccountsPage({
 	accounts,
 	archivedAccounts,
 	logoOptions,
+	bankConnections,
 }: AccountsPageProps) {
 	const router = useRouter();
 	const [activeTab, setActiveTab] = useState("ativos");
@@ -43,6 +47,9 @@ export function AccountsPage({
 	const [transferOpen, setTransferOpen] = useState(false);
 	const [transferFromAccount, setTransferFromAccount] =
 		useState<Account | null>(null);
+	const [pluggyLinkAccount, setPluggyLinkAccount] = useState<Account | null>(
+		null,
+	);
 
 	const sortAccounts = (list: Account[]) =>
 		[...list].sort((a, b) =>
@@ -143,6 +150,7 @@ export function AccountsPage({
 							excludeInitialBalanceFromIncome={
 								account.excludeInitialBalanceFromIncome
 							}
+							pluggyConnectorName={account.pluggyConnectorName}
 							icon={
 								logoSrc ? (
 									<Image
@@ -159,6 +167,11 @@ export function AccountsPage({
 							onTransfer={() => handleTransferRequest(account)}
 							onViewStatement={() =>
 								router.push(`/accounts/${account.id}/statement`)
+							}
+							onLinkPluggy={
+								bankConnections.length > 0
+									? () => setPluggyLinkAccount(account)
+									: undefined
 							}
 						/>
 					);
@@ -218,6 +231,17 @@ export function AccountsPage({
 				onConfirm={handleRemoveConfirm}
 			/>
 
+			{pluggyLinkAccount && (
+				<LinkAccountToPluggyDialog
+					open={Boolean(pluggyLinkAccount)}
+					onOpenChange={(open) => !open && setPluggyLinkAccount(null)}
+					financialAccountId={pluggyLinkAccount.id}
+					financialAccountName={pluggyLinkAccount.name}
+					currentConnectorName={pluggyLinkAccount.pluggyConnectorName ?? null}
+					connections={bankConnections}
+				/>
+			)}
+
 			{transferFromAccount && (
 				<TransferDialog
 					accounts={accounts.map((a) => ({
@@ -226,6 +250,8 @@ export function AccountsPage({
 						excludeFromBalance: a.excludeFromBalance ?? false,
 						excludeInitialBalanceFromIncome:
 							a.excludeInitialBalanceFromIncome ?? false,
+						bankConnectionId: a.bankConnectionId ?? null,
+						pluggyConnectorName: a.pluggyConnectorName ?? null,
 					}))}
 					fromAccountId={transferFromAccount.id}
 					currentPeriod={getCurrentPeriod()}
