@@ -102,12 +102,12 @@ export function NavDropdown({ items, financeLinks }: NavDropdownProps) {
 				const hasEntityLinks = Boolean(entityType && entityLinks?.length);
 
 				return (
-					<li key={item.href} className="group/entity relative">
+					<li key={item.href} className="group/entity relative min-w-0">
 						<NavLink
 							href={item.href}
 							preservePeriod={item.preservePeriod}
 							className={cn(
-								"flex items-center gap-3 rounded-sm px-2 py-3 text-sm transition-colors",
+								"flex min-w-0 items-center gap-3 rounded-sm px-2 py-3 text-sm transition-colors",
 								isActive
 									? "border-primary bg-accent text-foreground"
 									: "border-transparent text-foreground hover:bg-accent",
@@ -124,9 +124,7 @@ export function NavDropdown({ items, financeLinks }: NavDropdownProps) {
 								{item.icon}
 							</span>
 							<span className="flex flex-col min-w-0">
-								<span className="font-semibold break-words leading-tight">
-									{item.label}
-								</span>
+								<span className="truncate font-semibold">{item.label}</span>
 								{item.description && (
 									<span className="text-xs text-muted-foreground truncate lowercase">
 										{item.description}
