@@ -2,8 +2,11 @@ import type { SelectOption as TransactionSelectOption } from "@/features/transac
 
 export type InboxStatus = "pending" | "processed" | "discarded";
 
+export type InboxItemType = "notification" | "receipt_pdf";
+
 export interface InboxItem {
 	id: string;
+	itemType: string;
 	sourceApp: string;
 	sourceAppName: string | null;
 	originalTitle: string | null;
@@ -11,6 +14,8 @@ export interface InboxItem {
 	notificationTimestamp: Date;
 	parsedName: string | null;
 	parsedAmount: string | null;
+	parsedDate: Date | string | null;
+	attachmentId: string | null;
 	status: string;
 	transactionId: string | null;
 	processedAt: Date | null;

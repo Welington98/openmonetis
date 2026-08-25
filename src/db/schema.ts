@@ -543,9 +543,18 @@ export const inboxItems = pgTable(
 			withTimezone: true,
 		}).notNull(),
 
+		// Tipo do item: "notification" (Companion Android) ou "receipt_pdf" (upload de comprovante)
+		itemType: text("tipo_item").notNull().default("notification"),
+
 		// Dados parseados (editáveis pelo usuário antes de lançar)
 		parsedName: text("parsed_name"), // Nome do estabelecimento
 		parsedAmount: numeric("parsed_amount", { precision: 12, scale: 2 }),
+		parsedDate: date("parsed_date", { mode: "date" }),
+
+		// Anexo do comprovante em PDF, quando item_type = "receipt_pdf"
+		attachmentId: uuid("anexo_id").references(() => attachments.id, {
+			onDelete: "set null",
+		}),
 
 		// Status de processamento
 		status: text("status").notNull().default("pending"), // pending, processed, discarded

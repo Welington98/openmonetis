@@ -29,8 +29,8 @@ export interface TransactionDialogProps {
 	defaultTransactionType?: "Despesa" | "Receita";
 	/** Force showing transaction type select even when defaultTransactionType is set */
 	forceShowTransactionType?: boolean;
-	/** Called after successful create/update. Receives the action result. */
-	onSuccess?: () => void;
+	/** Called after successful create/update. On create, receives the ids of the created transaction(s). */
+	onSuccess?: (createdIds?: string[]) => void;
 	/** Max attachment file size in MB for this user */
 	maxSizeMb?: number;
 	onBulkEditRequest?: (data: {

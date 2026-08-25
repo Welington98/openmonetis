@@ -1,18 +1,25 @@
 "use server";
 
+import { randomUUID } from "node:crypto";
 import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
-import { inboxItems } from "@/db/schema";
+import { attachments, inboxItems, transactionAttachments } from "@/db/schema";
 import {
 	handleActionError,
 	revalidateForEntity,
 } from "@/shared/lib/actions/helpers";
+import { MAX_FILE_SIZE } from "@/shared/lib/attachments/config";
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
+import {
+	createPresignedPutUrl,
+	headS3Object,
+} from "@/shared/lib/storage/presign";
 import type { ActionResult } from "@/shared/lib/types/actions";
 
 const markProcessedSchema = z.object({
 	inboxItemId: z.string().uuid("ID do item inválido"),
+	transactionId: z.string().uuid("ID do lançamento inválido").optional(),
 });
 
 const discardInboxSchema = z.object({
@@ -76,6 +83,7 @@ export async function markInboxAsProcessedAction(
 			.set({
 				status: "processed",
 				processedAt: new Date(),
+				transactionId: data.transactionId ?? null,
 				updatedAt: new Date(),
 			})
 			.where(
@@ -84,6 +92,18 @@ export async function markInboxAsProcessedAction(
 					eq(inboxItems.userId, user.id),
 				),
 			);
+
+		// Se o item veio de um comprovante em PDF, anexa o mesmo arquivo ao
+		// lançamento recém-criado
+		if (item.attachmentId && data.transactionId) {
+			await db
+				.insert(transactionAttachments)
+				.values({
+					transactionId: data.transactionId,
+					attachmentId: item.attachmentId,
+				})
+				.onConflictDoNothing();
+		}
 
 		revalidateInbox(user.id);
 
@@ -321,5 +341,138 @@ export async function bulkDeleteInboxItemsAction(
 		};
 	} catch (error) {
 		return handleActionError(error);
+	}
+}
+
+const receiptPresignSchema = z.object({
+	fileName: z.string().min(1),
+	fileSize: z.number().max(MAX_FILE_SIZE, "Arquivo deve ter no máximo 50MB."),
+});
+
+type ReceiptPresignResult =
+	| { success: true; presignedUrl: string; fileKey: string }
+	| { success: false; error: string };
+
+/**
+ * Gera uma URL pré-assinada para upload direto de um comprovante em PDF ao S3.
+ * O item de inbox só é criado depois, em `createReceiptInboxItemAction`,
+ * após o parse do texto acontecer no client.
+ */
+export async function getReceiptUploadUrlAction(
+	input: z.infer<typeof receiptPresignSchema>,
+): Promise<ReceiptPresignResult> {
+	try {
+		const user = await getUser();
+		receiptPresignSchema.parse(input);
+
+		const fileKey = `${user.id}/${randomUUID()}.pdf`;
+		const presignedUrl = await createPresignedPutUrl(
+			fileKey,
+			"application/pdf",
+		);
+
+		return { success: true, presignedUrl, fileKey };
+	} catch (error) {
+		const result = handleActionError(error);
+		if (!result.success) return { success: false, error: result.error };
+		return { success: false, error: "Erro inesperado." };
+	}
+}
+
+const createReceiptInboxItemSchema = z.object({
+	fileKey: z.string().min(1),
+	fileName: z.string().min(1),
+	fileSize: z.number().positive(),
+	originalText: z.string().min(1).max(5000),
+	parsedName: z.string().trim().max(500).optional(),
+	parsedAmount: z.number().optional(),
+	parsedDate: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/)
+		.optional(),
+});
+
+/**
+ * Confirma o upload do comprovante (já feito direto ao S3 via a URL
+ * pré-assinada) e cria o pré-lançamento (`item_type = "receipt_pdf"`) para
+ * revisão — mesmo fluxo de revisão já usado pelas notificações do Companion.
+ */
+export async function createReceiptInboxItemAction(
+	input: z.infer<typeof createReceiptInboxItemSchema>,
+): Promise<ActionResult<{ inboxItemId: string }>> {
+	try {
+		const user = await getUser();
+		const data = createReceiptInboxItemSchema.parse(input);
+
+		if (!data.fileKey.startsWith(`${user.id}/`)) {
+			return { success: false, error: "Upload de comprovante inválido." };
+		}
+
+		const objectMetadata = await headS3Object(data.fileKey);
+
+		if (!objectMetadata.contentLength || objectMetadata.contentLength <= 0) {
+			return { success: false, error: "Arquivo enviado não encontrado." };
+		}
+
+		if (objectMetadata.contentLength > MAX_FILE_SIZE) {
+			return {
+				success: false,
+				error: "O arquivo enviado excede o limite permitido de 50MB.",
+			};
+		}
+
+		if (objectMetadata.contentType !== "application/pdf") {
+			return { success: false, error: "O arquivo enviado não é um PDF." };
+		}
+
+		const [attachment] = await db
+			.insert(attachments)
+			.values({
+				userId: user.id,
+				fileKey: data.fileKey,
+				fileName: data.fileName,
+				fileSize: data.fileSize,
+				mimeType: "application/pdf",
+			})
+			.returning({ id: attachments.id });
+
+		if (!attachment) {
+			return { success: false, error: "Erro ao salvar o comprovante." };
+		}
+
+		const [inserted] = await db
+			.insert(inboxItems)
+			.values({
+				userId: user.id,
+				itemType: "receipt_pdf",
+				sourceApp: "receipt_pdf",
+				sourceAppName: "Comprovante PDF",
+				originalText: data.originalText,
+				notificationTimestamp: new Date(),
+				parsedName: data.parsedName ?? null,
+				parsedAmount: data.parsedAmount?.toString(),
+				parsedDate: data.parsedDate ? new Date(data.parsedDate) : null,
+				attachmentId: attachment.id,
+				status: "pending",
+			})
+			.returning({ id: inboxItems.id });
+
+		if (!inserted) {
+			return { success: false, error: "Erro ao criar item na inbox." };
+		}
+
+		revalidateInbox(user.id);
+
+		return {
+			success: true,
+			message: "Comprovante enviado para revisão.",
+			data: { inboxItemId: inserted.id },
+		};
+	} catch (error) {
+		const result = handleActionError(error);
+		return {
+			success: false,
+			error: result.success ? "Ocorreu um erro inesperado." : result.error,
+		};
 	}
 }
