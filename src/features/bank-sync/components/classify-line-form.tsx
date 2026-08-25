@@ -24,6 +24,7 @@ interface ClassifyLineFormProps {
 	payerOptions: SelectOption[];
 	defaultPayerId: string | null;
 	accountOptions: SelectOption[];
+	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
 	onDone: (transactionId: string) => void;
 }
@@ -39,9 +40,11 @@ export function ClassifyLineForm({
 	payerOptions,
 	defaultPayerId,
 	accountOptions,
+	cardOptions,
 	categoryOptions,
 	onDone,
 }: ClassifyLineFormProps) {
+	const isCardLine = line.pluggyAccountType === "CREDIT";
 	const [isSaving, setIsSaving] = useState(false);
 	const [transactionType, setTransactionType] = useState<"Despesa" | "Receita">(
 		line.type === "receita" ? "Receita" : "Despesa",
@@ -54,6 +57,7 @@ export function ClassifyLineForm({
 	const [accountId, setAccountId] = useState<string | null>(
 		line.linkedFinancialAccountId,
 	);
+	const [cardId, setCardId] = useState<string | null>(line.linkedCardId);
 	const [categoryId, setCategoryId] = useState<string | null>(line.categoryId);
 	const [payerId, setPayerId] = useState<string | null>(defaultPayerId);
 	const [paymentMethod, setPaymentMethod] = useState("Pix");
@@ -65,6 +69,7 @@ export function ClassifyLineForm({
 		setDescription(line.description);
 		setPurchaseDate(toDateOnlyString(line.date) ?? "");
 		setAccountId(line.linkedFinancialAccountId);
+		setCardId(line.linkedCardId);
 		setCategoryId(line.categoryId);
 		setPayerId(defaultPayerId);
 		setPaymentMethod("Pix");
@@ -80,20 +85,28 @@ export function ClassifyLineForm({
 		: null;
 
 	const canSave =
-		!!accountId && !!categoryId && !!purchaseDate && !!description.trim();
+		!!(isCardLine ? cardId : accountId) &&
+		!!categoryId &&
+		!!purchaseDate &&
+		!!description.trim();
 
 	const handleSubmit = async () => {
-		if (!canSave || !accountId || !categoryId) return;
+		if (!canSave || !categoryId) return;
+		if (isCardLine && !cardId) return;
+		if (!isCardLine && !accountId) return;
 		setIsSaving(true);
 		try {
 			const result = await createTransactionAction({
 				name: description,
 				transactionType,
 				amount: Number(amount),
-				paymentMethod: paymentMethod as (typeof PAYMENT_METHODS)[number],
+				paymentMethod: isCardLine
+					? "Cartão de crédito"
+					: (paymentMethod as (typeof PAYMENT_METHODS)[number]),
 				condition: "À vista",
 				purchaseDate,
-				accountId,
+				accountId: isCardLine ? null : accountId,
+				cardId: isCardLine ? cardId : null,
 				categoryId,
 				payerId,
 				isSettled: true,
@@ -158,20 +171,26 @@ export function ClassifyLineForm({
 				</div>
 				<div className="space-y-1.5">
 					<Label>Forma de pagamento</Label>
-					<Select value={paymentMethod} onValueChange={setPaymentMethod}>
-						<SelectTrigger className="w-full">
-							<SelectValue />
-						</SelectTrigger>
-						<SelectContent>
-							{PAYMENT_METHODS.filter((m) => m !== "Cartão de crédito").map(
-								(method) => (
-									<SelectItem key={method} value={method}>
-										{method}
-									</SelectItem>
-								),
-							)}
-						</SelectContent>
-					</Select>
+					{isCardLine ? (
+						<div className="flex h-9 items-center rounded-md border bg-muted/40 px-3 text-muted-foreground text-sm">
+							Cartão de crédito
+						</div>
+					) : (
+						<Select value={paymentMethod} onValueChange={setPaymentMethod}>
+							<SelectTrigger className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								{PAYMENT_METHODS.filter((m) => m !== "Cartão de crédito").map(
+									(method) => (
+										<SelectItem key={method} value={method}>
+											{method}
+										</SelectItem>
+									),
+								)}
+							</SelectContent>
+						</Select>
+					)}
 				</div>
 			</div>
 
@@ -185,19 +204,34 @@ export function ClassifyLineForm({
 
 			<div className="grid grid-cols-2 gap-4">
 				<div className="space-y-1.5">
-					<Label>Conta *</Label>
-					<Select value={accountId ?? undefined} onValueChange={setAccountId}>
-						<SelectTrigger className="w-full">
-							<SelectValue placeholder="Selecione" />
-						</SelectTrigger>
-						<SelectContent>
-							{accountOptions.map((opt) => (
-								<SelectItem key={opt.value} value={opt.value}>
-									{opt.label}
-								</SelectItem>
-							))}
-						</SelectContent>
-					</Select>
+					<Label>{isCardLine ? "Cartão *" : "Conta *"}</Label>
+					{isCardLine ? (
+						<Select value={cardId ?? undefined} onValueChange={setCardId}>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="Selecione" />
+							</SelectTrigger>
+							<SelectContent>
+								{cardOptions.map((opt) => (
+									<SelectItem key={opt.value} value={opt.value}>
+										{opt.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					) : (
+						<Select value={accountId ?? undefined} onValueChange={setAccountId}>
+							<SelectTrigger className="w-full">
+								<SelectValue placeholder="Selecione" />
+							</SelectTrigger>
+							<SelectContent>
+								{accountOptions.map((opt) => (
+									<SelectItem key={opt.value} value={opt.value}>
+										{opt.label}
+									</SelectItem>
+								))}
+							</SelectContent>
+						</Select>
+					)}
 				</div>
 				<div className="space-y-1.5">
 					<Label>Categoria *</Label>

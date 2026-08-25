@@ -1,5 +1,6 @@
 import {
 	RiAttachment2,
+	RiBankLine,
 	RiChat1Line,
 	RiGroupLine,
 	RiTimeLine,
@@ -50,6 +51,7 @@ type BuildColumnsArgs = {
 	onViewAnticipationHistory?: (item: TransactionItem) => void;
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
+	onReconcile?: (item: TransactionItem) => void;
 	isSettlementLoading: (id: string) => boolean;
 	showActions: boolean;
 	showDateGroups: boolean;
@@ -115,6 +117,7 @@ function buildColumns({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onReconcile,
 	isSettlementLoading,
 	showActions,
 	showDateGroups,
@@ -177,6 +180,7 @@ function buildColumns({
 					isDivided,
 					isAnticipated,
 					hasAttachments,
+					isReconciled,
 					isSettled,
 				} = row.original;
 
@@ -325,6 +329,23 @@ function buildColumns({
 											</span>
 										</TooltipTrigger>
 										<TooltipContent side="top">Possui anexos</TooltipContent>
+									</Tooltip>
+								) : null}
+
+								{isReconciled ? (
+									<Tooltip>
+										<TooltipTrigger asChild>
+											<span className="inline-flex rounded-full p-1">
+												<RiBankLine
+													className="h-4 w-4 text-success"
+													aria-hidden
+												/>
+												<span className="sr-only">Conciliado com o banco</span>
+											</span>
+										</TooltipTrigger>
+										<TooltipContent side="top">
+											Conciliado com o banco
+										</TooltipContent>
 									</Tooltip>
 								) : null}
 							</span>
@@ -577,6 +598,7 @@ function buildColumns({
 						onConvertToRecurring={
 							onConvertToRecurring ? handleConvertToRecurring : undefined
 						}
+						onReconcile={onReconcile}
 					/>
 				</div>
 			),

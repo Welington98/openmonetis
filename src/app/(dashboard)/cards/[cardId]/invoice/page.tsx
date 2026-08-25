@@ -139,6 +139,8 @@ export default async function Page({ params, searchParams }: PageProps) {
 		currentInvoiceAmount: 0,
 		currentInvoiceLabel: "",
 		currentInvoiceStatus: null,
+		bankConnectionId: null,
+		pluggyConnectorName: null,
 	};
 
 	const { totalAmount, invoiceStatus, paymentDate } = invoiceData;

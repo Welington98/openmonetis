@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { TRANSACTION_CONDITIONS } from "@/features/transactions/lib/constants";
+import {
+	INDEFINITE_RECURRENCE_MONTHS,
+	TRANSACTION_CONDITIONS,
+} from "@/features/transactions/lib/constants";
 import { Label } from "@/shared/components/ui/label";
 import {
 	Popover,
@@ -180,19 +183,32 @@ export function ConditionSection({
 					>
 						<SelectTrigger id="recurrenceCount" className="w-full">
 							<SelectValue placeholder="Selecione">
-								{formState.recurrenceCount
-									? `${formState.recurrenceCount} meses`
-									: null}
+								{formState.recurrenceCount ===
+								String(INDEFINITE_RECURRENCE_MONTHS)
+									? "Sem prazo definido (fixo)"
+									: formState.recurrenceCount
+										? `${formState.recurrenceCount} meses`
+										: null}
 							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
-							{[...Array(47)].map((_, index) => (
+							<SelectItem value={String(INDEFINITE_RECURRENCE_MONTHS)}>
+								Sem prazo definido (fixo)
+							</SelectItem>
+							{[...Array(INDEFINITE_RECURRENCE_MONTHS - 2)].map((_, index) => (
 								<SelectItem key={index + 2} value={String(index + 2)}>
 									{index + 2} meses
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
+					{formState.recurrenceCount ===
+					String(INDEFINITE_RECURRENCE_MONTHS) ? (
+						<p className="text-muted-foreground text-xs">
+							Repete todo mês por {INDEFINITE_RECURRENCE_MONTHS / 12} anos. Pra
+							encerrar antes, apague as próximas ocorrências.
+						</p>
+					) : null}
 				</div>
 			) : null}
 		</div>

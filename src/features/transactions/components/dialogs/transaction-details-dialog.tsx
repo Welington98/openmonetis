@@ -7,6 +7,7 @@ import {
 	useEffect,
 	useState,
 } from "react";
+import { INDEFINITE_RECURRENCE_MONTHS } from "@/features/transactions/lib/constants";
 import {
 	currencyFormatter,
 	formatCondition,
@@ -298,7 +299,12 @@ export function TransactionDetailsDialog({
 								{transaction.recurrenceCount && (
 									<DetailRow
 										label="Quantidade de Recorrências"
-										value={`${transaction.recurrenceCount} meses`}
+										value={
+											transaction.recurrenceCount ===
+											INDEFINITE_RECURRENCE_MONTHS
+												? "Sem prazo definido (fixo)"
+												: `${transaction.recurrenceCount} meses`
+										}
 									/>
 								)}
 							</ul>

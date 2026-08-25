@@ -35,6 +35,7 @@ export type TransactionItem = {
 	seriesId: string | null;
 	splitGroupId: string | null;
 	hasAttachments: boolean;
+	isReconciled: boolean;
 	readonly?: boolean;
 };
 

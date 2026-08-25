@@ -6,6 +6,7 @@ import {
 	RiChat3Line,
 	RiDeleteBin5Line,
 	RiFileList2Line,
+	RiLink,
 	RiPencilLine,
 } from "@remixicon/react";
 import Image from "next/image";
@@ -46,9 +47,11 @@ interface CardItemProps {
 	accountName: string;
 	logo?: string | null;
 	note?: string | null;
+	pluggyConnectorName?: string | null;
 	onEdit?: () => void;
 	onInvoice?: () => void;
 	onRemove?: () => void;
+	onLinkPluggy?: () => void;
 }
 
 const formatDay = (value: string) => value.padStart(2, "0");
@@ -68,9 +71,11 @@ export function CardItem({
 	accountName: _accountName,
 	logo,
 	note,
+	pluggyConnectorName,
 	onEdit,
 	onInvoice,
 	onRemove,
+	onLinkPluggy,
 }: CardItemProps) {
 	void _accountName;
 
@@ -257,6 +262,16 @@ export function CardItem({
 					<RiFileList2Line className="size-4" aria-hidden />
 					fatura
 				</button>
+				{onLinkPluggy && (
+					<button
+						type="button"
+						onClick={onLinkPluggy}
+						className="flex items-center gap-1 font-medium text-primary transition-opacity hover:opacity-80"
+					>
+						<RiLink className="size-4" aria-hidden />
+						{pluggyConnectorName ? "vínculo pluggy" : "vincular pluggy"}
+					</button>
+				)}
 				<button
 					type="button"
 					onClick={onRemove}

@@ -20,6 +20,9 @@ const PROVIDER_ICON_PATHS: Partial<
 	minimax: {
 		light: "/providers/minimax.svg",
 	},
+	deepseek: {
+		light: "/providers/deepseek.svg",
+	},
 	openrouter: {
 		light: "/providers/openrouter_light.svg",
 		dark: "/providers/openrouter_dark.svg",

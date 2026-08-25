@@ -17,6 +17,9 @@ const PROVIDER_DETAILS: Record<AIProvider, { description: string }> = {
 	minimax: {
 		description: "Eficiente para grandes volumes de dados.",
 	},
+	deepseek: {
+		description: "Ótimo custo-benefício, muito mais barato que os outros.",
+	},
 	openrouter: {
 		description: "Acesso a múltiplos modelos via API.",
 	},

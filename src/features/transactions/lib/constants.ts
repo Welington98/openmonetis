@@ -10,6 +10,15 @@ export const TRANSACTION_CONDITIONS = [
 	"Recorrente",
 ] as const;
 
+/**
+ * "Repetirá por" em meses quando o usuário escolhe uma recorrência "sem
+ * prazo definido" (despesa/receita fixa) — não existe recorrência
+ * verdadeiramente infinita no modelo atual, então usamos um teto alto (5
+ * anos) que na prática cobre qualquer uso e pode ser encerrado a qualquer
+ * momento apagando as próximas ocorrências da série.
+ */
+export const INDEFINITE_RECURRENCE_MONTHS = 60;
+
 export const PAYMENT_METHODS = [
 	"Cartão de crédito",
 	"Cartão de débito",

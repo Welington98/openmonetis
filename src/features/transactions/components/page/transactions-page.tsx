@@ -3,6 +3,7 @@
 import { RiAddFill } from "@remixicon/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { ReconcileTransactionDialog } from "@/features/bank-sync/components/reconcile-transaction-dialog";
 import {
 	convertTransactionToInstallmentAction,
 	convertTransactionToRecurringAction,
@@ -63,6 +64,7 @@ import type {
 	TransactionFilterOption,
 	TransactionItem,
 } from "../types";
+import { MobileAddFab } from "./mobile-add-fab";
 
 interface TransactionsPageProps {
 	currentUserId: string;
@@ -219,6 +221,14 @@ export function TransactionsPage({
 		useState<TransactionItem | null>(null);
 	const [recurrenceCount, setRecurrenceCount] = useState("12");
 	const [recurrencePending, setRecurrencePending] = useState(false);
+	const [reconcileOpen, setReconcileOpen] = useState(false);
+	const [transactionToReconcile, setTransactionToReconcile] =
+		useState<TransactionItem | null>(null);
+
+	const handleReconcile = (item: TransactionItem) => {
+		setTransactionToReconcile(item);
+		setReconcileOpen(true);
+	};
 
 	const handleToggleSettlement = async (item: TransactionItem) => {
 		if (item.paymentMethod === "Cartão de crédito") {
@@ -742,6 +752,25 @@ export function TransactionsPage({
 
 	return (
 		<>
+			{allowCreate ? (
+				<MobileAddFab
+					payerOptions={payerOptions}
+					splitPayerOptions={splitPayerOptions}
+					defaultPayerId={defaultPayerId}
+					accountOptions={accountOptions}
+					cardOptions={cardOptions}
+					categoryOptions={categoryOptions}
+					estabelecimentos={estabelecimentos}
+					defaultPeriod={selectedPeriod}
+					defaultAccountId={defaultAccountId}
+					defaultCardId={defaultCardId}
+					defaultPaymentMethod={defaultPaymentMethod}
+					lockCardSelection={lockCardSelection}
+					lockPaymentMethod={lockPaymentMethod}
+					attachmentMaxSizeMb={attachmentMaxSizeMb}
+				/>
+			) : null}
+
 			<TransactionsTable
 				data={transactionList}
 				currentUserId={currentUserId}
@@ -766,6 +795,7 @@ export function TransactionsPage({
 				onRefund={handleRefund}
 				onConvertToInstallment={handleConvertToInstallment}
 				onConvertToRecurring={handleConvertToRecurring}
+				onReconcile={handleReconcile}
 				onToggleSettlement={handleToggleSettlement}
 				onAnticipate={handleAnticipate}
 				onViewAnticipationHistory={handleViewAnticipationHistory}
@@ -871,6 +901,21 @@ export function TransactionsPage({
 				cardOptions={cardOptions}
 			/>
 
+			{transactionToReconcile ? (
+				<ReconcileTransactionDialog
+					open={reconcileOpen}
+					onOpenChange={(open) => {
+						setReconcileOpen(open);
+						if (!open) {
+							setTransactionToReconcile(null);
+						}
+					}}
+					transactionId={transactionToReconcile.id}
+					transactionName={transactionToReconcile.name}
+					onDone={() => setTransactionToReconcile(null)}
+				/>
+			) : null}
+
 			<ConfirmActionDialog
 				open={deleteOpen && !!transactionToDelete}
 				onOpenChange={setDeleteOpen}
@@ -974,16 +1019,32 @@ export function TransactionsPage({
 
 					<div className="space-y-2">
 						<Label htmlFor="recurrenceCount">Repetir por</Label>
-						<Input
-							id="recurrenceCount"
-							type="number"
-							min={2}
-							max={60}
-							value={recurrenceCount}
-							onChange={(event) => setRecurrenceCount(event.target.value)}
-						/>
+						<div className="flex items-center gap-2">
+							<Input
+								id="recurrenceCount"
+								type="number"
+								min={2}
+								max={60}
+								value={recurrenceCount}
+								onChange={(event) => setRecurrenceCount(event.target.value)}
+								className="w-28"
+							/>
+							<span className="text-muted-foreground text-sm">meses</span>
+							<Button
+								type="button"
+								variant="link"
+								size="sm"
+								className="h-auto p-0"
+								onClick={() => setRecurrenceCount("60")}
+							>
+								Sem prazo definido (fixo)
+							</Button>
+						</div>
 						<p className="text-muted-foreground text-sm">
-							Use o total de meses da série, incluindo este lançamento.
+							Use o total de meses da série, incluindo este lançamento. Não há
+							recorrência infinita — "sem prazo definido" usa 60 meses (5 anos),
+							e você encerra antes disso quando quiser, apagando as próximas
+							ocorrências.
 						</p>
 						{recurringSummary ? (
 							<p className="rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">

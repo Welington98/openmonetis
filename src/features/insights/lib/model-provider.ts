@@ -1,4 +1,5 @@
 import { anthropic } from "@ai-sdk/anthropic";
+import { deepseek } from "@ai-sdk/deepseek";
 import { google } from "@ai-sdk/google";
 import { openai } from "@ai-sdk/openai";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
@@ -100,6 +101,10 @@ export function resolveInsightsModel(
 
 	if (selectedModel?.provider === "minimax") {
 		return { success: true, model: minimax(normalizedModelId) };
+	}
+
+	if (selectedModel?.provider === "deepseek") {
+		return { success: true, model: deepseek(normalizedModelId) };
 	}
 
 	return {

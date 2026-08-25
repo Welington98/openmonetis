@@ -15,6 +15,7 @@ import {
 	categories,
 	financialAccounts,
 	payers,
+	statementLines,
 	transactionAttachments,
 	transactions,
 } from "@/db/schema";
@@ -76,6 +77,7 @@ const mapTransactionRows = (
 		card: typeof cards.$inferSelect | null;
 		category: typeof categories.$inferSelect | null;
 		hasAttachments: boolean;
+		isReconciled: boolean;
 	}[],
 ) =>
 	transactionRows.map((row) => ({
@@ -85,6 +87,7 @@ const mapTransactionRows = (
 		card: row.card,
 		category: row.category,
 		hasAttachments: row.hasAttachments,
+		isReconciled: row.isReconciled,
 	}));
 
 async function selectTransactionsWithRelations({
@@ -104,6 +107,10 @@ async function selectTransactionsWithRelations({
 			hasAttachments: sql<boolean>`EXISTS (
 				SELECT 1 FROM ${transactionAttachments}
 				WHERE ${transactionAttachments.transactionId} = ${transactions.id}
+			)`,
+			isReconciled: sql<boolean>`EXISTS (
+				SELECT 1 FROM ${statementLines}
+				WHERE ${statementLines.matchedTransactionId} = ${transactions.id}
 			)`,
 		})
 		.from(transactions)

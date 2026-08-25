@@ -17,6 +17,8 @@ export type Card = {
 	currentInvoiceAmount: number;
 	currentInvoiceLabel: string;
 	currentInvoiceStatus: InvoicePaymentStatus | null;
+	bankConnectionId: string | null;
+	pluggyConnectorName: string | null;
 };
 
 export type CardFormValues = {

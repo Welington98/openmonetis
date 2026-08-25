@@ -11,6 +11,7 @@ import {
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
+	type BulkClassifySummary,
 	backfillStatementLineAccountsAction,
 	bulkImportStatementLinesAction,
 	deleteBankConnectionAction,
@@ -18,9 +19,11 @@ import {
 	suggestCategoriesForPendingLinesAction,
 	triggerManualSyncAction,
 } from "@/features/bank-sync/actions";
+import { BulkClassifyPanel } from "@/features/bank-sync/components/bulk-classify-panel";
 import { ClassifyLineForm } from "@/features/bank-sync/components/classify-line-form";
 import { ConnectBankButton } from "@/features/bank-sync/components/connect-bank-button";
 import { LinkAccountsDialog } from "@/features/bank-sync/components/link-accounts-dialog";
+import { LinkCardsDialog } from "@/features/bank-sync/components/link-cards-dialog";
 import { MatchExistingTab } from "@/features/bank-sync/components/match-existing-tab";
 import { RenameConnectionDialog } from "@/features/bank-sync/components/rename-connection-dialog";
 import type {
@@ -30,6 +33,7 @@ import type {
 import { ConfirmActionDialog } from "@/shared/components/confirm-action-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
 	Empty,
 	EmptyDescription,
@@ -68,10 +72,12 @@ export function ReconciliationWorkspace({
 	const {
 		connections,
 		linkedAccounts,
+		linkedCards,
 		pluggyConfigured,
 		payerOptions,
 		defaultPayerId,
 		accountOptions,
+		cardOptions,
 		categoryOptions,
 	} = data;
 
@@ -84,6 +90,7 @@ export function ReconciliationWorkspace({
 	const [search, setSearch] = useState("");
 	const [filter, setFilter] = useState<FilterKey>("todos");
 	const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
+	const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 	const [activeTab, setActiveTab] = useState<"classify" | "match">("classify");
 	const [connectionToDelete, setConnectionToDelete] = useState<{
 		id: string;
@@ -125,11 +132,55 @@ export function ReconciliationWorkspace({
 		scopedLines.find((l) => l.id === selectedLineId) ??
 		null;
 
+	const selectableLines = useMemo(
+		() => filteredLines.filter((l) => l.status === "unmatched"),
+		[filteredLines],
+	);
+	const allSelectableSelected =
+		selectableLines.length > 0 &&
+		selectableLines.every((l) => selectedIds.has(l.id));
+	const someSelectableSelected = selectableLines.some((l) =>
+		selectedIds.has(l.id),
+	);
+	const selectedLinesData = lines.filter((l) => selectedIds.has(l.id));
+
+	const toggleSelectAll = (checked: boolean) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			for (const l of selectableLines) {
+				if (checked) next.add(l.id);
+				else next.delete(l.id);
+			}
+			return next;
+		});
+	};
+
+	const toggleSelectLine = (lineId: string, checked: boolean) => {
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			if (checked) next.add(lineId);
+			else next.delete(lineId);
+			return next;
+		});
+	};
+
+	const handleBulkClassifyDone = (_summary: BulkClassifySummary) => {
+		// Como a action processa em massa e pode pular linhas sem conta/categoria,
+		// não dá pra saber localmente quais ids específicos foram conciliados —
+		// mesma limitação já existente nas outras ações em massa desta tela
+		// (Importar todos, Sugerir categorias). `revalidateBankSync` no server
+		// atualiza os dados na próxima navegação/refetch.
+		setSelectedIds(new Set());
+	};
+
 	const selectedConnection = connections.find(
 		(c) => c.id === selectedConnectionId,
 	);
 	const linkedAccountsForConnection = linkedAccounts.filter(
 		(a) => a.connectionId === selectedConnectionId,
+	);
+	const linkedCardsForConnection = linkedCards.filter(
+		(c) => c.connectionId === selectedConnectionId,
 	);
 
 	const selectNext = (fromId: string) => {
@@ -265,8 +316,10 @@ export function ReconciliationWorkspace({
 									{connection.connectorName}
 									{linkedAccounts.filter(
 										(a) => a.connectionId === connection.id,
-									).length === 0
-										? " (sem conta vinculada)"
+									).length === 0 &&
+									linkedCards.filter((c) => c.connectionId === connection.id)
+										.length === 0
+										? " (sem conta/cartão vinculado)"
 										: ""}
 								</SelectItem>
 							))}
@@ -284,19 +337,27 @@ export function ReconciliationWorkspace({
 								connectorName={selectedConnection.connectorName}
 								accountOptions={accountOptions}
 							/>
+							<LinkCardsDialog
+								connectionId={selectedConnection.id}
+								connectorName={selectedConnection.connectorName}
+								cardOptions={cardOptions}
+							/>
 						</>
 					)}
 				</div>
 				<ConnectBankButton pluggyConfigured={pluggyConfigured} />
 			</div>
 
-			{selectedConnection && linkedAccountsForConnection.length === 0 && (
-				<p className="text-amber-600 text-xs">
-					Essa conexão ainda não tem nenhuma conta vinculada — as transações
-					sincronizadas aparecem na lista, mas não vêm com a conta
-					pré-selecionada até você clicar em "Vincular contas".
-				</p>
-			)}
+			{selectedConnection &&
+				linkedAccountsForConnection.length === 0 &&
+				linkedCardsForConnection.length === 0 && (
+					<p className="text-amber-600 text-xs">
+						Essa conexão ainda não tem nenhuma conta ou cartão vinculado — as
+						transações sincronizadas aparecem na lista, mas não vêm com o
+						destino pré-selecionado até você clicar em "Vincular contas" ou
+						"Vincular cartões".
+					</p>
+				)}
 
 			<div className="flex flex-wrap items-center gap-2">
 				<Button
@@ -385,6 +446,21 @@ export function ReconciliationWorkspace({
 								</button>
 							))}
 						</div>
+						{selectableLines.length > 0 && (
+							<label className="flex items-center gap-2 px-0.5 text-muted-foreground text-xs">
+								<Checkbox
+									checked={
+										allSelectableSelected ||
+										(someSelectableSelected && "indeterminate")
+									}
+									onCheckedChange={(v) => toggleSelectAll(!!v)}
+									aria-label="Selecionar todos os pendentes"
+								/>
+								{selectedIds.size > 0
+									? `${selectedIds.size} selecionado(s)`
+									: "Selecionar todos os pendentes"}
+							</label>
+						)}
 					</div>
 
 					<div className="flex max-h-[60vh] flex-col gap-1 overflow-y-auto px-2 pb-2">
@@ -396,47 +472,60 @@ export function ReconciliationWorkspace({
 							filteredLines.map((line) => {
 								const isSelected = line.id === selectedLineId;
 								const isDespesa = line.type === "despesa";
+								const isChecked = selectedIds.has(line.id);
 								return (
-									<button
+									<div
 										key={line.id}
-										type="button"
-										onClick={() => {
-											setSelectedLineId(line.id);
-											setActiveTab("classify");
-										}}
-										className={`flex flex-col gap-1 rounded-md border p-2.5 text-left text-sm transition-colors ${
+										className={`flex items-start gap-2 rounded-md border p-2.5 text-sm transition-colors ${
 											isSelected
 												? "border-primary bg-accent"
 												: "border-transparent hover:bg-accent"
 										}`}
 									>
-										<div className="flex items-center justify-between gap-2">
-											<span className="truncate font-medium">
-												{line.description}
-											</span>
-											<span
-												className={
-													isDespesa
-														? "text-destructive shrink-0"
-														: "shrink-0 text-emerald-600"
-												}
-											>
-												{isDespesa ? "-" : "+"}
-												{formatCurrency(Math.abs(Number(line.amount)))}
-											</span>
-										</div>
-										<div className="flex items-center gap-2 text-muted-foreground text-xs">
-											<span>{formatDateOnly(line.date)}</span>
-											{line.categoryName && (
-												<Badge variant="outline" className="text-[10px]">
-													{line.categoryName}
-												</Badge>
-											)}
-											{line.status === "matched" && (
-												<RiCheckLine className="size-3.5 text-emerald-600" />
-											)}
-										</div>
-									</button>
+										{line.status === "unmatched" && (
+											<Checkbox
+												className="mt-1 shrink-0"
+												checked={isChecked}
+												onCheckedChange={(v) => toggleSelectLine(line.id, !!v)}
+												aria-label={`Selecionar ${line.description}`}
+											/>
+										)}
+										<button
+											type="button"
+											onClick={() => {
+												setSelectedLineId(line.id);
+												setActiveTab("classify");
+											}}
+											className="flex flex-1 flex-col gap-1 text-left"
+										>
+											<div className="flex items-center justify-between gap-2">
+												<span className="truncate font-medium">
+													{line.description}
+												</span>
+												<span
+													className={
+														isDespesa
+															? "text-destructive shrink-0"
+															: "shrink-0 text-emerald-600"
+													}
+												>
+													{isDespesa ? "-" : "+"}
+													{formatCurrency(Math.abs(Number(line.amount)))}
+												</span>
+											</div>
+											<div className="flex items-center gap-2 text-muted-foreground text-xs">
+												<span>{formatDateOnly(line.date)}</span>
+												{line.categoryName && (
+													<Badge variant="outline" className="text-[10px]">
+														{line.categoryName}
+													</Badge>
+												)}
+												{line.status === "matched" && (
+													<RiCheckLine className="size-3.5 text-emerald-600" />
+												)}
+											</div>
+										</button>
+									</div>
 								);
 							})
 						)}
@@ -444,7 +533,17 @@ export function ReconciliationWorkspace({
 				</div>
 
 				<div className="rounded-lg border p-4">
-					{!selectedLine ? (
+					{selectedIds.size > 0 ? (
+						<BulkClassifyPanel
+							selectedLines={selectedLinesData}
+							payerOptions={payerOptions}
+							accountOptions={accountOptions}
+							cardOptions={cardOptions}
+							categoryOptions={categoryOptions}
+							onDone={handleBulkClassifyDone}
+							onCancel={() => setSelectedIds(new Set())}
+						/>
+					) : !selectedLine ? (
 						<div className="flex h-full min-h-64 items-center justify-center text-muted-foreground text-sm">
 							Selecione uma transação à esquerda para classificar ou conciliar.
 						</div>
@@ -492,6 +591,7 @@ export function ReconciliationWorkspace({
 										payerOptions={payerOptions}
 										defaultPayerId={defaultPayerId}
 										accountOptions={accountOptions}
+										cardOptions={cardOptions}
 										categoryOptions={categoryOptions}
 										onDone={() =>
 											handleLineResolved(selectedLine.id, "matched")

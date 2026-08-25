@@ -5,6 +5,7 @@ import {
 	RiArrowRightDownLine,
 	RiArrowRightUpLine,
 	RiAttachment2,
+	RiBankLine,
 	RiCalendarEventLine,
 	RiChat1Line,
 	RiGroupLine,
@@ -42,6 +43,7 @@ type TransactionsMobileListProps = {
 	onViewAnticipationHistory?: (item: TransactionItem) => void;
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
+	onReconcile?: (item: TransactionItem) => void;
 	isSettlementLoading: (id: string) => boolean;
 	showActions?: boolean;
 	showDateGroups?: boolean;
@@ -61,6 +63,7 @@ export function TransactionsMobileList({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onReconcile,
 	isSettlementLoading,
 	showActions = true,
 	showDateGroups = true,
@@ -102,6 +105,7 @@ export function TransactionsMobileList({
 						onViewAnticipationHistory={onViewAnticipationHistory}
 						onConvertToInstallment={onConvertToInstallment}
 						onConvertToRecurring={onConvertToRecurring}
+						onReconcile={onReconcile}
 						isSettlementLoading={isSettlementLoading}
 						showActions={showActions}
 						showDate
@@ -138,6 +142,7 @@ export function TransactionsMobileList({
 								onViewAnticipationHistory={onViewAnticipationHistory}
 								onConvertToInstallment={onConvertToInstallment}
 								onConvertToRecurring={onConvertToRecurring}
+								onReconcile={onReconcile}
 								isSettlementLoading={isSettlementLoading}
 								showActions={showActions}
 							/>
@@ -168,6 +173,7 @@ function TransactionMobileCard({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onReconcile,
 	isSettlementLoading,
 	showActions = true,
 	showDate = false,
@@ -320,6 +326,11 @@ function TransactionMobileCard({
 									<RiAttachment2 className="size-3.5" aria-hidden />
 								</IconBadge>
 							) : null}
+							{item.isReconciled ? (
+								<IconBadge label="Conciliado com o banco" compact>
+									<RiBankLine className="size-3.5 text-success" aria-hidden />
+								</IconBadge>
+							) : null}
 						</div>
 						{showActions ? (
 							<div className="flex shrink-0 items-center gap-1">
@@ -341,6 +352,7 @@ function TransactionMobileCard({
 									onViewAnticipationHistory={onViewAnticipationHistory}
 									onConvertToInstallment={onConvertToInstallment}
 									onConvertToRecurring={onConvertToRecurring}
+									onReconcile={onReconcile}
 								/>
 							</div>
 						) : null}
