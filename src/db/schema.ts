@@ -404,6 +404,45 @@ export const budgets = pgTable(
 	}),
 );
 
+export const savingsGoals = pgTable(
+	"metas",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		description: text("descricao").notNull(),
+		targetAmount: numeric("valor_alvo", { precision: 12, scale: 2 }).notNull(),
+		startDate: date("data_inicio", { mode: "date" }).notNull(),
+		targetDate: date("data_alvo", { mode: "date" }).notNull(),
+		destinationAccountId: uuid("conta_destino_id")
+			.notNull()
+			.references(() => financialAccounts.id, { onDelete: "cascade" }),
+		startingBalance: numeric("saldo_inicial", {
+			precision: 12,
+			scale: 2,
+		}).notNull(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		createdAt: timestamp("created_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdIdx: index("metas_user_id_idx").on(table.userId),
+		destinationAccountIdIdx: index("metas_conta_destino_id_idx").on(
+			table.destinationAccountId,
+		),
+	}),
+);
+
 export const notes = pgTable(
 	"anotacoes",
 	{
@@ -755,6 +794,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	invoices: many(invoices),
 	transactions: many(transactions),
 	budgets: many(budgets),
+	savingsGoals: many(savingsGoals),
 	payers: many(payers),
 	installmentAnticipations: many(installmentAnticipations),
 	apiTokens: many(apiTokens),
@@ -785,6 +825,7 @@ export const financialAccountsRelations = relations(
 		}),
 		cards: many(cards),
 		transactions: many(transactions),
+		savingsGoals: many(savingsGoals),
 	}),
 );
 
@@ -853,6 +894,17 @@ export const budgetsRelations = relations(budgets, ({ one }) => ({
 	category: one(categories, {
 		fields: [budgets.categoryId],
 		references: [categories.id],
+	}),
+}));
+
+export const savingsGoalsRelations = relations(savingsGoals, ({ one }) => ({
+	user: one(user, {
+		fields: [savingsGoals.userId],
+		references: [user.id],
+	}),
+	destinationAccount: one(financialAccounts, {
+		fields: [savingsGoals.destinationAccountId],
+		references: [financialAccounts.id],
 	}),
 }));
 
@@ -1055,6 +1107,7 @@ export type Payer = typeof payers.$inferSelect;
 export type Card = typeof cards.$inferSelect;
 export type Invoice = typeof invoices.$inferSelect;
 export type Budget = typeof budgets.$inferSelect;
+export type SavingsGoal = typeof savingsGoals.$inferSelect;
 export type Note = typeof notes.$inferSelect;
 export type SavedInsight = typeof savedInsights.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
