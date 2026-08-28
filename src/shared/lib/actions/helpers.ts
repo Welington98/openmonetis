@@ -37,6 +37,7 @@ const revalidateConfig = {
 	inbox: ["/inbox", "/transactions", "/dashboard"],
 	attachments: ["/attachments"],
 	bankSync: ["/bank-sync", "/accounts", "/transactions"],
+	googleCalendar: ["/settings", "/calendar"],
 } as const;
 
 /** Entities whose mutations should invalidate the dashboard cache */

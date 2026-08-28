@@ -2,7 +2,9 @@ import { RiAndroidLine, RiArrowRightSLine } from "@remixicon/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
-
+import { GoogleCalendarTab } from "@/features/google-calendar/components/google-calendar-tab";
+import { isGoogleCalendarConfigured } from "@/features/google-calendar/lib/google-calendar-client";
+import { fetchGoogleCalendarConnectionStatus } from "@/features/google-calendar/queries";
 import { CompanionTab } from "@/features/settings/components/companion-tab";
 import { DeleteAccountForm } from "@/features/settings/components/delete-account-form";
 import { PasskeysForm } from "@/features/settings/components/passkeys-form";
@@ -11,6 +13,10 @@ import { UpdateEmailForm } from "@/features/settings/components/update-email-for
 import { UpdateNameForm } from "@/features/settings/components/update-name-form";
 import { UpdatePasswordForm } from "@/features/settings/components/update-password-form";
 import { fetchSettingsPageData } from "@/features/settings/queries";
+import {
+	getSingleParam,
+	type ResolvedSearchParams,
+} from "@/features/transactions/lib/page-helpers";
 import { Card } from "@/shared/components/ui/card";
 import { Separator } from "@/shared/components/ui/separator";
 import {
@@ -21,7 +27,11 @@ import {
 } from "@/shared/components/ui/tabs";
 import { auth } from "@/shared/lib/auth/config";
 
-export default async function Page() {
+type PageProps = {
+	searchParams?: Promise<ResolvedSearchParams>;
+};
+
+export default async function Page({ searchParams }: PageProps) {
 	await connection();
 	const session = await auth.api.getSession({
 		headers: await headers(),
@@ -34,18 +44,28 @@ export default async function Page() {
 	const userName = session.user.name || "";
 	const userEmail = session.user.email || "";
 
-	const { authProvider, userPreferences, userApiTokens } =
-		await fetchSettingsPageData(session.user.id);
+	const resolvedParams = searchParams ? await searchParams : undefined;
+	const googleCalendarParam = getSingleParam(resolvedParams, "googleCalendar");
+	const defaultTab = googleCalendarParam ? "google-agenda" : "preferencias";
+
+	const [
+		{ authProvider, userPreferences, userApiTokens },
+		googleCalendarStatus,
+	] = await Promise.all([
+		fetchSettingsPageData(session.user.id),
+		fetchGoogleCalendarConnectionStatus(session.user.id),
+	]);
 
 	return (
 		<div className="w-full">
-			<Tabs defaultValue="preferencias" className="w-full">
+			<Tabs defaultValue={defaultTab} className="w-full">
 				{/* No mobile: rolagem horizontal + seta indicando mais opções à direita */}
 				<div className="relative -mx-6 px-6 md:mx-0 md:px-0">
 					<div className="overflow-x-auto overflow-y-hidden scroll-smooth md:overflow-visible [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 						<TabsList className="inline-flex w-max flex-nowrap md:w-full">
 							<TabsTrigger value="preferencias">Preferências</TabsTrigger>
 							<TabsTrigger value="companion">Companion</TabsTrigger>
+							<TabsTrigger value="google-agenda">Google Agenda</TabsTrigger>
 							<TabsTrigger value="nome">Alterar nome</TabsTrigger>
 							<TabsTrigger value="senha">Alterar senha</TabsTrigger>
 							<TabsTrigger value="passkeys">Passkeys</TabsTrigger>
@@ -120,6 +140,26 @@ export default async function Page() {
 							</div>
 							<Separator />
 							<CompanionTab tokens={userApiTokens} />
+						</div>
+					</Card>
+				</TabsContent>
+
+				<TabsContent value="google-agenda" className="mt-4">
+					<Card className="p-6">
+						<div className="space-y-4">
+							<div>
+								<h2 className="text-xl font-semibold mb-1">Google Agenda</h2>
+								<p className="text-sm text-muted-foreground">
+									Sincronize vencimentos e lançamentos do OpenMonetis com uma
+									agenda dedicada no seu Google Agenda.
+								</p>
+							</div>
+							<Separator />
+							<GoogleCalendarTab
+								configured={isGoogleCalendarConfigured()}
+								isConnected={googleCalendarStatus.isConnected}
+								lastSyncedAt={googleCalendarStatus.lastSyncedAt}
+							/>
 						</div>
 					</Card>
 				</TabsContent>
