@@ -6,6 +6,7 @@ export type AIProvider =
 	| "anthropic"
 	| "google"
 	| "minimax"
+	| "deepseek"
 	| "openrouter"
 	| "ollama";
 
@@ -28,6 +29,10 @@ export const PROVIDERS = {
 	minimax: {
 		id: "minimax" as const,
 		name: "MiniMax",
+	},
+	deepseek: {
+		id: "deepseek" as const,
+		name: "DeepSeek",
 	},
 	openrouter: {
 		id: "openrouter" as const,
@@ -119,6 +124,28 @@ export const AVAILABLE_MODELS = [
 		id: "MiniMax-M2",
 		name: "MiniMax M2",
 		provider: "minimax" as const,
+	},
+
+	// DeepSeek
+	{
+		id: "deepseek-chat",
+		name: "DeepSeek V3.2 (Chat)",
+		provider: "deepseek" as const,
+	},
+	{
+		id: "deepseek-reasoner",
+		name: "DeepSeek V3.2 (Reasoner)",
+		provider: "deepseek" as const,
+	},
+	{
+		id: "deepseek-v4-flash",
+		name: "DeepSeek V4 Flash",
+		provider: "deepseek" as const,
+	},
+	{
+		id: "deepseek-v4-pro",
+		name: "DeepSeek V4 Pro",
+		provider: "deepseek" as const,
 	},
 
 	// Ollama

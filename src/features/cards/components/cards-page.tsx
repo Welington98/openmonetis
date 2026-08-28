@@ -4,6 +4,8 @@ import { RiAddFill, RiBankCard2Line } from "@remixicon/react";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import type { BankConnectionOption } from "@/features/bank-sync/components/link-account-to-pluggy-dialog";
+import { LinkCardToPluggyDialog } from "@/features/bank-sync/components/link-card-to-pluggy-dialog";
 import { deleteCardAction } from "@/features/cards/actions";
 import { ConfirmActionDialog } from "@/shared/components/confirm-action-dialog";
 import { EmptyState } from "@/shared/components/feedback/empty-state";
@@ -30,6 +32,7 @@ interface CardsPageProps {
 	archivedCards: CreditCard[];
 	accounts: AccountOption[];
 	logoOptions: string[];
+	bankConnections: BankConnectionOption[];
 }
 
 export function CardsPage({
@@ -37,6 +40,7 @@ export function CardsPage({
 	archivedCards,
 	accounts,
 	logoOptions,
+	bankConnections,
 }: CardsPageProps) {
 	const router = useRouter();
 	const [activeTab, setActiveTab] = useState("ativos");
@@ -44,6 +48,7 @@ export function CardsPage({
 	const [selectedCard, setSelectedCard] = useState<CreditCard | null>(null);
 	const [removeOpen, setRemoveOpen] = useState(false);
 	const [cardToRemove, setCardToRemove] = useState<CreditCard | null>(null);
+	const [pluggyLinkCard, setPluggyLinkCard] = useState<CreditCard | null>(null);
 
 	const orderedCards = useMemo(
 		() =>
@@ -148,9 +153,15 @@ export function CardsPage({
 						accountName={card.accountName}
 						logo={card.logo}
 						note={card.note}
+						pluggyConnectorName={card.pluggyConnectorName}
 						onEdit={() => handleEdit(card)}
 						onInvoice={() => handleInvoice(card)}
 						onRemove={() => handleRemoveRequest(card)}
+						onLinkPluggy={
+							bankConnections.length > 0
+								? () => setPluggyLinkCard(card)
+								: undefined
+						}
 					/>
 				))}
 			</div>
@@ -209,6 +220,17 @@ export function CardsPage({
 				confirmVariant="destructive"
 				onConfirm={handleRemoveConfirm}
 			/>
+
+			{pluggyLinkCard && (
+				<LinkCardToPluggyDialog
+					open={Boolean(pluggyLinkCard)}
+					onOpenChange={(open) => !open && setPluggyLinkCard(null)}
+					cardId={pluggyLinkCard.id}
+					cardName={pluggyLinkCard.name}
+					currentConnectorName={pluggyLinkCard.pluggyConnectorName}
+					connections={bankConnections}
+				/>
+			)}
 		</>
 	);
 }

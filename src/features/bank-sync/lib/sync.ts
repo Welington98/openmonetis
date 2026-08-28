@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import {
 	bankConnections,
+	cards,
 	financialAccounts,
 	statementLines,
 } from "@/db/schema";
@@ -55,24 +56,31 @@ export async function syncBankConnection(
 	const item = await fetchPluggyItem(connection.pluggyItemId);
 	const pluggyAccounts = await fetchPluggyAccounts(connection.pluggyItemId);
 
-	// Vincula contas locais já associadas a esta conexão, para saber a partir
-	// de quando buscar transações incrementalmente (evita reprocessar tudo).
-	const linkedAccounts = await db
-		.select({ id: financialAccounts.id })
-		.from(financialAccounts)
-		.where(
-			and(
-				eq(financialAccounts.userId, userId),
-				eq(financialAccounts.bankConnectionId, connectionId),
+	// Vincula contas/cartões locais já associados a esta conexão, para saber a
+	// partir de quando buscar transações incrementalmente (evita reprocessar
+	// tudo).
+	const [linkedAccounts, linkedCards] = await Promise.all([
+		db
+			.select({ id: financialAccounts.id })
+			.from(financialAccounts)
+			.where(
+				and(
+					eq(financialAccounts.userId, userId),
+					eq(financialAccounts.bankConnectionId, connectionId),
+				),
 			),
-		);
-	const hasLinkedAccounts = linkedAccounts.length > 0;
+		db
+			.select({ id: cards.id })
+			.from(cards)
+			.where(
+				and(eq(cards.userId, userId), eq(cards.bankConnectionId, connectionId)),
+			),
+	]);
+	const hasLinkedAccounts = linkedAccounts.length > 0 || linkedCards.length > 0;
 
 	let statementLinesCreated = 0;
 
 	for (const account of pluggyAccounts) {
-		if (account.type !== "BANK") continue; // cartão de crédito fica fora do v1
-
 		const dateFrom = hasLinkedAccounts
 			? (toDateOnlyString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) ??
 				undefined)
@@ -98,6 +106,7 @@ export async function syncBankConnection(
 				userId,
 				bankConnectionId: connectionId,
 				pluggyAccountId: transaction.accountId,
+				pluggyAccountType: account.type,
 				date: new Date(transaction.date),
 				description: transaction.description,
 				amount: Math.abs(transaction.amount).toFixed(2),

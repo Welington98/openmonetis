@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	RiBankLine,
 	RiCheckLine,
 	RiDeleteBin5Line,
 	RiFileCopyLine,
@@ -37,6 +38,7 @@ type TransactionActionsMenuProps = {
 	onViewAnticipationHistory?: (item: TransactionItem) => void;
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
+	onReconcile?: (item: TransactionItem) => void;
 };
 
 export function TransactionActionsMenu({
@@ -52,6 +54,7 @@ export function TransactionActionsMenu({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onReconcile,
 }: TransactionActionsMenuProps) {
 	const isOwnData = item.userId === currentUserId;
 	const canRefund =
@@ -148,6 +151,23 @@ export function TransactionActionsMenu({
 						{getConditionIcon("Recorrente")}
 						Converter em Recorrente
 					</DropdownMenuItem>
+				) : null}
+
+				{isOwnData ? (
+					item.isReconciled ? (
+						<DropdownMenuItem disabled>
+							<RiBankLine className="size-4 text-success" aria-hidden />
+							Conciliado com o banco
+						</DropdownMenuItem>
+					) : (
+						<DropdownMenuItem
+							onSelect={() => onReconcile?.(item)}
+							disabled={!onReconcile}
+						>
+							<RiBankLine className="size-4" aria-hidden />
+							Conciliar com extrato
+						</DropdownMenuItem>
+					)
 				) : null}
 
 				{isOwnData ? (

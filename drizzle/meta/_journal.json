@@ -281,6 +281,13 @@
       "when": 1787685048477,
       "tag": "0040_awesome_omega_flight",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1787690285004,
+      "tag": "0041_futuristic_kang",
+      "breakpoints": true
     }
   ]
 }

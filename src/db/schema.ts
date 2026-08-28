@@ -352,9 +352,20 @@ export const cards = pgTable(
 				onDelete: "cascade",
 				onUpdate: "cascade",
 			}),
+		bankConnectionId: uuid("conexao_bancaria_id").references(
+			(): AnyPgColumn => bankConnections.id,
+			{ onDelete: "set null" },
+		),
+		// Id da conta (tipo CREDIT) no Pluggy vinculada a este cartão local —
+		// mesmo papel de `financialAccounts.pluggyAccountId`, mas pro lado dos
+		// cartões de crédito.
+		pluggyAccountId: text("pluggy_conta_id"),
 	},
 	(table) => ({
 		accountIdIdx: index("cartoes_conta_id_idx").on(table.accountId),
+		pluggyAccountIdUnique: uniqueIndex("cartoes_pluggy_conta_id_key").on(
+			table.pluggyAccountId,
+		),
 	}),
 );
 
@@ -863,6 +874,12 @@ export const statementLines = pgTable(
 		// lançamento na revisão. Nullable: linhas sincronizadas antes deste
 		// campo existir não têm como ser retroativamente preenchidas.
 		pluggyAccountId: text("pluggy_conta_id"),
+		// "BANK" | "CREDIT" — tipo da conta no Pluggy que originou esta linha.
+		// Decide se a revisão mostra seletor de conta ou de cartão, mesmo antes
+		// de a conexão ter algo vinculado localmente (quando não dá pra
+		// descobrir isso só pelo pluggyAccountId). Nullable pelo mesmo motivo
+		// do campo acima.
+		pluggyAccountType: text("pluggy_conta_tipo"),
 		date: date("data", { mode: "date" }).notNull(),
 		description: text("descricao").notNull(),
 		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
@@ -910,6 +927,7 @@ export const bankConnectionsRelations = relations(
 		}),
 		statementLines: many(statementLines),
 		financialAccounts: many(financialAccounts),
+		cards: many(cards),
 	}),
 );
 
@@ -1029,6 +1047,10 @@ export const cardsRelations = relations(cards, ({ one, many }) => ({
 	financialAccount: one(financialAccounts, {
 		fields: [cards.accountId],
 		references: [financialAccounts.id],
+	}),
+	bankConnection: one(bankConnections, {
+		fields: [cards.bankConnectionId],
+		references: [bankConnections.id],
 	}),
 	invoices: many(invoices),
 	transactions: many(transactions),

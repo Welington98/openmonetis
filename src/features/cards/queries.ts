@@ -40,6 +40,8 @@ type CardData = {
 	currentInvoiceStatus: InvoicePaymentStatus | null;
 	accountId: string;
 	accountName: string;
+	bankConnectionId: string | null;
+	pluggyConnectorName: string | null;
 };
 
 type AccountSimple = {
@@ -90,6 +92,12 @@ async function fetchCardsByStatus(
 					columns: {
 						id: true,
 						name: true,
+					},
+				},
+				bankConnection: {
+					columns: {
+						nickname: true,
+						connectorName: true,
 					},
 				},
 			},
@@ -204,6 +212,17 @@ async function fetchCardsByStatus(
 		accountName:
 			(card.financialAccount as { name?: string } | null)?.name ??
 			"Conta não encontrada",
+		bankConnectionId: card.bankConnectionId,
+		pluggyConnectorName:
+			(
+				card.bankConnection as {
+					nickname?: string | null;
+					connectorName?: string;
+				} | null
+			)?.nickname ??
+			(card.bankConnection as { connectorName?: string } | null)
+				?.connectorName ??
+			null,
 	}));
 
 	const accounts = accountRows.map((account) => ({

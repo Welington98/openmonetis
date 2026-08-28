@@ -4,6 +4,7 @@ import { and, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
 import { z } from "zod";
 import {
 	bankConnections,
+	cards,
 	categories,
 	financialAccounts,
 	statementLines,
@@ -12,6 +13,7 @@ import {
 import { fetchStatementCategorizationMode } from "@/features/settings/queries";
 import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
 import { createTransactionAction } from "@/features/transactions/actions/single-actions";
+import type { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
 import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
 import {
 	handleActionError,
@@ -188,6 +190,16 @@ export async function deleteBankConnectionAction(
 				and(
 					eq(financialAccounts.userId, userId),
 					eq(financialAccounts.bankConnectionId, data.connectionId),
+				),
+			);
+
+		await db
+			.update(cards)
+			.set({ bankConnectionId: null })
+			.where(
+				and(
+					eq(cards.userId, userId),
+					eq(cards.bankConnectionId, data.connectionId),
 				),
 			);
 
@@ -477,6 +489,161 @@ export async function linkPluggyAccountAction(
 	}
 }
 
+export type PluggyCardLinkRow = {
+	pluggyAccountId: string;
+	name: string;
+	balance: number;
+	linkedCardId: string | null;
+};
+
+/**
+ * Lista as contas de cartão de crédito (tipo CREDIT) trazidas pelo Pluggy
+ * para uma conexão, já indicando qual cartão local (se algum) está vinculado
+ * a cada uma — para montar a tela de "vincular cartões".
+ */
+export async function fetchPluggyCardsForConnectionAction(
+	input: z.infer<typeof connectionIdSchema>,
+): Promise<ActionResult<{ cards: PluggyCardLinkRow[] }>> {
+	try {
+		const userId = await getUserId();
+		const data = connectionIdSchema.parse(input);
+
+		const [connection] = await db
+			.select({ pluggyItemId: bankConnections.pluggyItemId })
+			.from(bankConnections)
+			.where(
+				and(
+					eq(bankConnections.id, data.connectionId),
+					eq(bankConnections.userId, userId),
+				),
+			)
+			.limit(1);
+
+		if (!connection) {
+			return { success: false, error: "Conexão não encontrada." };
+		}
+
+		const [pluggyAccounts, linkedCards] = await Promise.all([
+			fetchPluggyAccounts(connection.pluggyItemId),
+			db
+				.select({
+					id: cards.id,
+					pluggyAccountId: cards.pluggyAccountId,
+				})
+				.from(cards)
+				.where(
+					and(
+						eq(cards.userId, userId),
+						eq(cards.bankConnectionId, data.connectionId),
+					),
+				),
+		]);
+
+		const linkedByPluggyId = new Map(
+			linkedCards
+				.filter((row) => row.pluggyAccountId)
+				.map((row) => [row.pluggyAccountId as string, row.id]),
+		);
+
+		const cardResults = pluggyAccounts
+			.filter((account) => account.type === "CREDIT")
+			.map((account) => ({
+				pluggyAccountId: account.id,
+				name: account.name,
+				balance: account.balance,
+				linkedCardId: linkedByPluggyId.get(account.id) ?? null,
+			}));
+
+		return {
+			success: true,
+			message: "Cartões carregados.",
+			data: { cards: cardResults },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<{
+			cards: PluggyCardLinkRow[];
+		}>;
+	}
+}
+
+const linkPluggyCardSchema = z.object({
+	connectionId: z.string().uuid("Conexão inválida."),
+	pluggyAccountId: z.string().min(1, "Cartão do Pluggy inválido."),
+	cardId: z.string().uuid("Cartão inválido.").nullable(),
+});
+
+/**
+ * Vincula (ou desvincula, se `cardId` for null) uma conta de cartão do
+ * Pluggy a um cartão local — mesma lógica de `linkPluggyAccountAction`, pro
+ * lado dos cartões de crédito.
+ */
+export async function linkPluggyCardAction(
+	input: z.infer<typeof linkPluggyCardSchema>,
+): Promise<ActionResult> {
+	try {
+		const userId = await getUserId();
+		const data = linkPluggyCardSchema.parse(input);
+
+		const [connection] = await db
+			.select({ id: bankConnections.id })
+			.from(bankConnections)
+			.where(
+				and(
+					eq(bankConnections.id, data.connectionId),
+					eq(bankConnections.userId, userId),
+				),
+			)
+			.limit(1);
+
+		if (!connection) {
+			return { success: false, error: "Conexão não encontrada." };
+		}
+
+		// Libera esse cartão do Pluggy de qualquer outro cartão local que o
+		// tivesse antes (o índice único não permite o mesmo cartão do Pluggy
+		// vinculado a dois cartões locais ao mesmo tempo).
+		await db
+			.update(cards)
+			.set({ bankConnectionId: null, pluggyAccountId: null })
+			.where(
+				and(
+					eq(cards.userId, userId),
+					eq(cards.pluggyAccountId, data.pluggyAccountId),
+				),
+			);
+
+		if (data.cardId) {
+			const [target] = await db
+				.select({ id: cards.id })
+				.from(cards)
+				.where(and(eq(cards.id, data.cardId), eq(cards.userId, userId)))
+				.limit(1);
+
+			if (!target) {
+				return { success: false, error: "Cartão local não encontrado." };
+			}
+
+			await db
+				.update(cards)
+				.set({
+					bankConnectionId: data.connectionId,
+					pluggyAccountId: data.pluggyAccountId,
+				})
+				.where(eq(cards.id, data.cardId));
+		}
+
+		revalidateBankSync(userId);
+		revalidateForEntity("cards", userId);
+
+		return {
+			success: true,
+			message: data.cardId ? "Cartão vinculado." : "Vínculo removido.",
+		};
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
 export async function markStatementLineMatchedAction(
 	input: z.infer<typeof statementLineIdSchema>,
 ): Promise<ActionResult> {
@@ -548,7 +715,8 @@ export async function bulkImportStatementLinesAction(
 		let skippedNoCategory = 0;
 
 		for (const line of lines) {
-			if (!line.linkedFinancialAccountId) {
+			const isCardLine = line.pluggyAccountType === "CREDIT";
+			if (isCardLine ? !line.linkedCardId : !line.linkedFinancialAccountId) {
 				skippedNoAccount++;
 				continue;
 			}
@@ -573,10 +741,11 @@ export async function bulkImportStatementLinesAction(
 				name: line.description,
 				transactionType: line.type === "receita" ? "Receita" : "Despesa",
 				amount: Number(line.amount),
-				paymentMethod: "Pix",
+				paymentMethod: isCardLine ? "Cartão de crédito" : "Pix",
 				condition: "À vista",
 				purchaseDate,
-				accountId: line.linkedFinancialAccountId,
+				accountId: isCardLine ? null : line.linkedFinancialAccountId,
+				cardId: isCardLine ? line.linkedCardId : null,
 				categoryId,
 				payerId: defaultPayerId,
 				isSettled: true,
@@ -602,7 +771,7 @@ export async function bulkImportStatementLinesAction(
 
 		const parts = [`${imported} lançamento(s) importado(s)`];
 		if (skippedNoAccount > 0) {
-			parts.push(`${skippedNoAccount} sem conta vinculada`);
+			parts.push(`${skippedNoAccount} sem conta/cartão vinculado`);
 		}
 		if (skippedNoCategory > 0) {
 			parts.push(`${skippedNoCategory} sem categoria conhecida`);
@@ -618,11 +787,130 @@ export async function bulkImportStatementLinesAction(
 	}
 }
 
+export type BulkClassifySummary = {
+	classified: number;
+	skippedNoAccount: number;
+	skippedNoCategory: number;
+};
+
 /**
- * Preenche `pluggy_conta_id` em linhas de extrato antigas, sincronizadas
- * antes desse campo existir (por isso vieram nulas e nunca casam com o
- * vínculo de conta feito em `linkPluggyAccountAction`). Rebusca o histórico
- * de transações de cada conta do Pluggy (mesmo endpoint do sync normal, sem
+ * Conciliação em massa: recebe um conjunto de linhas selecionadas pelo
+ * usuário (checkboxes na lista) e cria um lançamento para cada uma. Campos
+ * como categoria/conta/pessoa/forma de pagamento são opcionais — quando
+ * informados, valem pra todas as linhas selecionadas de uma vez; quando
+ * omitidos, cai no que a linha já tinha (categoria sugerida, conta vinculada
+ * pelo Pluggy). Linhas que já foram conciliadas (fora do escopo "unmatched")
+ * são ignoradas silenciosamente, mesma regra do restante da tela.
+ */
+const bulkClassifyStatementLinesSchema = z.object({
+	statementLineIds: z.array(z.string().uuid()).min(1),
+	categoryId: z.string().uuid().nullable().optional(),
+	accountId: z.string().uuid().nullable().optional(),
+	cardId: z.string().uuid().nullable().optional(),
+	payerId: z.string().uuid().nullable().optional(),
+	paymentMethod: z.string().min(1).optional(),
+});
+
+export async function bulkClassifyStatementLinesAction(
+	input: z.infer<typeof bulkClassifyStatementLinesSchema>,
+): Promise<ActionResult<BulkClassifySummary>> {
+	try {
+		const userId = await getUserId();
+		const data = bulkClassifyStatementLinesSchema.parse(input);
+
+		const [lines, { defaultPayerId }] = await Promise.all([
+			fetchStatementLines(userId, "unmatched"),
+			fetchBankSyncDialogData(userId),
+		]);
+
+		const selectedIds = new Set(data.statementLineIds);
+		const targetLines = lines.filter((line) => selectedIds.has(line.id));
+
+		let classified = 0;
+		let skippedNoAccount = 0;
+		let skippedNoCategory = 0;
+
+		for (const line of targetLines) {
+			const isCardLine = line.pluggyAccountType === "CREDIT";
+			const accountId = isCardLine
+				? null
+				: (data.accountId ?? line.linkedFinancialAccountId);
+			const cardId = isCardLine ? (data.cardId ?? line.linkedCardId) : null;
+			if (isCardLine ? !cardId : !accountId) {
+				skippedNoAccount++;
+				continue;
+			}
+
+			const categoryId = data.categoryId ?? line.categoryId;
+			if (!categoryId) {
+				skippedNoCategory++;
+				continue;
+			}
+
+			const purchaseDate = toDateOnlyString(line.date);
+			if (!purchaseDate) {
+				skippedNoCategory++;
+				continue;
+			}
+
+			const result = await createTransactionAction({
+				name: line.description,
+				transactionType: line.type === "receita" ? "Receita" : "Despesa",
+				amount: Number(line.amount),
+				paymentMethod: isCardLine
+					? "Cartão de crédito"
+					: ((data.paymentMethod ?? "Pix") as (typeof PAYMENT_METHODS)[number]),
+				condition: "À vista",
+				accountId,
+				cardId,
+				purchaseDate,
+				categoryId,
+				payerId: data.payerId ?? defaultPayerId,
+				isSettled: true,
+				isSplit: false,
+				note: null,
+			});
+
+			if (!result.success || !result.data) continue;
+
+			await db
+				.update(statementLines)
+				.set({
+					status: "matched",
+					matchedTransactionId: result.data.ids[0],
+				})
+				.where(eq(statementLines.id, line.id));
+
+			classified++;
+		}
+
+		revalidateBankSync(userId);
+		revalidateForEntity("transactions", userId);
+
+		const parts = [`${classified} lançamento(s) conciliado(s)`];
+		if (skippedNoAccount > 0) {
+			parts.push(`${skippedNoAccount} sem conta/cartão vinculado`);
+		}
+		if (skippedNoCategory > 0) {
+			parts.push(`${skippedNoCategory} sem categoria`);
+		}
+
+		return {
+			success: true,
+			message: `${parts.join(", ")}.`,
+			data: { classified, skippedNoAccount, skippedNoCategory },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<BulkClassifySummary>;
+	}
+}
+
+/**
+ * Preenche `pluggy_conta_id`/`pluggy_conta_tipo` em linhas de extrato antigas,
+ * sincronizadas antes desses campos existirem (por isso vieram nulos e nunca
+ * casam com o vínculo de conta/cartão feito em `linkPluggyAccountAction`/
+ * `linkPluggyCardAction`). Rebusca o histórico de transações de cada conta
+ * do Pluggy — banco ou cartão — (mesmo endpoint do sync normal, sem
  * `dateFrom` = histórico completo) e casa por `externalId` — não inventa
  * nada, só recupera um dado que já existia na API e não tinha sido salvo.
  */
@@ -653,16 +941,18 @@ export async function backfillStatementLineAccountsAction(): Promise<
 
 		for (const { connectionId, pluggyItemId } of pendingConnections) {
 			const accounts = await fetchPluggyAccounts(pluggyItemId);
-			const bankAccounts = accounts.filter((a) => a.type === "BANK");
 
-			for (const account of bankAccounts) {
+			for (const account of accounts) {
 				const transactions = await fetchPluggyTransactions(account.id);
 				const externalIds = transactions.map((t) => t.id);
 				if (externalIds.length === 0) continue;
 
 				const result = await db
 					.update(statementLines)
-					.set({ pluggyAccountId: account.id })
+					.set({
+						pluggyAccountId: account.id,
+						pluggyAccountType: account.type,
+					})
 					.where(
 						and(
 							eq(statementLines.userId, userId),
@@ -748,6 +1038,66 @@ export async function searchTransactionsToMatchAction(
 	} catch (error) {
 		return handleActionError(error) as ActionResult<{
 			transactions: TransactionMatchCandidate[];
+		}>;
+	}
+}
+
+export type StatementLineMatchCandidate = {
+	id: string;
+	description: string;
+	amount: string;
+	date: Date;
+	type: string;
+	categoryName: string | null;
+};
+
+const searchStatementLinesSchema = z.object({
+	query: z.string().trim().max(200),
+});
+
+/**
+ * Busca linhas de extrato ainda pendentes pra conciliar manualmente com um
+ * lançamento já existente — direção inversa de `searchTransactionsToMatchAction`,
+ * usada a partir da tela de Transações ("Conciliar com extrato").
+ */
+export async function searchUnmatchedStatementLinesAction(
+	input: z.infer<typeof searchStatementLinesSchema>,
+): Promise<ActionResult<{ lines: StatementLineMatchCandidate[] }>> {
+	try {
+		const userId = await getUserId();
+		const data = searchStatementLinesSchema.parse(input);
+
+		const conditions = [
+			eq(statementLines.userId, userId),
+			eq(statementLines.status, "unmatched"),
+		];
+		if (data.query.length > 0) {
+			conditions.push(ilike(statementLines.description, `%${data.query}%`));
+		}
+
+		const rows = await db
+			.select({
+				id: statementLines.id,
+				description: statementLines.description,
+				amount: statementLines.amount,
+				date: statementLines.date,
+				type: statementLines.type,
+				categoryName: categories.name,
+			})
+			.from(statementLines)
+			.leftJoin(categories, eq(statementLines.categoryId, categories.id))
+			.where(and(...conditions))
+			.orderBy(desc(statementLines.date))
+			.limit(25);
+
+		return {
+			success: true,
+			message: "Busca concluída.",
+			data: { lines: rows },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<{
+			lines: StatementLineMatchCandidate[];
 		}>;
 	}
 }

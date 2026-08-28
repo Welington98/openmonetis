@@ -2,6 +2,7 @@ import { and, desc, eq, isNotNull, sql } from "drizzle-orm";
 import {
 	type BankConnection,
 	bankConnections,
+	cards,
 	categories,
 	financialAccounts,
 	type StatementLine,
@@ -53,6 +54,7 @@ export async function fetchBankConnections(
 export type StatementLineWithCategory = StatementLine & {
 	categoryName: string | null;
 	linkedFinancialAccountId: string | null;
+	linkedCardId: string | null;
 };
 
 export async function fetchStatementLines(
@@ -64,6 +66,7 @@ export async function fetchStatementLines(
 			line: statementLines,
 			categoryName: categories.name,
 			linkedFinancialAccountId: financialAccounts.id,
+			linkedCardId: cards.id,
 		})
 		.from(statementLines)
 		.leftJoin(categories, eq(statementLines.categoryId, categories.id))
@@ -72,6 +75,13 @@ export async function fetchStatementLines(
 			and(
 				eq(financialAccounts.pluggyAccountId, statementLines.pluggyAccountId),
 				eq(financialAccounts.userId, statementLines.userId),
+			),
+		)
+		.leftJoin(
+			cards,
+			and(
+				eq(cards.pluggyAccountId, statementLines.pluggyAccountId),
+				eq(cards.userId, statementLines.userId),
 			),
 		)
 		.where(
@@ -84,11 +94,14 @@ export async function fetchStatementLines(
 		)
 		.orderBy(desc(statementLines.date));
 
-	return rows.map(({ line, categoryName, linkedFinancialAccountId }) => ({
-		...line,
-		categoryName,
-		linkedFinancialAccountId,
-	}));
+	return rows.map(
+		({ line, categoryName, linkedFinancialAccountId, linkedCardId }) => ({
+			...line,
+			categoryName,
+			linkedFinancialAccountId,
+			linkedCardId,
+		}),
+	);
 }
 
 export async function fetchPluggyConfigured(): Promise<boolean> {
@@ -155,6 +168,31 @@ export async function fetchLinkedBankAccounts(
 				isNotNull(financialAccounts.pluggyAccountId),
 			),
 		);
+}
+
+export type LinkedCard = {
+	id: string;
+	name: string;
+	pluggyAccountId: string | null;
+	connectorName: string;
+	pluggyItemId: string;
+	connectionId: string;
+};
+
+/** Cartões locais vinculados a uma conta (tipo CREDIT) do Pluggy (via `cards.pluggyAccountId`). */
+export async function fetchLinkedCards(userId: string): Promise<LinkedCard[]> {
+	return db
+		.select({
+			id: cards.id,
+			name: cards.name,
+			pluggyAccountId: cards.pluggyAccountId,
+			connectorName: sql<string>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
+			pluggyItemId: bankConnections.pluggyItemId,
+			connectionId: bankConnections.id,
+		})
+		.from(cards)
+		.innerJoin(bankConnections, eq(cards.bankConnectionId, bankConnections.id))
+		.where(and(eq(cards.userId, userId), isNotNull(cards.pluggyAccountId)));
 }
 
 export async function fetchReconciliationOverview(
@@ -225,6 +263,7 @@ export async function fetchReconciliationOverview(
 export type ReconciliationWorkspaceData = {
 	connections: BankConnectionWithDisplay[];
 	linkedAccounts: LinkedBankAccount[];
+	linkedCards: LinkedCard[];
 	statementLines: StatementLineWithCategory[];
 	pluggyConfigured: boolean;
 	statementCategorizationMode: "manual" | "ai";
@@ -243,6 +282,7 @@ export async function fetchReconciliationWorkspaceData(
 	const [
 		connections,
 		linkedAccounts,
+		linkedCards,
 		lines,
 		pluggyConfigured,
 		statementCategorizationMode,
@@ -250,6 +290,7 @@ export async function fetchReconciliationWorkspaceData(
 	] = await Promise.all([
 		fetchBankConnections(userId),
 		fetchLinkedBankAccounts(userId),
+		fetchLinkedCards(userId),
 		fetchStatementLines(userId, "all"),
 		fetchPluggyConfigured(),
 		fetchStatementCategorizationMode(userId),
@@ -259,6 +300,7 @@ export async function fetchReconciliationWorkspaceData(
 	return {
 		connections,
 		linkedAccounts,
+		linkedCards,
 		statementLines: lines.filter((line) => line.status !== "ignored"),
 		pluggyConfigured,
 		statementCategorizationMode,

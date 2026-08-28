@@ -100,6 +100,7 @@ export function ModelSelector({
 			anthropic: [],
 			google: [],
 			minimax: [],
+			deepseek: [],
 			openrouter: [],
 			ollama: [],
 		};
