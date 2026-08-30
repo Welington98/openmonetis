@@ -84,6 +84,9 @@ src/
 │   │   ├── notes/
 │   │   ├── insights/
 │   │   ├── calendar/
+│   │   ├── diary/
+│   │   │   ├── calendar/
+│   │   │   └── achievements/
 │   │   ├── inbox/
 │   │   ├── attachments/
 │   │   ├── changelog/
@@ -111,6 +114,7 @@ src/
 │   ├── notes/
 │   ├── insights/
 │   ├── calendar/
+│   ├── diary/
 │   ├── inbox/
 │   ├── attachments/
 │   ├── reports/
@@ -247,6 +251,9 @@ Layouts, `loading.tsx` e metadata continuam em `src/app/`.
 > **Nota:** o conceito de "pagador" foi renomeado para **"pessoa"** na UI (labels, toasts, textos visíveis ao usuário). O código, rotas e schema continuam usando o termo original em inglês (`payer`, `payerId`, `adminPayerId`) e em português interno (`pagador` como variável). Não renomear esses identificadores — a divergência entre UI e código é intencional e documentada.
 | `anotacoes` | `notes` |
 | `calendario` | `calendar` |
+| `diario` | `diary` |
+| `diario/calendario` | `diary/calendar` |
+| `diario/conquistas` | `diary/achievements` |
 | `ajustes` | `settings` |
 | `pre-lancamentos` | `inbox` |
 | `relatorios/tendencias` | `reports/category-trends` |

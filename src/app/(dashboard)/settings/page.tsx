@@ -3,6 +3,8 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
 
+import { DiarySettingsForm } from "@/features/diary/components/diary-settings-form";
+import { fetchDiarySettings } from "@/features/diary/queries";
 import { CompanionTab } from "@/features/settings/components/companion-tab";
 import { DeleteAccountForm } from "@/features/settings/components/delete-account-form";
 import { PasskeysForm } from "@/features/settings/components/passkeys-form";
@@ -36,6 +38,7 @@ export default async function Page() {
 
 	const { authProvider, userPreferences, userApiTokens } =
 		await fetchSettingsPageData(session.user.id);
+	const diarySettings = await fetchDiarySettings(session.user.id);
 
 	return (
 		<div className="w-full">
@@ -45,6 +48,7 @@ export default async function Page() {
 					<div className="overflow-x-auto overflow-y-hidden scroll-smooth md:overflow-visible [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 						<TabsList className="inline-flex w-max flex-nowrap md:w-full">
 							<TabsTrigger value="preferencias">Preferências</TabsTrigger>
+							<TabsTrigger value="diario">Diário</TabsTrigger>
 							<TabsTrigger value="companion">Companion</TabsTrigger>
 							<TabsTrigger value="nome">Alterar nome</TabsTrigger>
 							<TabsTrigger value="senha">Alterar senha</TabsTrigger>
@@ -94,6 +98,24 @@ export default async function Page() {
 								statementCategorizationMode={
 									userPreferences?.statementCategorizationMode ?? "manual"
 								}
+							/>
+						</div>
+					</Card>
+				</TabsContent>
+
+				<TabsContent value="diario" className="mt-4">
+					<Card className="p-6">
+						<div className="space-y-4">
+							<div>
+								<h2 className="text-xl font-semibold mb-1">Diário</h2>
+								<p className="text-sm text-muted-foreground">
+									Configure o lembrete diário do check-in financeiro.
+								</p>
+							</div>
+							<Separator />
+							<DiarySettingsForm
+								reminderEnabled={diarySettings.reminderEnabled}
+								reminderTime={diarySettings.reminderTime}
 							/>
 						</div>
 					</Card>

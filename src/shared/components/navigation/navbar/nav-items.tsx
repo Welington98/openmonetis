@@ -8,6 +8,7 @@ import {
 	RiCalendarEventLine,
 	RiCheckDoubleLine,
 	RiFileChartLine,
+	RiFireLine,
 	RiFlag2Line,
 	RiGroupLine,
 	RiPriceTag3Line,
@@ -51,6 +52,13 @@ export const NAV_SECTIONS: NavSection[] = [
 	{
 		label: "Lançamentos",
 		items: [
+			{
+				href: "/diary",
+				label: "Diário",
+				description: "Check-in rápido de como foi seu dia financeiro",
+				icon: <RiFireLine className="size-4" />,
+				iconClass: "text-primary",
+			},
 			{
 				href: "/transactions",
 				label: "Lançamentos",
