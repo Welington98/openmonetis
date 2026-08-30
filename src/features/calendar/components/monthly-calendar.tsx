@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { CalendarGrid } from "@/features/calendar/components/calendar-grid";
 import { CalendarLegend } from "@/features/calendar/components/calendar-legend";
 import { EventModal } from "@/features/calendar/components/event-modal";
+import type { GoogleCalendarToggleState } from "@/features/google-calendar/queries";
 import { TransactionDialog } from "@/features/transactions/components/dialogs/transaction-dialog/transaction-dialog";
 import type {
 	CalendarDay,
@@ -18,12 +19,14 @@ type MonthlyCalendarProps = {
 	period: CalendarPeriod;
 	events: CalendarEvent[];
 	formOptions: CalendarFormOptions;
+	googleCalendarSync: GoogleCalendarToggleState;
 };
 
 export function MonthlyCalendar({
 	period,
 	events,
 	formOptions,
+	googleCalendarSync,
 }: MonthlyCalendarProps) {
 	const { year, month } = parsePeriod(period.period);
 	const monthIndex = month - 1;
@@ -91,6 +94,7 @@ export function MonthlyCalendar({
 				day={selectedDay}
 				onClose={handleModalClose}
 				onCreate={handleOpenCreate}
+				googleCalendarSync={googleCalendarSync}
 			/>
 
 			<TransactionDialog

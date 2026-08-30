@@ -360,6 +360,9 @@ export const cards = pgTable(
 		// mesmo papel de `financialAccounts.pluggyAccountId`, mas pro lado dos
 		// cartões de crédito.
 		pluggyAccountId: text("pluggy_conta_id"),
+		// Controla se o vencimento de fatura deste cartão deve ser espelhado
+		// como evento na agenda "OpenMonetis" do Google Agenda do usuário.
+		syncToGoogleCalendar: boolean("sync_google_agenda").notNull().default(true),
 	},
 	(table) => ({
 		accountIdIdx: index("cartoes_conta_id_idx").on(table.accountId),
@@ -729,6 +732,10 @@ export const transactions = pgTable(
 		isSettled: boolean("realizado").default(false),
 		isDivided: boolean("dividido").default(false),
 		isAnticipated: boolean("antecipado").default(false),
+		// Controla se este lançamento (boleto/parcela) deve ser espelhado como
+		// evento na agenda "OpenMonetis" do Google Agenda do usuário, quando a
+		// integração estiver conectada. Ver `googleCalendarSyncedEvents`.
+		syncToGoogleCalendar: boolean("sync_google_agenda").notNull().default(true),
 		anticipationId: uuid("antecipacao_id").references(
 			(): AnyPgColumn => installmentAnticipations.id,
 			{ onDelete: "set null" },
@@ -955,6 +962,120 @@ export type NewBankConnection = typeof bankConnections.$inferInsert;
 export type StatementLine = typeof statementLines.$inferSelect;
 export type NewStatementLine = typeof statementLines.$inferInsert;
 
+// ===================== INTEGRAÇÃO GOOGLE AGENDA =====================
+
+export const googleCalendarConnections = pgTable(
+	"conexoes_google_agenda",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		accessToken: text("access_token").notNull(),
+		refreshToken: text("refresh_token").notNull(),
+		accessTokenExpiresAt: timestamp("access_token_expires_at", {
+			mode: "date",
+			withTimezone: true,
+		}).notNull(),
+		// Id da agenda secundária dedicada ("OpenMonetis") criada no Google
+		// Agenda do usuário no momento da conexão — nunca escrevemos na agenda
+		// principal dele.
+		googleCalendarId: text("google_calendar_id").notNull(),
+		status: text("status").notNull().default("active"),
+		isActive: boolean("is_active").notNull().default(true),
+		lastSyncedAt: timestamp("last_synced_at", {
+			mode: "date",
+			withTimezone: true,
+		}),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdUnique: uniqueIndex("conexoes_google_agenda_user_id_key").on(
+			table.userId,
+		),
+	}),
+);
+
+export const googleCalendarSyncedEvents = pgTable(
+	"eventos_google_agenda",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		connectionId: uuid("conexao_id")
+			.notNull()
+			.references(() => googleCalendarConnections.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		// "boleto" | "card" | "installment"
+		entityType: text("tipo_entidade").notNull(),
+		// Id do lançamento (boleto/installment) ou do cartão (card).
+		entityId: uuid("entidade_id").notNull(),
+		// Necessário porque vencimento de fatura de cartão e agrupamento de
+		// parcela são recalculados por período (YYYY-MM), não são um valor fixo.
+		period: text("periodo").notNull(),
+		googleEventId: text("google_event_id").notNull(),
+		// Hash do conteúdo relevante (título, data, valor) — evita PATCH
+		// desnecessário no Google quando nada mudou.
+		contentHash: text("content_hash").notNull(),
+		lastSyncedAt: timestamp("last_synced_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		entityUnique: uniqueIndex("eventos_google_agenda_entidade_key").on(
+			table.connectionId,
+			table.entityType,
+			table.entityId,
+			table.period,
+		),
+		connectionIdIdx: index("eventos_google_agenda_conexao_id_idx").on(
+			table.connectionId,
+		),
+	}),
+);
+
+export const googleCalendarConnectionsRelations = relations(
+	googleCalendarConnections,
+	({ one, many }) => ({
+		user: one(user, {
+			fields: [googleCalendarConnections.userId],
+			references: [user.id],
+		}),
+		syncedEvents: many(googleCalendarSyncedEvents),
+	}),
+);
+
+export const googleCalendarSyncedEventsRelations = relations(
+	googleCalendarSyncedEvents,
+	({ one }) => ({
+		connection: one(googleCalendarConnections, {
+			fields: [googleCalendarSyncedEvents.connectionId],
+			references: [googleCalendarConnections.id],
+		}),
+		user: one(user, {
+			fields: [googleCalendarSyncedEvents.userId],
+			references: [user.id],
+		}),
+	}),
+);
+
+export type GoogleCalendarConnection =
+	typeof googleCalendarConnections.$inferSelect;
+export type NewGoogleCalendarConnection =
+	typeof googleCalendarConnections.$inferInsert;
+export type GoogleCalendarSyncedEvent =
+	typeof googleCalendarSyncedEvents.$inferSelect;
+export type NewGoogleCalendarSyncedEvent =
+	typeof googleCalendarSyncedEvents.$inferInsert;
+
 export const userRelations = relations(user, ({ many, one }) => ({
 	accounts: many(account),
 	sessions: many(session),
@@ -973,6 +1094,8 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	establishmentLogos: many(establishmentLogos),
 	bankConnections: many(bankConnections),
 	statementLines: many(statementLines),
+	googleCalendarConnections: many(googleCalendarConnections),
+	googleCalendarSyncedEvents: many(googleCalendarSyncedEvents),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
