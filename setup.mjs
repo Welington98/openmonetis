@@ -273,7 +273,7 @@ if (existsSync(targetDir)) {
 // Clonar
 let s = spinner("Clonando repositório...");
 try {
-  run("git clone https://github.com/felipegcoutinho/openmonetis.git openmonetis");
+  run("git clone https://github.com/Welington98/openmonetis.git openmonetis");
   s.stop("Repositório clonado");
 } catch {
   s.fail("Falha ao clonar repositório");
@@ -404,5 +404,5 @@ ${c.green}${c.bold}  ✔ OpenMonetis instalado com sucesso!${c.reset}
     }
 
   ${c.bold}Acesse:${c.reset}  ${betterAuthUrl}
-  ${c.bold}Docs:${c.reset}    https://github.com/felipegcoutinho/openmonetis
+  ${c.bold}Docs:${c.reset}    https://github.com/Welington98/openmonetis
 `);

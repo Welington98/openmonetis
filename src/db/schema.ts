@@ -533,6 +533,88 @@ export const savedInsights = pgTable(
 	}),
 );
 
+export const diaryEntries = pgTable(
+	"diario_registros",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		entryDate: date("data", { mode: "date" }).notNull(),
+		hadExpense: boolean("houve_gasto").notNull(),
+		amount: numeric("valor_gasto", { precision: 12, scale: 2 }),
+		// 'alimentacao' | 'transporte' | 'lazer' | 'contas' | 'outro' | null
+		category: text("categoria"),
+		// 'planejado' | 'impulsivo' | 'necessario' | null
+		classification: text("classificacao"),
+		note: text("nota"),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdEntryDateUnique: uniqueIndex("diario_registros_user_id_data_key").on(
+			table.userId,
+			table.entryDate,
+		),
+	}),
+);
+
+export const diaryStreaks = pgTable("diario_sequencias", {
+	id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+	userId: text("user_id")
+		.notNull()
+		.unique()
+		.references(() => user.id, { onDelete: "cascade" }),
+	currentStreak: integer("streak_atual").notNull().default(0),
+	longestStreak: integer("streak_maximo").notNull().default(0),
+	lastEntryDate: date("ultima_data", { mode: "date" }),
+	reminderEnabled: boolean("lembrete_ativo").notNull().default(true),
+	// Formato "HH:mm", validado via zod na camada de action.
+	reminderTime: text("horario_lembrete").notNull().default("20:00"),
+	// Limite único global de gasto por dia; null = sem limite (usa o fallback
+	// de média móvel + orçamento mensal no cálculo de status do calendário).
+	dailyBudgetAmount: numeric("orcamento_diario", { precision: 12, scale: 2 }),
+	createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+		.notNull()
+		.defaultNow(),
+	updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+		.notNull()
+		.defaultNow(),
+});
+
+export const diaryAchievements = pgTable(
+	"diario_conquistas",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		// 'streak_7' | 'streak_30' | 'streak_100' | 'month_no_budget_overrun'
+		badgeKey: text("chave_conquista").notNull(),
+		// "YYYY-MM" para o badge mensal; string vazia (sentinela não-nulo) para
+		// badges de streak — period nullable quebraria o índice único, já que
+		// NULL != NULL no Postgres permitiria duplicatas do mesmo badge.
+		period: text("periodo").notNull().default(""),
+		earnedAt: timestamp("conquistado_em", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		meta: jsonb("meta").$type<Record<string, unknown> | null>(),
+	},
+	(table) => ({
+		userIdBadgeKeyPeriodUnique: uniqueIndex(
+			"diario_conquistas_user_id_chave_periodo_key",
+		).on(table.userId, table.badgeKey, table.period),
+		userIdIdx: index("diario_conquistas_user_id_idx").on(table.userId),
+	}),
+);
+
 // ===================== OPENMONETIS COMPANION =====================
 
 export const apiTokens = pgTable(
@@ -1094,6 +1176,8 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	establishmentLogos: many(establishmentLogos),
 	bankConnections: many(bankConnections),
 	statementLines: many(statementLines),
+	diaryEntries: many(diaryEntries),
+	diaryAchievements: many(diaryAchievements),
 	googleCalendarConnections: many(googleCalendarConnections),
 	googleCalendarSyncedEvents: many(googleCalendarSyncedEvents),
 }));
@@ -1226,6 +1310,23 @@ export const savedInsightsRelations = relations(savedInsights, ({ one }) => ({
 		references: [user.id],
 	}),
 }));
+
+export const diaryEntriesRelations = relations(diaryEntries, ({ one }) => ({
+	user: one(user, {
+		fields: [diaryEntries.userId],
+		references: [user.id],
+	}),
+}));
+
+export const diaryAchievementsRelations = relations(
+	diaryAchievements,
+	({ one }) => ({
+		user: one(user, {
+			fields: [diaryAchievements.userId],
+			references: [user.id],
+		}),
+	}),
+);
 
 export const apiTokensRelations = relations(apiTokens, ({ one }) => ({
 	user: one(user, {
@@ -1414,6 +1515,12 @@ export type Budget = typeof budgets.$inferSelect;
 export type SavingsGoal = typeof savingsGoals.$inferSelect;
 export type Note = typeof notes.$inferSelect;
 export type SavedInsight = typeof savedInsights.$inferSelect;
+export type DiaryEntry = typeof diaryEntries.$inferSelect;
+export type NewDiaryEntry = typeof diaryEntries.$inferInsert;
+export type DiaryStreak = typeof diaryStreaks.$inferSelect;
+export type NewDiaryStreak = typeof diaryStreaks.$inferInsert;
+export type DiaryAchievement = typeof diaryAchievements.$inferSelect;
+export type NewDiaryAchievement = typeof diaryAchievements.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type InstallmentAnticipation =
 	typeof installmentAnticipations.$inferSelect;

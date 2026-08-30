@@ -1,7 +1,7 @@
 #!/bin/sh
 # install-deps.sh — Instala pré-requisitos do OpenMonetis
 # Testado apenas em Ubuntu Server 24.04 LTS
-# Uso: curl -fsSL https://raw.githubusercontent.com/felipegcoutinho/openmonetis/main/scripts/install-deps.sh -o install-deps.sh
+# Uso: curl -fsSL https://raw.githubusercontent.com/Welington98/openmonetis/main/scripts/install-deps.sh -o install-deps.sh
 #      sudo sh install-deps.sh
 
 set -e

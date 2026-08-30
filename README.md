@@ -130,7 +130,7 @@ Só quer rodar o OpenMonetis. **Não precisa clonar o repositório nem instalar 
 
 ```bash
 # 1. Baixe o compose
-curl -fsSL https://raw.githubusercontent.com/felipegcoutinho/openmonetis/main/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/Welington98/openmonetis/main/docker-compose.yml -o docker-compose.yml
 
 # 2. Crie um .env na mesma pasta.
 # .env mínimo recomendado para produção
@@ -157,7 +157,7 @@ docker compose up -d app
 **Não tem Docker instalado?** Em servidores Ubuntu 24.04 limpos, use o script de instalação:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/felipegcoutinho/openmonetis/main/scripts/install-deps.sh -o install-deps.sh
+curl -fsSL https://raw.githubusercontent.com/Welington98/openmonetis/main/scripts/install-deps.sh -o install-deps.sh
 sudo sh install-deps.sh
 ```
 
@@ -183,7 +183,7 @@ Quer modificar o código com hot-reload. O banco roda no Docker, o app roda dire
 
 ```bash
 # 1. Clone o repositório
-git clone https://github.com/felipegcoutinho/openmonetis.git
+git clone https://github.com/Welington98/openmonetis.git
 cd openmonetis
 
 # 2. Instale as dependências
@@ -250,11 +250,11 @@ pnpm backup           # Backup completo do banco (ver seção Backup)
 ### Docker
 
 ```bash
-pnpm docker:up      # Sobe app (Docker Hub) + banco em background
+pnpm docker:up      # Sobe app (GitHub Container Registry) + banco em background
 pnpm docker:db      # Sobe apenas o banco em background (usar com pnpm dev)
 pnpm docker:down    # Para e remove os containers
 pnpm docker:logs    # Logs em tempo real (todos os containers)
-pnpm docker:update  # Atualiza para a imagem mais recente do Hub e reinicia
+pnpm docker:update  # Atualiza para a imagem mais recente e reinicia
 ```
 
 ---
@@ -268,7 +268,7 @@ O `Dockerfile` usa multi-stage build (deps → builder → runner) com imagem fi
 Baixe apenas o `docker-compose.yml` e suba tudo — sem clonar o repositório, sem instalar dependências:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/felipegcoutinho/openmonetis/main/docker-compose.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/Welington98/openmonetis/main/docker-compose.yml -o docker-compose.yml
 docker compose up -d
 ```
 
@@ -406,7 +406,7 @@ LOGO_DEV_SECRET_KEY=sk_...     # chave secreta (obrigatório para o picker de bu
 
 Ambas as variáveis são lidas em **runtime** pelo servidor Next.js. Não há mais nenhuma etapa no CI nem `--build-arg` no Docker.
 
-**Self-hosted via Docker Hub (Coolify, Railway, etc.):**
+**Self-hosted via GitHub Container Registry (Coolify, Railway, etc.):**
 
 1. Adicione `LOGO_DEV_TOKEN` e `LOGO_DEV_SECRET_KEY` nas variáveis de ambiente do host
 2. Reinicie o container — pronto

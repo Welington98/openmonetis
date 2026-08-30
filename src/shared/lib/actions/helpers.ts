@@ -37,6 +37,13 @@ const revalidateConfig = {
 	inbox: ["/inbox", "/transactions", "/dashboard"],
 	attachments: ["/attachments"],
 	bankSync: ["/bank-sync", "/accounts", "/transactions"],
+	diary: [
+		"/diary",
+		"/diary/calendar",
+		"/diary/achievements",
+		"/dashboard",
+		"/settings",
+	],
 	googleCalendar: ["/settings", "/calendar"],
 } as const;
 
@@ -53,6 +60,7 @@ const DASHBOARD_ENTITIES: ReadonlySet<string> = new Set([
 	"inbox",
 	"recurring",
 	"bankSync",
+	"diary",
 ]);
 
 /**

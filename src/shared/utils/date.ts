@@ -89,13 +89,14 @@ function parseDateOnlyParts(value: string): DateOnlyParts | null {
 function getTimeZoneParts(
 	date: Date,
 	timeZone: string,
-): { year: number; month: number; day: number; hour: number } {
+): { year: number; month: number; day: number; hour: number; minute: number } {
 	const formatter = new Intl.DateTimeFormat("en-CA", {
 		timeZone,
 		year: "numeric",
 		month: "2-digit",
 		day: "2-digit",
 		hour: "2-digit",
+		minute: "2-digit",
 		hour12: false,
 	});
 	const parts = formatter.formatToParts(date);
@@ -107,6 +108,7 @@ function getTimeZoneParts(
 		month: Number.parseInt(getPart("month"), 10),
 		day: Number.parseInt(getPart("day"), 10),
 		hour: Number.parseInt(getPart("hour"), 10),
+		minute: Number.parseInt(getPart("minute"), 10),
 	};
 }
 
@@ -535,6 +537,14 @@ function getGreetingInTimeZone(
 
 export function getBusinessGreeting(date: Date = new Date()): string {
 	return getGreetingInTimeZone(OPENMONETIS_TIME_ZONE, date);
+}
+
+/**
+ * Retorna o horário atual (HH:mm) no fuso de negócio do app.
+ */
+export function getBusinessTimeString(date: Date = new Date()): string {
+	const { hour, minute } = getTimeZoneParts(date, OPENMONETIS_TIME_ZONE);
+	return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
 }
 
 function formatCurrentDateInTimeZone(

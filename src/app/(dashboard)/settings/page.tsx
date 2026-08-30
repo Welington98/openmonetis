@@ -2,6 +2,9 @@ import { RiAndroidLine, RiArrowRightSLine } from "@remixicon/react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { connection } from "next/server";
+
+import { DiarySettingsForm } from "@/features/diary/components/diary-settings-form";
+import { fetchDiarySettings } from "@/features/diary/queries";
 import { GoogleCalendarTab } from "@/features/google-calendar/components/google-calendar-tab";
 import { isGoogleCalendarConfigured } from "@/features/google-calendar/lib/google-calendar-client";
 import { fetchGoogleCalendarConnectionStatus } from "@/features/google-calendar/queries";
@@ -51,9 +54,11 @@ export default async function Page({ searchParams }: PageProps) {
 	const [
 		{ authProvider, userPreferences, userApiTokens },
 		googleCalendarStatus,
+		diarySettings,
 	] = await Promise.all([
 		fetchSettingsPageData(session.user.id),
 		fetchGoogleCalendarConnectionStatus(session.user.id),
+		fetchDiarySettings(session.user.id),
 	]);
 
 	return (
@@ -64,6 +69,7 @@ export default async function Page({ searchParams }: PageProps) {
 					<div className="overflow-x-auto overflow-y-hidden scroll-smooth md:overflow-visible [-webkit-overflow-scrolling:touch] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
 						<TabsList className="inline-flex w-max flex-nowrap md:w-full">
 							<TabsTrigger value="preferencias">Preferências</TabsTrigger>
+							<TabsTrigger value="diario">Diário</TabsTrigger>
 							<TabsTrigger value="companion">Companion</TabsTrigger>
 							<TabsTrigger value="google-agenda">Google Agenda</TabsTrigger>
 							<TabsTrigger value="nome">Alterar nome</TabsTrigger>
@@ -114,6 +120,26 @@ export default async function Page({ searchParams }: PageProps) {
 								statementCategorizationMode={
 									userPreferences?.statementCategorizationMode ?? "manual"
 								}
+							/>
+						</div>
+					</Card>
+				</TabsContent>
+
+				<TabsContent value="diario" className="mt-4">
+					<Card className="p-6">
+						<div className="space-y-4">
+							<div>
+								<h2 className="text-xl font-semibold mb-1">Diário</h2>
+								<p className="text-sm text-muted-foreground">
+									Configure o lembrete e o orçamento diário do check-in
+									financeiro.
+								</p>
+							</div>
+							<Separator />
+							<DiarySettingsForm
+								reminderEnabled={diarySettings.reminderEnabled}
+								reminderTime={diarySettings.reminderTime}
+								dailyBudgetAmount={diarySettings.dailyBudgetAmount}
 							/>
 						</div>
 					</Card>
