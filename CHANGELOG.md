@@ -5,6 +5,29 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.8.0] - 2026-08-30
+
+Esta versão reúne três frentes: conciliação bancária mais rápida (seleção em massa, suporte a cartão de crédito do Pluggy) e DeepSeek como novo provedor de IA nos Insights; sincronização de vencimentos com o Google Agenda; e o Diário Financeiro, um check-in diário de baixa fricção pra criar o hábito de acompanhar o dinheiro — com streak, calendário colorido, orçamento diário e conquistas. A imagem Docker publicada nos releases passa a viver no GitHub Container Registry.
+
+### Adicionado
+- Diário: nova seção "Diário" com check-in rápido — "houve gasto hoje?", valor, categoria e classificação opcionais — e contador de streak (dias seguidos) com recorde separado.
+- Diário: calendário em `/diary/calendar` colorido por status do dia (dentro do esperado, acima da média, estourou o orçamento, sem check-in), com alternância entre visão de Mês e de Semana e navegação entre períodos.
+- Diário: orçamento diário opcional (R$/dia) nas configurações — quando definido, o vermelho do calendário passa a ser um limite direto por dia, em vez do cálculo por média móvel de 30 dias somada ao orçamento mensal acumulado.
+- Diário: lembrete diário e resumo semanal como avisos dentro do próprio app (sem depender de notificação push), configuráveis na aba "Diário" de Ajustes.
+- Diário: conquistas por marcos de streak (7, 30 e 100 dias seguidos) e por mês fechado sem estourar o orçamento, com tela própria de "Minhas conquistas".
+- Google Agenda: conexão OAuth dedicada (separada do login) que espelha vencimentos de boletos, faturas de cartão e parcelas numa agenda secundária "OpenMonetis", com sincronização periódica e opção de ligar/desligar por lançamento ou cartão.
+- Insights: adicionado o DeepSeek como provedor de IA (chat, reasoner, v4 flash, v4 pro).
+- Conciliação bancária: seleção múltipla com checkbox e conciliação em massa — categoria, conta, cartão, pessoa e forma de pagamento aplicados a vários lançamentos pendentes de uma vez.
+- Conciliação bancária: suporte a cartão de crédito do Pluggy — sincroniza contas CREDIT, permite vincular cartões locais (nas telas de Conciliação e de Cartões) e classifica linhas de cartão como lançamento à vista vinculado ao cartão certo.
+- Transações: indicador de conciliação bancária (badge) e ação manual "Conciliar com extrato" para vincular um lançamento existente a uma linha pendente do Pluggy.
+- Transações: opção "Sem prazo definido (fixo)" na recorrência, para despesa/receita fixa sem precisar escolher quantos meses.
+- Transações: botão flutuante de adicionar (nova receita/despesa/transferência) no mobile.
+- Desenvolvimento: primeiro test runner do projeto (Vitest), cobrindo a lógica de streak, status do calendário e cálculo de semanas do Diário.
+
+### Alterado
+- ATENÇÃO — mudança no banco de dados: esta versão adiciona colunas de conciliação bancária em `cartoes`/`linhas_extrato`, as tabelas de conexão com o Google Agenda e as tabelas `diario_registros`, `diario_sequencias` (com a coluna `orcamento_diario`) e `diario_conquistas`. Aplique as migrações `0041_futuristic_kang.sql` a `0043_magenta_storm.sql` antes de iniciar a aplicação atualizada (`pnpm run db:migrate` em instalações manuais). A imagem Docker aplica as migrações automaticamente durante a inicialização.
+- Infraestrutura: a imagem Docker publicada nos releases passou do Docker Hub para o GitHub Container Registry (`ghcr.io/welington98/openmonetis`); `docker-compose.yml` e a documentação de self-hosting foram atualizados.
+
 ## [2.7.13] - 2026-08-09
 
 Esta versão atualiza a base técnica do OpenMonetis com as correções de segurança e desempenho do Next.js 16.3, acelera as verificações de tipos, melhora a recuperação de falhas nas áreas mais complexas do aplicativo e corrige a importação de extratos OFX que reutilizam identificadores bancários.
