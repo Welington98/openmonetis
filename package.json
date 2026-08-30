@@ -30,7 +30,8 @@
 		"docker:update": "docker compose pull && docker compose up -d",
 		"//docker:update": "Atualiza para a imagem mais recente e reinicia",
 		"backup": "bash scripts/backup.sh",
-		"mockup": "tsx scripts/mock-data.ts"
+		"mockup": "tsx scripts/mock-data.ts",
+		"release": "semantic-release"
 	},
 	"dependencies": {
 		"@ai-sdk/anthropic": "^3.0.88",
@@ -99,6 +100,9 @@
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.16",
+		"@semantic-release/changelog": "^7.0.0",
+		"@semantic-release/exec": "^7.1.0",
+		"@semantic-release/git": "^11.0.1",
 		"@tailwindcss/postcss": "4.3.0",
 		"@types/canvas-confetti": "^1.9.0",
 		"@types/node": "25.9.1",
@@ -106,9 +110,11 @@
 		"@types/react": "19.2.16",
 		"@types/react-dom": "19.2.3",
 		"babel-plugin-react-compiler": "^1.0.0",
+		"conventional-changelog-conventionalcommits": "^10.4.0",
 		"dotenv": "^17.4.2",
 		"drizzle-kit": "0.31.10",
 		"knip": "^6.22.0",
+		"semantic-release": "^25.0.9",
 		"tailwindcss": "4.3.0",
 		"tsx": "4.22.4",
 		"typescript": "7.0.2",

@@ -1,0 +1,69 @@
+{
+	"branches": ["main"],
+	"tagFormat": "v${version}",
+	"plugins": [
+		[
+			"@semantic-release/commit-analyzer",
+			{
+				"preset": "conventionalcommits"
+			}
+		],
+		[
+			"@semantic-release/release-notes-generator",
+			{
+				"preset": "conventionalcommits",
+				"presetConfig": {
+					"types": [
+						{ "type": "feat", "section": "Adicionado" },
+						{ "type": "fix", "section": "Corrigido" },
+						{ "type": "perf", "section": "Desempenho" },
+						{ "type": "refactor", "section": "Alterado" },
+						{ "type": "revert", "section": "Revertido" },
+						{ "type": "docs", "hidden": true },
+						{ "type": "style", "hidden": true },
+						{ "type": "chore", "hidden": true },
+						{ "type": "test", "hidden": true },
+						{ "type": "ci", "hidden": true },
+						{ "type": "build", "hidden": true }
+					]
+				}
+			}
+		],
+		[
+			"@semantic-release/changelog",
+			{
+				"changelogFile": "CHANGELOG.md",
+				"changelogTitle": "# Changelog\n\nTodas as mudanças notáveis deste projeto serão documentadas neste arquivo.\n\nO formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),\ne este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/)."
+			}
+		],
+		[
+			"@semantic-release/exec",
+			{
+				"prepareCmd": "node scripts/update-version-badge.mjs ${nextRelease.version}",
+				"publishCmd": "echo \"version=${nextRelease.version}\" >> \"$GITHUB_OUTPUT\" && echo \"published=true\" >> \"$GITHUB_OUTPUT\""
+			}
+		],
+		[
+			"@semantic-release/npm",
+			{
+				"npmPublish": false
+			}
+		],
+		[
+			"@semantic-release/git",
+			{
+				"assets": ["package.json", "CHANGELOG.md", "README.md"],
+				"message": "chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}"
+			}
+		],
+		[
+			"@semantic-release/github",
+			{
+				"successComment": false,
+				"failComment": false,
+				"labels": false,
+				"releasedLabels": false
+			}
+		]
+	]
+}

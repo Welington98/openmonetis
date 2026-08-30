@@ -2,62 +2,28 @@ name: Release
 
 on:
   push:
-    tags:
-      - "v*.*.*"
-  workflow_dispatch:
-    inputs:
-      version:
-        description: "Versão a publicar (ex: 2.8.0) — deve bater com package.json"
-        required: true
+    branches:
+      - main
 
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
+  issues: write
+  pull-requests: write
+  id-token: write
 
 jobs:
   quality:
     runs-on: ubuntu-latest
-    outputs:
-      tag: ${{ steps.resolve.outputs.tag }}
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
-
-      - name: Resolve release tag
-        id: resolve
-        shell: bash
-        run: |
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Validate release version
-        shell: bash
-        run: |
-          TAG_VERSION="${{ steps.resolve.outputs.tag }}"
-          TAG_VERSION="${TAG_VERSION#v}"
-          PACKAGE_VERSION="$(jq -r '.version' package.json)"
-
-          if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "A versão $TAG_VERSION não segue o formato X.Y.Z."
-            exit 1
-          fi
-
-          if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
-            echo "A versão $TAG_VERSION não corresponde à versão $PACKAGE_VERSION do package.json."
-            exit 1
-          fi
-
-          if ! grep -Fq "## [$TAG_VERSION]" CHANGELOG.md; then
-            echo "A versão $TAG_VERSION não foi encontrada no CHANGELOG.md."
-            exit 1
-          fi
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -80,9 +46,30 @@ jobs:
       - name: Lint
         run: pnpm run lint
 
+      - name: Test
+        run: pnpm run test
+
+  # Roda em todo push na main. O semantic-release (workflow reutilizável em
+  # semantic-release.yml) analisa os commits desde a última tag (Conventional
+  # Commits — feat/fix/perf/BREAKING CHANGE) e só publica uma versão nova
+  # quando há algo relevante; chore/docs/refactor/test/ci/build não geram
+  # release. Quando publica, ele mesmo faz bump do package.json, atualiza o
+  # CHANGELOG.md e o badge do README, commita de volta na main e cria a tag
+  # vX.Y.Z + a GitHub Release — tudo via o GITHUB_TOKEN do próprio Actions
+  # (com permissão normal de push, diferente do sandbox usado pelos agentes
+  # para desenvolver).
+  release:
+    needs: quality
+    uses: ./.github/workflows/semantic-release.yml
+    with:
+      node-version: "22"
+      branches: '["main"]'
+    secrets: inherit
+
   docker:
     runs-on: ubuntu-latest
-    needs: quality
+    needs: release
+    if: needs.release.outputs.new-release-published == 'true'
     permissions:
       contents: read
       packages: write
@@ -90,6 +77,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
+        with:
+          ref: v${{ needs.release.outputs.new-release-version }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -108,8 +97,7 @@ jobs:
         shell: bash
         run: |
           NAME="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          VERSION="${{ needs.quality.outputs.tag }}"
-          VERSION="${VERSION#v}"
+          VERSION="${{ needs.release.outputs.new-release-version }}"
           MAJOR_MINOR="${VERSION%.*}"
           MAJOR="${MAJOR_MINOR%.*}"
 
@@ -121,7 +109,6 @@ jobs:
             echo "$NAME:latest"
             echo "EOF"
           } >> "$GITHUB_OUTPUT"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         id: build
@@ -131,53 +118,10 @@ jobs:
           file: ./Dockerfile
           push: true
           tags: ${{ steps.image.outputs.tags }}
-          labels: org.opencontainers.image.version=${{ steps.image.outputs.version }}
+          labels: org.opencontainers.image.version=${{ needs.release.outputs.new-release-version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64
 
       - name: Image digest
         run: echo "${{ steps.build.outputs.digest }}"
-
-  github-release:
-    runs-on: ubuntu-latest
-    needs: [quality, docker]
-    permissions:
-      contents: write
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
-
-      - name: Extract changelog for this version
-        id: changelog
-        shell: bash
-        run: |
-          VERSION="${{ needs.quality.outputs.tag }}"
-          VERSION="${VERSION#v}"
-          NOTES=$(awk -v version="$VERSION" '
-            index($0, "## [" version "]") == 1 { found=1; next }
-            found && /^## \[/ { exit }
-            found && !started && /^[[:space:]]*$/ { next }
-            found { started=1; print }
-          ' CHANGELOG.md)
-
-          if [[ -z "$NOTES" ]]; then
-            echo "Não foi possível extrair as notas da versão $VERSION."
-            exit 1
-          fi
-
-          {
-            echo "notes<<EOF"
-            echo "$NOTES"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ needs.quality.outputs.tag }}
-          name: ${{ needs.quality.outputs.tag }}
-          body: ${{ steps.changelog.outputs.notes }}
-          draft: false
-          prerelease: false
