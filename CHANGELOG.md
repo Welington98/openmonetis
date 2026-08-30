@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.8.1](https://github.com/Welington98/openmonetis/compare/v2.8.0...v2.8.1) (2026-08-30)
+
+### Corrigido
+
+* **ci:** roda os testes vitest no pipeline de CI ([1815b9e](https://github.com/Welington98/openmonetis/commit/1815b9ee910309f2bf8c20d98dcd14f8d26b5729))
+
 ## [2.8.0] - 2026-08-30
 
 Esta versão reúne três frentes: conciliação bancária mais rápida (seleção em massa, suporte a cartão de crédito do Pluggy) e DeepSeek como novo provedor de IA nos Insights; sincronização de vencimentos com o Google Agenda; e o Diário Financeiro, um check-in diário de baixa fricção pra criar o hábito de acompanhar o dinheiro — com streak, calendário colorido, orçamento diário e conquistas. A imagem Docker publicada nos releases passa a viver no GitHub Container Registry.
