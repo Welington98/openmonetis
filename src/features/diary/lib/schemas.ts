@@ -34,11 +34,49 @@ export const diaryEntryInputSchema = z
 
 export type DiaryEntryInput = z.input<typeof diaryEntryInputSchema>;
 
+/**
+ * Aceita string vazia/null/undefined como "sem limite" (transforma em null);
+ * quando preenchido, exige um número maior que zero. Diferente de
+ * `requiredDecimalSchema`, aqui a ausência de valor é um estado válido.
+ */
+const optionalDailyBudgetSchema = z
+	.union([z.literal(""), z.string(), z.number(), z.null(), z.undefined()])
+	.transform((value, ctx) => {
+		if (value === "" || value === null || value === undefined) {
+			return null;
+		}
+
+		const parsed =
+			typeof value === "number"
+				? value
+				: Number.parseFloat(value.replace(",", "."));
+
+		if (Number.isNaN(parsed)) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: "Informe um valor numérico válido.",
+			});
+			return z.NEVER;
+		}
+
+		if (parsed <= 0) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message:
+					"Informe um orçamento diário maior que zero, ou deixe em branco para desativar.",
+			});
+			return z.NEVER;
+		}
+
+		return parsed;
+	});
+
 export const diarySettingsInputSchema = z.object({
 	reminderEnabled: z.boolean({ message: "Informe se o lembrete está ativo." }),
 	reminderTime: z
 		.string({ message: "Informe o horário do lembrete." })
 		.regex(DIARY_REMINDER_TIME_REGEX, "Horário inválido. Use o formato HH:mm."),
+	dailyBudgetAmount: optionalDailyBudgetSchema,
 });
 
-export type DiarySettingsInput = z.infer<typeof diarySettingsInputSchema>;
+export type DiarySettingsInput = z.input<typeof diarySettingsInputSchema>;

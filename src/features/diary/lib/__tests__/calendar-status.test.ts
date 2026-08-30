@@ -12,6 +12,7 @@ describe("computeDayStatuses", () => {
 			daysInPeriod: DAYS_IN_AUGUST_2026,
 			entries: [],
 			rollingAverageDailySpend: null,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: null,
 		});
 
@@ -23,6 +24,7 @@ describe("computeDayStatuses", () => {
 			daysInPeriod: DAYS_IN_AUGUST_2026,
 			entries: [{ entryDate: "2026-08-05", hadExpense: false, amount: null }],
 			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: 1000,
 		});
 
@@ -34,6 +36,7 @@ describe("computeDayStatuses", () => {
 			daysInPeriod: DAYS_IN_AUGUST_2026,
 			entries: [{ entryDate: "2026-08-05", hadExpense: true, amount: 40 }],
 			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: null,
 		});
 
@@ -45,6 +48,7 @@ describe("computeDayStatuses", () => {
 			daysInPeriod: DAYS_IN_AUGUST_2026,
 			entries: [{ entryDate: "2026-08-05", hadExpense: true, amount: 90 }],
 			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: null,
 		});
 
@@ -62,6 +66,7 @@ describe("computeDayStatuses", () => {
 				{ entryDate: "2026-08-03", hadExpense: true, amount: 300 },
 			],
 			rollingAverageDailySpend: 500,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: 1000,
 		});
 
@@ -75,6 +80,7 @@ describe("computeDayStatuses", () => {
 			daysInPeriod: DAYS_IN_AUGUST_2026,
 			entries: [{ entryDate: "2026-08-01", hadExpense: true, amount: 10_000 }],
 			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: null,
 		});
 
@@ -86,6 +92,7 @@ describe("computeDayStatuses", () => {
 			daysInPeriod: DAYS_IN_AUGUST_2026,
 			entries: [{ entryDate: "2026-08-01", hadExpense: true, amount: 500 }],
 			rollingAverageDailySpend: null,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: null,
 		});
 
@@ -101,11 +108,53 @@ describe("computeDayStatuses", () => {
 				{ entryDate: "2026-08-03", hadExpense: false, amount: null },
 			],
 			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: null,
 			monthlyBudgetTotal: 1000,
 		});
 
 		expect(statuses["2026-08-01"]).toBe("red");
 		expect(statuses["2026-08-02"]).toBe("red");
 		expect(statuses["2026-08-03"]).toBe("green");
+	});
+
+	it("marks a day over the daily budget as red, even with a low month-to-date total under the monthly budget", () => {
+		const statuses = computeDayStatuses({
+			daysInPeriod: DAYS_IN_AUGUST_2026,
+			entries: [{ entryDate: "2026-08-05", hadExpense: true, amount: 120 }],
+			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: 100,
+			// Orçamento mensal folgado — se a regra antiga estivesse ativa, seria verde.
+			monthlyBudgetTotal: 5000,
+		});
+
+		expect(statuses["2026-08-05"]).toBe("red");
+	});
+
+	it("marks a day within the daily budget but above the rolling average as yellow", () => {
+		const statuses = computeDayStatuses({
+			daysInPeriod: DAYS_IN_AUGUST_2026,
+			entries: [{ entryDate: "2026-08-05", hadExpense: true, amount: 80 }],
+			rollingAverageDailySpend: 50,
+			dailyBudgetAmount: 100,
+			monthlyBudgetTotal: null,
+		});
+
+		expect(statuses["2026-08-05"]).toBe("yellow");
+	});
+
+	it("lets the daily budget decide red on its own, ignoring the monthly budget entirely when both are set", () => {
+		const statuses = computeDayStatuses({
+			daysInPeriod: DAYS_IN_AUGUST_2026,
+			entries: [
+				// Isolado e acumulado, ambos ficariam bem abaixo do orçamento mensal
+				// de 5000 — só o limite diário de 100 decide.
+				{ entryDate: "2026-08-01", hadExpense: true, amount: 150 },
+			],
+			rollingAverageDailySpend: null,
+			dailyBudgetAmount: 100,
+			monthlyBudgetTotal: 5000,
+		});
+
+		expect(statuses["2026-08-01"]).toBe("red");
 	});
 });

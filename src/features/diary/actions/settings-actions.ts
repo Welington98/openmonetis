@@ -19,6 +19,8 @@ export async function updateDiarySettingsAction(
 	try {
 		const user = await getUser();
 		const data = diarySettingsInputSchema.parse(input);
+		const dailyBudgetAmount =
+			data.dailyBudgetAmount !== null ? String(data.dailyBudgetAmount) : null;
 
 		await db
 			.insert(diaryStreaks)
@@ -26,12 +28,14 @@ export async function updateDiarySettingsAction(
 				userId: user.id,
 				reminderEnabled: data.reminderEnabled,
 				reminderTime: data.reminderTime,
+				dailyBudgetAmount,
 			})
 			.onConflictDoUpdate({
 				target: diaryStreaks.userId,
 				set: {
 					reminderEnabled: data.reminderEnabled,
 					reminderTime: data.reminderTime,
+					dailyBudgetAmount,
 					updatedAt: new Date(),
 				},
 			});

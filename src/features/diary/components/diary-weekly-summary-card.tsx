@@ -1,6 +1,7 @@
 "use client";
 
 import { RiCloseLine } from "@remixicon/react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTransition } from "react";
 import { dismissWeeklySummaryAction } from "@/features/diary/actions";
@@ -58,6 +59,12 @@ export function DiaryWeeklySummaryCard({
 				{comparisonLabel ? ` · ${comparisonLabel}` : ""}
 			</p>
 			<p className="text-sm text-primary">{summary.message}</p>
+			<Link
+				href="/diary/calendar?view=week"
+				className="text-sm font-medium text-foreground underline underline-offset-4"
+			>
+				Ver semana completa
+			</Link>
 		</Card>
 	);
 }

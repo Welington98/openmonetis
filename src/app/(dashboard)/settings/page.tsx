@@ -109,13 +109,15 @@ export default async function Page() {
 							<div>
 								<h2 className="text-xl font-semibold mb-1">Diário</h2>
 								<p className="text-sm text-muted-foreground">
-									Configure o lembrete diário do check-in financeiro.
+									Configure o lembrete e o orçamento diário do check-in
+									financeiro.
 								</p>
 							</div>
 							<Separator />
 							<DiarySettingsForm
 								reminderEnabled={diarySettings.reminderEnabled}
 								reminderTime={diarySettings.reminderTime}
+								dailyBudgetAmount={diarySettings.dailyBudgetAmount}
 							/>
 						</div>
 					</Card>

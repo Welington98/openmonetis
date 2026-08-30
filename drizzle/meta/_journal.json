@@ -295,6 +295,13 @@
       "when": 1788099693085,
       "tag": "0042_slimy_wolfsbane",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1788102262938,
+      "tag": "0043_giant_wraith",
+      "breakpoints": true
     }
   ]
 }

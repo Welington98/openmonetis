@@ -9,6 +9,7 @@ import {
 	DIARY_REMINDER_TIME_REGEX,
 } from "@/features/diary/lib/constants";
 import { Button } from "@/shared/components/ui/button";
+import { CurrencyInput } from "@/shared/components/ui/currency-input";
 import { Label } from "@/shared/components/ui/label";
 import { Switch } from "@/shared/components/ui/switch";
 import {
@@ -19,11 +20,13 @@ import {
 type DiarySettingsFormProps = {
 	reminderEnabled: boolean;
 	reminderTime: string;
+	dailyBudgetAmount: number | null;
 };
 
 export function DiarySettingsForm({
 	reminderEnabled: initialReminderEnabled,
 	reminderTime: initialReminderTime,
+	dailyBudgetAmount: initialDailyBudgetAmount,
 }: DiarySettingsFormProps) {
 	const router = useRouter();
 	const [isPending, startTransition] = useTransition();
@@ -31,6 +34,9 @@ export function DiarySettingsForm({
 		initialReminderEnabled,
 	);
 	const [reminderTime, setReminderTime] = useState(initialReminderTime);
+	const [dailyBudgetAmount, setDailyBudgetAmount] = useState(
+		initialDailyBudgetAmount !== null ? String(initialDailyBudgetAmount) : "",
+	);
 
 	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -44,6 +50,7 @@ export function DiarySettingsForm({
 			const result = await updateDiarySettingsAction({
 				reminderEnabled,
 				reminderTime,
+				dailyBudgetAmount,
 			});
 
 			if (result.success) {
@@ -99,6 +106,25 @@ export function DiarySettingsForm({
 					</ToggleGroup>
 				</section>
 			)}
+
+			<section className="space-y-2 max-w-md">
+				<Label htmlFor="diary-daily-budget" className="text-sm">
+					Orçamento diário (opcional)
+				</Label>
+				<p className="text-sm text-muted-foreground">
+					Quando definido, o calendário do Diário marca de vermelho qualquer dia
+					em que você gastou acima desse valor. Deixe em branco para voltar a
+					usar a estimativa automática (média dos seus gastos + orçamento
+					mensal).
+				</p>
+				<CurrencyInput
+					id="diary-daily-budget"
+					value={dailyBudgetAmount}
+					onValueChange={setDailyBudgetAmount}
+					placeholder="Sem limite"
+					disabled={isPending}
+				/>
+			</section>
 
 			<div className="flex justify-end">
 				<Button type="submit" disabled={isPending} className="w-fit">

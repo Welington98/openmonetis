@@ -572,6 +572,9 @@ export const diaryStreaks = pgTable("diario_sequencias", {
 	reminderEnabled: boolean("lembrete_ativo").notNull().default(true),
 	// Formato "HH:mm", validado via zod na camada de action.
 	reminderTime: text("horario_lembrete").notNull().default("20:00"),
+	// Limite único global de gasto por dia; null = sem limite (usa o fallback
+	// de média móvel + orçamento mensal no cálculo de status do calendário).
+	dailyBudgetAmount: numeric("orcamento_diario", { precision: 12, scale: 2 }),
 	createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
 		.notNull()
 		.defaultNow(),
