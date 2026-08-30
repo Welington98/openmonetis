@@ -23,7 +23,7 @@ services:
       start_period: 10s
 
   app:
-    image: felipegcoutinho/openmonetis:latest
+    image: ghcr.io/welington98/openmonetis:latest
     container_name: openmonetis_app
     restart: unless-stopped
     ports:

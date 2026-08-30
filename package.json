@@ -20,7 +20,7 @@
 		"db:studio": "drizzle-kit studio",
 		"postinstall": "cp node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs",
 		"docker:up": "docker compose up -d",
-		"//docker:up": "Sobe app (Docker Hub) + banco PostgreSQL em background",
+		"//docker:up": "Sobe app (GitHub Container Registry) + banco PostgreSQL em background",
 		"docker:db": "docker compose up -d db",
 		"//docker:db": "Sobe apenas o banco em background (para usar com pnpm dev)",
 		"docker:down": "docker compose down",
@@ -28,7 +28,7 @@
 		"docker:logs": "docker compose logs -f",
 		"//docker:logs": "Acompanha logs de todos os containers em tempo real",
 		"docker:update": "docker compose pull && docker compose up -d",
-		"//docker:update": "Atualiza para a imagem mais recente do Docker Hub e reinicia",
+		"//docker:update": "Atualiza para a imagem mais recente e reinicia",
 		"backup": "bash scripts/backup.sh",
 		"mockup": "tsx scripts/mock-data.ts"
 	},
