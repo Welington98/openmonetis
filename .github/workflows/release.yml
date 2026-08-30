@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versão a publicar (ex: 2.8.0) — deve bater com package.json"
+        required: true
 
 concurrency:
   group: release-${{ github.ref }}
@@ -15,24 +20,37 @@ permissions:
 jobs:
   quality:
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
 
+      - name: Resolve release tag
+        id: resolve
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=v${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Validate release version
         shell: bash
         run: |
-          TAG_VERSION="${GITHUB_REF_NAME#v}"
+          TAG_VERSION="${{ steps.resolve.outputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
           PACKAGE_VERSION="$(jq -r '.version' package.json)"
 
           if [[ ! "$TAG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "A tag $GITHUB_REF_NAME não segue o formato vX.Y.Z."
+            echo "A versão $TAG_VERSION não segue o formato X.Y.Z."
             exit 1
           fi
 
           if [[ "$TAG_VERSION" != "$PACKAGE_VERSION" ]]; then
-            echo "A tag $GITHUB_REF_NAME não corresponde à versão $PACKAGE_VERSION do package.json."
+            echo "A versão $TAG_VERSION não corresponde à versão $PACKAGE_VERSION do package.json."
             exit 1
           fi
 
@@ -85,20 +103,25 @@ jobs:
 
       # ghcr.io exige o path da imagem em minúsculas; github.repository
       # preserva o casing do owner/repo (ex: Welington98/openmonetis).
-      - name: Compute lowercase image name
+      - name: Compute image name and tags
         id: image
-        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+        shell: bash
+        run: |
+          NAME="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          VERSION="${{ needs.quality.outputs.tag }}"
+          VERSION="${VERSION#v}"
+          MAJOR_MINOR="${VERSION%.*}"
+          MAJOR="${MAJOR_MINOR%.*}"
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ steps.image.outputs.name }}
-          tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
-            type=raw,value=latest
+          {
+            echo "tags<<EOF"
+            echo "$NAME:$VERSION"
+            echo "$NAME:$MAJOR_MINOR"
+            echo "$NAME:$MAJOR"
+            echo "$NAME:latest"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Build and push Docker image
         id: build
@@ -107,8 +130,8 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ steps.image.outputs.tags }}
+          labels: org.opencontainers.image.version=${{ steps.image.outputs.version }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
@@ -118,7 +141,7 @@ jobs:
 
   github-release:
     runs-on: ubuntu-latest
-    needs: docker
+    needs: [quality, docker]
     permissions:
       contents: write
 
@@ -130,7 +153,8 @@ jobs:
         id: changelog
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          VERSION="${{ needs.quality.outputs.tag }}"
+          VERSION="${VERSION#v}"
           NOTES=$(awk -v version="$VERSION" '
             index($0, "## [" version "]") == 1 { found=1; next }
             found && /^## \[/ { exit }
@@ -152,8 +176,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          name: ${{ github.ref_name }}
+          tag_name: ${{ needs.quality.outputs.tag }}
+          name: ${{ needs.quality.outputs.tag }}
           body: ${{ steps.changelog.outputs.notes }}
           draft: false
           prerelease: false
