@@ -1,1 +1,0 @@
-ALTER TABLE "diario_sequencias" ADD COLUMN "orcamento_diario" numeric(12, 2);

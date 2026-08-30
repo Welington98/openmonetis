@@ -1,6 +1,7 @@
 import { connection } from "next/server";
 import { MonthlyCalendar } from "@/features/calendar/components/monthly-calendar";
 import { fetchCalendarData } from "@/features/calendar/queries";
+import { fetchGoogleCalendarToggleState } from "@/features/google-calendar/queries";
 import {
 	getSingleParam,
 	type ResolvedSearchParams,
@@ -24,10 +25,10 @@ export default async function Page({ searchParams }: PageProps) {
 	const periodoParam = getSingleParam(resolvedParams, "periodo");
 	const { period, monthName, year } = parsePeriodParam(periodoParam);
 
-	const calendarData = await fetchCalendarData({
-		userId,
-		period,
-	});
+	const [calendarData, googleCalendarSync] = await Promise.all([
+		fetchCalendarData({ userId, period }),
+		fetchGoogleCalendarToggleState(userId),
+	]);
 
 	const calendarPeriod: CalendarPeriod = {
 		period,
@@ -42,6 +43,7 @@ export default async function Page({ searchParams }: PageProps) {
 				period={calendarPeriod}
 				events={calendarData.events}
 				formOptions={calendarData.formOptions}
+				googleCalendarSync={googleCalendarSync}
 			/>
 		</main>
 	);

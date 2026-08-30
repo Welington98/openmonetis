@@ -28,6 +28,7 @@ CREATE TABLE "diario_sequencias" (
 	"ultima_data" date,
 	"lembrete_ativo" boolean DEFAULT true NOT NULL,
 	"horario_lembrete" text DEFAULT '20:00' NOT NULL,
+	"orcamento_diario" numeric(12, 2),
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	CONSTRAINT "diario_sequencias_user_id_unique" UNIQUE("user_id")

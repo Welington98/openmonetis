@@ -3,6 +3,8 @@
 import { RiCalendarEventLine } from "@remixicon/react";
 import type { ReactNode } from "react";
 import { EVENT_TYPE_STYLES } from "@/features/calendar/components/day-cell";
+import { CalendarSyncToggle } from "@/features/google-calendar/components/calendar-sync-toggle";
+import type { GoogleCalendarToggleState } from "@/features/google-calendar/queries";
 import MoneyValues from "@/shared/components/money-values";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
@@ -25,6 +27,7 @@ type EventModalProps = {
 	day: CalendarDay | null;
 	onClose: () => void;
 	onCreate: (date: string) => void;
+	googleCalendarSync: GoogleCalendarToggleState;
 };
 
 const EventCard = ({
@@ -54,6 +57,7 @@ const DATE_FORMAT: Intl.DateTimeFormatOptions = {
 
 const renderLancamento = (
 	event: Extract<CalendarEvent, { type: "transaction" }>,
+	sync: GoogleCalendarToggleState,
 ) => {
 	const isReceita = event.transaction.transactionType === "Receita";
 
@@ -66,20 +70,34 @@ const renderLancamento = (
 					</span>
 					<Badge variant="outline">{event.transaction.categoriaName}</Badge>
 				</div>
-				<MoneyValues
-					showPositiveSign
-					className={cn(
-						"text-base whitespace-nowrap font-medium",
-						isReceita ? "text-success" : "text-foreground",
+				<div className="flex flex-col items-end gap-1">
+					<MoneyValues
+						showPositiveSign
+						className={cn(
+							"text-base whitespace-nowrap font-medium",
+							isReceita ? "text-success" : "text-foreground",
+						)}
+						amount={event.transaction.amount}
+					/>
+					{sync.isConnected && (
+						<CalendarSyncToggle
+							entity="transaction"
+							entityId={event.transaction.id}
+							initialEnabled={
+								sync.transactionSync[event.transaction.id] ?? true
+							}
+						/>
 					)}
-					amount={event.transaction.amount}
-				/>
+				</div>
 			</div>
 		</EventCard>
 	);
 };
 
-const renderBoleto = (event: Extract<CalendarEvent, { type: "boleto" }>) => {
+const renderBoleto = (
+	event: Extract<CalendarEvent, { type: "boleto" }>,
+	sync: GoogleCalendarToggleState,
+) => {
 	const isPaid = Boolean(event.transaction.isSettled);
 	const isIncome = event.transaction.transactionType === "Receita";
 	const settlementLabel = isIncome ? "Recebido" : "Pago";
@@ -115,16 +133,30 @@ const renderBoleto = (event: Extract<CalendarEvent, { type: "boleto" }>) => {
 						{isPaid ? settlementLabel : "Pendente"}
 					</Badge>
 				</div>
-				<MoneyValues
-					className="font-medium whitespace-nowrap"
-					amount={event.transaction.amount}
-				/>
+				<div className="flex flex-col items-end gap-1">
+					<MoneyValues
+						className="font-medium whitespace-nowrap"
+						amount={event.transaction.amount}
+					/>
+					{sync.isConnected && (
+						<CalendarSyncToggle
+							entity="transaction"
+							entityId={event.transaction.id}
+							initialEnabled={
+								sync.transactionSync[event.transaction.id] ?? true
+							}
+						/>
+					)}
+				</div>
 			</div>
 		</EventCard>
 	);
 };
 
-const renderCard = (event: Extract<CalendarEvent, { type: "card" }>) => {
+const renderCard = (
+	event: Extract<CalendarEvent, { type: "card" }>,
+	sync: GoogleCalendarToggleState,
+) => {
 	const paymentDateLabel = event.card.isPaid
 		? formatFinancialDateLabel(event.card.paymentDate, "Pago em", DATE_FORMAT)
 		: null;
@@ -143,12 +175,21 @@ const renderCard = (event: Extract<CalendarEvent, { type: "card" }>) => {
 						{event.card.isPaid ? "Pago" : (event.card.status ?? "Fatura")}
 					</Badge>
 				</div>
-				{event.card.totalDue !== null ? (
-					<MoneyValues
-						className="font-medium whitespace-nowrap"
-						amount={event.card.totalDue}
-					/>
-				) : null}
+				<div className="flex flex-col items-end gap-1">
+					{event.card.totalDue !== null ? (
+						<MoneyValues
+							className="font-medium whitespace-nowrap"
+							amount={event.card.totalDue}
+						/>
+					) : null}
+					{sync.isConnected && (
+						<CalendarSyncToggle
+							entity="card"
+							entityId={event.card.id}
+							initialEnabled={sync.cardSync[event.card.id] ?? true}
+						/>
+					)}
+				</div>
 			</div>
 		</EventCard>
 	);
@@ -156,6 +197,7 @@ const renderCard = (event: Extract<CalendarEvent, { type: "card" }>) => {
 
 const renderInstallment = (
 	event: Extract<CalendarEvent, { type: "installment" }>,
+	sync: GoogleCalendarToggleState,
 ) => {
 	const isReceita = event.transaction.transactionType === "Receita";
 
@@ -178,6 +220,15 @@ const renderInstallment = (
 						amount={event.installmentValue}
 					/>
 					<span className="text-xs text-muted-foreground">por parcela</span>
+					{sync.isConnected && (
+						<CalendarSyncToggle
+							entity="transaction"
+							entityId={event.transaction.id}
+							initialEnabled={
+								sync.transactionSync[event.transaction.id] ?? true
+							}
+						/>
+					)}
 				</div>
 			</div>
 		</EventCard>
@@ -191,22 +242,28 @@ const SECTION_LABELS: Record<CalendarEvent["type"], string> = {
 	card: "Faturas",
 };
 
-const renderEvent = (event: CalendarEvent) => {
+const renderEvent = (event: CalendarEvent, sync: GoogleCalendarToggleState) => {
 	switch (event.type) {
 		case "transaction":
-			return renderLancamento(event);
+			return renderLancamento(event, sync);
 		case "installment":
-			return renderInstallment(event);
+			return renderInstallment(event, sync);
 		case "boleto":
-			return renderBoleto(event);
+			return renderBoleto(event, sync);
 		case "card":
-			return renderCard(event);
+			return renderCard(event, sync);
 		default:
 			return null;
 	}
 };
 
-export function EventModal({ open, day, onClose, onCreate }: EventModalProps) {
+export function EventModal({
+	open,
+	day,
+	onClose,
+	onCreate,
+	googleCalendarSync,
+}: EventModalProps) {
 	const formattedDate = !day
 		? ""
 		: friendlyDate(parseLocalDateString(day.date));
@@ -251,7 +308,9 @@ export function EventModal({ open, day, onClose, onCreate }: EventModalProps) {
 									</p>
 									<div className="space-y-1.5">
 										{grouped[type].map((event) => (
-											<div key={event.id}>{renderEvent(event)}</div>
+											<div key={event.id}>
+												{renderEvent(event, googleCalendarSync)}
+											</div>
 										))}
 									</div>
 								</div>
