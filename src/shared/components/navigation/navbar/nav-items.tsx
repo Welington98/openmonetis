@@ -18,6 +18,7 @@ import {
 	RiSparklingLine,
 	RiStore2Line,
 	RiTodoLine,
+	RiWalletLine,
 } from "@remixicon/react";
 
 export type NavItem = {
@@ -57,6 +58,13 @@ export const NAV_SECTIONS: NavSection[] = [
 				label: "Diário",
 				description: "Check-in rápido de como foi seu dia financeiro",
 				icon: <RiFireLine className="size-4" />,
+				iconClass: "text-primary",
+			},
+			{
+				href: "/daily-budget",
+				label: "Orçamento diário",
+				description: "Quanto você pode gastar hoje sem comprometer o ciclo",
+				icon: <RiWalletLine className="size-4" />,
 				iconClass: "text-primary",
 			},
 			{

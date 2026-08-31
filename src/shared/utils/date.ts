@@ -430,6 +430,16 @@ export function formatDateOnlyLabel(
 	return prefix ? `${prefix} ${formatted}` : formatted;
 }
 
+/** Soma (ou subtrai, com `days` negativo) dias a uma string "YYYY-MM-DD", em UTC. */
+export function addDays(dateString: string, days: number): string {
+	const date = parseUtcDateString(dateString);
+	if (!date) {
+		return dateString;
+	}
+	date.setUTCDate(date.getUTCDate() + days);
+	return toDateOnlyString(date) ?? dateString;
+}
+
 export function compareDateOnly(
 	left: string | Date | null | undefined,
 	right: string | Date | null | undefined,

@@ -173,6 +173,14 @@ export const userPreferences = pgTable("preferencias_usuario", {
 		hidden: string[];
 		myAccountsShowExcluded?: boolean;
 	}>(),
+	// Faixas de status (verde/amarelo/vermelho) do Orçamento Diário Dinâmico,
+	// como % do saldo projetado sobre a renda do ciclo.
+	dailyBudgetGreenThresholdPct: integer("orcamento_diario_limite_verde_pct")
+		.notNull()
+		.default(20),
+	dailyBudgetYellowThresholdPct: integer("orcamento_diario_limite_amarelo_pct")
+		.notNull()
+		.default(5),
 	createdAt: timestamp("created_at", {
 		mode: "date",
 		withTimezone: true,
@@ -478,6 +486,41 @@ export const savingsGoals = pgTable(
 	}),
 );
 
+export const dailyBudgetSettings = pgTable(
+	"configuracoes_orcamento_diario",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		// "YYYY-MM" do mês em que o ciclo financeiro COMEÇA (não
+		// necessariamente o mês calendário corrente — ver calculateFinancialCycle).
+		period: text("periodo").notNull(),
+		// 'automatico' | 'personalizado'
+		calculationMode: text("modo_calculo").notNull().default("automatico"),
+		customDailyLimit: numeric("limite_diario_personalizado", {
+			precision: 12,
+			scale: 2,
+		}),
+		targetSavings: numeric("meta_economia", { precision: 12, scale: 2 }),
+		safetyBuffer: numeric("reserva_seguranca", { precision: 12, scale: 2 }),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdPeriodUnique: uniqueIndex(
+			"configuracoes_orcamento_diario_user_id_periodo_key",
+		).on(table.userId, table.period),
+	}),
+);
+
+export type DailyBudgetSettings = typeof dailyBudgetSettings.$inferSelect;
+export type NewDailyBudgetSettings = typeof dailyBudgetSettings.$inferInsert;
+
 export const notes = pgTable(
 	"anotacoes",
 	{
@@ -548,6 +591,12 @@ export const diaryEntries = pgTable(
 		// 'planejado' | 'impulsivo' | 'necessario' | null
 		classification: text("classificacao"),
 		note: text("nota"),
+		// Lançamento real criado/sincronizado a partir deste check-in (ver
+		// saveTodayEntryAction). Null quando não houve conta elegível pra
+		// lançar, ou quando o check-in é "sem gasto".
+		transactionId: uuid("lancamento_id").references(() => transactions.id, {
+			onDelete: "set null",
+		}),
 		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -1180,6 +1229,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	diaryAchievements: many(diaryAchievements),
 	googleCalendarConnections: many(googleCalendarConnections),
 	googleCalendarSyncedEvents: many(googleCalendarSyncedEvents),
+	dailyBudgetSettings: many(dailyBudgetSettings),
 }));
 
 export const accountRelations = relations(account, ({ one }) => ({
@@ -1296,6 +1346,16 @@ export const savingsGoalsRelations = relations(savingsGoals, ({ one }) => ({
 	}),
 }));
 
+export const dailyBudgetSettingsRelations = relations(
+	dailyBudgetSettings,
+	({ one }) => ({
+		user: one(user, {
+			fields: [dailyBudgetSettings.userId],
+			references: [user.id],
+		}),
+	}),
+);
+
 export const notesRelations = relations(notes, ({ one, many }) => ({
 	user: one(user, {
 		fields: [notes.userId],
@@ -1315,6 +1375,10 @@ export const diaryEntriesRelations = relations(diaryEntries, ({ one }) => ({
 	user: one(user, {
 		fields: [diaryEntries.userId],
 		references: [user.id],
+	}),
+	transaction: one(transactions, {
+		fields: [diaryEntries.transactionId],
+		references: [transactions.id],
 	}),
 }));
 

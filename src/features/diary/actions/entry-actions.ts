@@ -1,11 +1,13 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
-import { diaryEntries, diaryStreaks } from "@/db/schema";
+import { and, eq, ilike } from "drizzle-orm";
+import { categories, diaryEntries, diaryStreaks } from "@/db/schema";
+import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import {
 	evaluateMonthNoOverrunBadge,
 	evaluateStreakBadges,
 } from "@/features/diary/lib/achievements";
+import { mapDiaryCategoryToLabel } from "@/features/diary/lib/category-mapping";
 import type { DiaryBadgeKey } from "@/features/diary/lib/constants";
 import {
 	type DiaryEntryInput,
@@ -13,11 +15,18 @@ import {
 } from "@/features/diary/lib/schemas";
 import { computeStreakOnSave } from "@/features/diary/lib/streak";
 import {
+	createTransactionAction,
+	deleteTransactionAction,
+	updateTransactionAction,
+} from "@/features/transactions/actions/single-actions";
+import { isAccountInactive } from "@/shared/lib/accounts/constants";
+import {
 	handleActionError,
 	revalidateForEntity,
 } from "@/shared/lib/actions/helpers";
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
+import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import type { ActionResult } from "@/shared/lib/types/actions";
 import {
 	getBusinessDateString,
@@ -31,6 +40,130 @@ export type SaveTodayEntryResult = {
 	longestStreak: number;
 	newlyEarnedBadges: DiaryBadgeKey[];
 };
+
+/** Primeira conta elegível do usuário (mesmo critério de fetchDashboardAccounts.totalBalance). */
+async function resolveDefaultAccountId(userId: string): Promise<string | null> {
+	const { accounts } = await fetchDashboardAccounts(userId);
+	const eligible = accounts.find(
+		(account) =>
+			!account.excludeFromBalance && !isAccountInactive(account.status),
+	);
+	return eligible?.id ?? null;
+}
+
+/**
+ * Tenta mapear a categoria fixa do diário pro nome de uma categoria real do
+ * usuário; sem match (ou categoria "outro"), cai numa categoria de despesa
+ * genérica qualquer (toda conta tem ao menos uma, seedada no signup).
+ */
+async function resolveDespesaCategoryId(
+	userId: string,
+	diaryCategory: string | null,
+): Promise<string | null> {
+	const label = mapDiaryCategoryToLabel(diaryCategory);
+
+	if (label) {
+		const matched = await db.query.categories.findFirst({
+			where: and(
+				eq(categories.userId, userId),
+				eq(categories.type, "despesa"),
+				ilike(categories.name, label),
+			),
+			columns: { id: true },
+		});
+		if (matched) return matched.id;
+	}
+
+	const fallback = await db.query.categories.findFirst({
+		where: and(eq(categories.userId, userId), eq(categories.type, "despesa")),
+		columns: { id: true },
+	});
+	return fallback?.id ?? null;
+}
+
+/**
+ * Cria/atualiza/apaga o lançamento real vinculado ao check-in de hoje, e
+ * devolve o `transactionId` a gravar em `diaryEntries` (null = sem gasto, ou
+ * sem conta/categoria elegível pra lançar — nesse caso o check-in continua
+ * valendo, só não gera lançamento).
+ */
+async function syncDiaryTransaction({
+	userId,
+	today,
+	existingTransactionId,
+	hadExpense,
+	amount,
+	category,
+	note,
+}: {
+	userId: string;
+	today: string;
+	existingTransactionId: string | null;
+	hadExpense: boolean;
+	amount: number | undefined;
+	category: string | null;
+	note: string | null;
+}): Promise<string | null> {
+	if (!hadExpense || amount === undefined) {
+		if (existingTransactionId) {
+			await deleteTransactionAction({ id: existingTransactionId });
+		}
+		return null;
+	}
+
+	const [adminPayerId, accountId, categoryId] = await Promise.all([
+		getAdminPayerId(userId),
+		resolveDefaultAccountId(userId),
+		resolveDespesaCategoryId(userId, category),
+	]);
+
+	if (!accountId || !categoryId) {
+		if (existingTransactionId) {
+			await deleteTransactionAction({ id: existingTransactionId });
+		}
+		return null;
+	}
+
+	const payload = {
+		purchaseDate: today,
+		name: "Gasto do dia",
+		transactionType: "Despesa" as const,
+		condition: "À vista" as const,
+		paymentMethod: "Dinheiro" as const,
+		amount,
+		payerId: adminPayerId ?? undefined,
+		accountId,
+		categoryId,
+		note: note ?? null,
+		isSettled: true,
+		isSplit: false,
+	};
+
+	if (existingTransactionId) {
+		const result = await updateTransactionAction({
+			id: existingTransactionId,
+			...payload,
+		});
+		if (!result.success) {
+			console.error(
+				"[Diary] Falha ao atualizar lançamento do check-in:",
+				result.error,
+			);
+			return existingTransactionId;
+		}
+		return existingTransactionId;
+	}
+
+	const result = await createTransactionAction(payload);
+	if (!result.success) {
+		console.error(
+			"[Diary] Falha ao criar lançamento do check-in:",
+			result.error,
+		);
+		return null;
+	}
+	return result.data?.ids[0] ?? null;
+}
 
 export async function saveTodayEntryAction(
 	input: DiaryEntryInput,
@@ -53,6 +186,16 @@ export async function saveTodayEntryAction(
 		});
 		const isEditOfToday = existingEntry !== undefined;
 
+		const transactionId = await syncDiaryTransaction({
+			userId: user.id,
+			today,
+			existingTransactionId: existingEntry?.transactionId ?? null,
+			hadExpense: data.hadExpense,
+			amount: data.amount,
+			category: data.hadExpense ? (data.category ?? null) : null,
+			note: data.note ?? null,
+		});
+
 		await db
 			.insert(diaryEntries)
 			.values({
@@ -66,6 +209,7 @@ export async function saveTodayEntryAction(
 				category: data.hadExpense ? (data.category ?? null) : null,
 				classification: data.hadExpense ? (data.classification ?? null) : null,
 				note: data.note ?? null,
+				transactionId,
 			})
 			.onConflictDoUpdate({
 				target: [diaryEntries.userId, diaryEntries.entryDate],
@@ -80,6 +224,7 @@ export async function saveTodayEntryAction(
 						? (data.classification ?? null)
 						: null,
 					note: data.note ?? null,
+					transactionId,
 					updatedAt: new Date(),
 				},
 			});
@@ -134,6 +279,7 @@ export async function saveTodayEntryAction(
 		}
 
 		revalidateForEntity("diary", user.id);
+		revalidateForEntity("transactions", user.id);
 
 		return {
 			success: true,

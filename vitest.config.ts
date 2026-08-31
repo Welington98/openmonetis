@@ -2,12 +2,13 @@ import path from "node:path";
 import { defineConfig } from "vitest/config";
 
 /**
- * Runner escopado à lógica pura da feature "diary" — sem DB, sem Next.js,
- * sem React Testing Library. Ver src/features/diary/lib/__tests__.
+ * Runner escopado à lógica pura de cada feature (funções dentro de lib/,
+ * sem DB, sem Next.js, sem React Testing Library) — ver __tests__ em cada
+ * pasta lib/ dentro de src/features.
  */
 export default defineConfig({
 	test: {
-		include: ["src/features/diary/lib/**/*.test.ts"],
+		include: ["src/features/**/lib/**/*.test.ts"],
 		environment: "node",
 	},
 	resolve: {
