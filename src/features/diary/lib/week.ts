@@ -1,4 +1,8 @@
-import { parseUtcDateString, toDateOnlyString } from "@/shared/utils/date";
+import {
+	addDays,
+	parseUtcDateString,
+	toDateOnlyString,
+} from "@/shared/utils/date";
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -10,14 +14,7 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
  * fingerprint do resumo semanal) — consolidadas aqui.
  */
 
-export function addDays(dateString: string, days: number): string {
-	const date = parseUtcDateString(dateString);
-	if (!date) {
-		return dateString;
-	}
-	date.setUTCDate(date.getUTCDate() + days);
-	return toDateOnlyString(date) ?? dateString;
-}
+export { addDays };
 
 export function addWeeks(dateString: string, weeks: number): string {
 	return addDays(dateString, weeks * 7);

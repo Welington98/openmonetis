@@ -2,6 +2,7 @@ import { RiAlarmLine, RiAwardLine, RiCalendarLine } from "@remixicon/react";
 import Link from "next/link";
 import { connection } from "next/server";
 import { DiaryCheckinForm } from "@/features/diary/components/diary-checkin-form";
+import { DiaryDailyBudgetCard } from "@/features/diary/components/diary-daily-budget-card";
 import { DiaryStreakIndicator } from "@/features/diary/components/diary-streak-indicator";
 import { DiaryTodaySummary } from "@/features/diary/components/diary-today-summary";
 import { DiaryWeeklySummaryCard } from "@/features/diary/components/diary-weekly-summary-card";
@@ -10,6 +11,7 @@ import {
 	shouldShowReminder,
 } from "@/features/diary/lib/reminder";
 import {
+	fetchDiaryDailyBudgetSummary,
 	fetchDiarySettings,
 	fetchStreakSummary,
 	fetchTodayEntry,
@@ -33,6 +35,7 @@ export default async function Page() {
 		fetchWeeklySummary(userId),
 		fetchDiarySettings(userId),
 	]);
+	const dailyBudgetInfo = await fetchDiaryDailyBudgetSummary(userId);
 
 	const today = getBusinessDateString();
 	const showReminder = shouldShowReminder({
@@ -78,6 +81,10 @@ export default async function Page() {
 			)}
 
 			<DiaryStreakIndicator streak={streak} />
+
+			<Link href="/daily-budget" className="block">
+				<DiaryDailyBudgetCard info={dailyBudgetInfo} />
+			</Link>
 
 			<DiaryWeeklySummaryCard summary={weeklySummary} />
 

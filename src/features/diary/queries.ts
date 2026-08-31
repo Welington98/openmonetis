@@ -5,6 +5,7 @@ import {
 	type diaryEntries,
 	diaryStreaks,
 } from "@/db/schema";
+import { fetchDailyBudgetOverview } from "@/features/daily-budget/queries";
 import {
 	BADGE_DEFINITIONS,
 	type BadgeDefinition,
@@ -106,11 +107,15 @@ export type DiaryCalendarData = {
 	statuses: Record<string, DiaryDayStatus>;
 };
 
+function daysInPeriod(period: string): number {
+	const { year, month } = parsePeriod(period);
+	return new Date(year, month, 0).getDate();
+}
+
 function buildDaysInPeriod(period: string): string[] {
 	const { year, month } = parsePeriod(period);
-	const daysInMonth = new Date(year, month, 0).getDate();
 
-	return Array.from({ length: daysInMonth }, (_, index) => {
+	return Array.from({ length: daysInPeriod(period) }, (_, index) => {
 		const day = index + 1;
 		return `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 	});
@@ -171,6 +176,31 @@ async function fetchMonthlyBudgetTotal(
 	return rows.length > 0
 		? rows.reduce((sum, row) => sum + safeToNumber(row.amount), 0)
 		: null;
+}
+
+export type DiaryDailyBudgetSummary = {
+	dailyBudgetAmount: number;
+	spentToday: number;
+	remainingToday: number;
+};
+
+/**
+ * Adaptador fino sobre o motor completo do Orçamento Diário Dinâmico
+ * (fetchDailyBudgetOverview), pro card resumido do diário. `spentToday` vem
+ * de lançamentos reais (não mais do campo isolado do check-in) — desde que
+ * todo check-in com gasto cria/sincroniza um lançamento de verdade (ver
+ * saveTodayEntryAction), os dois números são sempre o mesmo por construção.
+ */
+export async function fetchDiaryDailyBudgetSummary(
+	userId: string,
+): Promise<DiaryDailyBudgetSummary> {
+	const { dailyBudget } = await fetchDailyBudgetOverview(userId);
+
+	return {
+		dailyBudgetAmount: dailyBudget.dailyBudgetAmount,
+		spentToday: dailyBudget.dailyBudgetAmount - dailyBudget.remainingToday,
+		remainingToday: dailyBudget.remainingToday,
+	};
 }
 
 export async function fetchDiaryCalendarData({

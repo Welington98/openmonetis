@@ -10,6 +10,7 @@ import { isGoogleCalendarConfigured } from "@/features/google-calendar/lib/googl
 import { fetchGoogleCalendarConnectionStatus } from "@/features/google-calendar/queries";
 import { CompanionTab } from "@/features/settings/components/companion-tab";
 import { DeleteAccountForm } from "@/features/settings/components/delete-account-form";
+import { LinkedAccountsForm } from "@/features/settings/components/linked-accounts-form";
 import { PasskeysForm } from "@/features/settings/components/passkeys-form";
 import { PreferencesForm } from "@/features/settings/components/preferences-form";
 import { UpdateEmailForm } from "@/features/settings/components/update-email-form";
@@ -49,7 +50,12 @@ export default async function Page({ searchParams }: PageProps) {
 
 	const resolvedParams = searchParams ? await searchParams : undefined;
 	const googleCalendarParam = getSingleParam(resolvedParams, "googleCalendar");
-	const defaultTab = googleCalendarParam ? "google-agenda" : "preferencias";
+	const linkedAccountParam = getSingleParam(resolvedParams, "contaVinculada");
+	const defaultTab = googleCalendarParam
+		? "google-agenda"
+		: linkedAccountParam
+			? "contas"
+			: "preferencias";
 
 	const [
 		{ authProvider, userPreferences, userApiTokens },
@@ -75,6 +81,7 @@ export default async function Page({ searchParams }: PageProps) {
 							<TabsTrigger value="nome">Alterar nome</TabsTrigger>
 							<TabsTrigger value="senha">Alterar senha</TabsTrigger>
 							<TabsTrigger value="passkeys">Passkeys</TabsTrigger>
+							<TabsTrigger value="contas">Contas vinculadas</TabsTrigger>
 							<TabsTrigger value="email">Alterar e-mail</TabsTrigger>
 							<TabsTrigger value="deletar" className="text-destructive">
 								Ações perigosas
@@ -234,6 +241,26 @@ export default async function Page({ searchParams }: PageProps) {
 							</div>
 							<Separator />
 							<PasskeysForm />
+						</div>
+					</Card>
+				</TabsContent>
+
+				<TabsContent value="contas" className="mt-4">
+					<Card className="p-6">
+						<div className="space-y-4">
+							<div>
+								<h2 className="text-xl font-semibold mb-1">
+									Contas vinculadas
+								</h2>
+								<p className="text-sm text-muted-foreground">
+									Vincule outras formas de login à sua conta, mantendo sua senha
+									atual funcionando normalmente.
+								</p>
+							</div>
+							<Separator />
+							<LinkedAccountsForm
+								googleConfigured={isGoogleCalendarConfigured()}
+							/>
 						</div>
 					</Card>
 				</TabsContent>
