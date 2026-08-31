@@ -5,6 +5,18 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.9.0](https://github.com/Welington98/openmonetis/compare/v2.8.2...v2.9.0) (2026-08-31)
+
+### Adicionado
+
+* adiciona Orçamento Diário Dinâmico ([3c6a2fa](https://github.com/Welington98/openmonetis/commit/3c6a2fa38308b260254eff034151396276dc7a87))
+* destaca orçamento diário no topo do dashboard ([8fc3fda](https://github.com/Welington98/openmonetis/commit/8fc3fdacd749f9a288071a705fb7f88b90bdc642))
+* permite vincular conta Google a usuário já criado ([2d6ad14](https://github.com/Welington98/openmonetis/commit/2d6ad14b60f561eb83ec1a2321f3eedd3b472033))
+
+### Alterado
+
+* remove aba Diário financeiro da navegação ([3b1cf97](https://github.com/Welington98/openmonetis/commit/3b1cf97971075e3c9c2b669a6226e6a732620030))
+
 ## [2.8.2](https://github.com/Welington98/openmonetis/compare/v2.8.1...v2.8.2) (2026-08-31)
 
 ### Corrigido
