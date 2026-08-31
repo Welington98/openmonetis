@@ -87,6 +87,16 @@ export const auth = betterAuth({
 		},
 	},
 
+	// Permite vincular uma conta Google a um usuário já logado por e-mail/senha
+	// (Configurações → Contas vinculadas). O Google já é confiável por padrão
+	// (o profile mapeado abaixo já traz emailVerified), mas deixamos explícito
+	// em vez de depender do fallback implícito do Better Auth.
+	account: {
+		accountLinking: {
+			trustedProviders: ["google"],
+		},
+	},
+
 	// Database adapter (Drizzle + PostgreSQL)
 	database: drizzleAdapter(db, {
 		provider: "pg",

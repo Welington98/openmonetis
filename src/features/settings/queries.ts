@@ -23,11 +23,21 @@ interface ApiToken {
 	revokedAt: Date | null;
 }
 
+/**
+ * Um usuário pode ter mais de uma linha em `account` (senha local + Google
+ * vinculado). "credential" tem prioridade sempre que existir — é o que
+ * determina se as telas de trocar senha/e-mail mostram os campos de senha;
+ * só volta "google" quando o usuário não tem senha local nenhuma.
+ */
 async function fetchAuthProvider(userId: string): Promise<string> {
-	const userAccount = await db.query.account.findFirst({
+	const userAccounts = await db.query.account.findMany({
 		where: eq(schema.account.userId, userId),
+		columns: { providerId: true },
 	});
-	return userAccount?.providerId || "credential";
+	if (userAccounts.some((account) => account.providerId === "credential")) {
+		return "credential";
+	}
+	return userAccounts[0]?.providerId || "credential";
 }
 
 export async function fetchUserPreferences(
