@@ -40,7 +40,7 @@ services:
     environment:
       <<: *postgres-env
       NODE_ENV: production
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${POSTGRES_USER:-openmonetis}:${POSTGRES_PASSWORD:-openmonetis_dev_password}@db:5432/${POSTGRES_DB:-openmonetis_db}}
+      DATABASE_URL: ${DATABASE_URL:-}
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL:-http://localhost:3000}
       BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-}
