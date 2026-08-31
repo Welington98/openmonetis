@@ -24,6 +24,9 @@ services:
 
   app:
     image: ghcr.io/welington98/openmonetis:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: openmonetis_app
     restart: unless-stopped
     ports:
