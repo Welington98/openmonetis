@@ -1,4 +1,7 @@
+import Link from "next/link";
 import { connection } from "next/server";
+import { DailyBudgetHero } from "@/features/daily-budget/components/daily-budget-hero";
+import { fetchDailyBudgetOverview } from "@/features/daily-budget/queries";
 import { DashboardGridEditable } from "@/features/dashboard/components/dashboard-grid-editable";
 import { DashboardMetricsCards } from "@/features/dashboard/components/dashboard-metrics-cards";
 import { DashboardWelcome } from "@/features/dashboard/components/dashboard-welcome";
@@ -36,8 +39,13 @@ async function DashboardContent({ searchParams }: PageProps) {
 	const periodoParam = getSingleParam(resolvedSearchParams, "periodo");
 	const { period: selectedPeriod } = parsePeriodParam(periodoParam);
 
-	const { dashboardData, preferences, quickActionOptions } =
-		await fetchDashboardPageData(user.id, selectedPeriod);
+	const [
+		{ dashboardData, preferences, quickActionOptions },
+		dailyBudgetOverview,
+	] = await Promise.all([
+		fetchDashboardPageData(user.id, selectedPeriod),
+		fetchDailyBudgetOverview(user.id),
+	]);
 	const { dashboardWidgets } = preferences;
 	const adminPayerSlug =
 		quickActionOptions.payerOptions.find(
@@ -52,6 +60,14 @@ async function DashboardContent({ searchParams }: PageProps) {
 	return (
 		<main className="flex flex-col gap-4">
 			<DashboardWelcome name={user.name} />
+			<ContentErrorBoundary
+				title="Não foi possível exibir o orçamento diário"
+				description="O orçamento diário não pôde ser exibido agora."
+			>
+				<Link href="/daily-budget">
+					<DailyBudgetHero overview={dailyBudgetOverview} />
+				</Link>
+			</ContentErrorBoundary>
 			<MonthNavigation />
 			<ContentErrorBoundary
 				title="Não foi possível exibir o resumo"

@@ -45,7 +45,7 @@ const revalidateConfig = {
 		"/settings",
 	],
 	googleCalendar: ["/settings", "/calendar"],
-	dailyBudget: ["/daily-budget", "/diary"],
+	dailyBudget: ["/daily-budget", "/diary", "/dashboard"],
 } as const;
 
 /** Entities whose mutations should invalidate the dashboard cache */
