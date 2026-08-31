@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.8.2](https://github.com/Welington98/openmonetis/compare/v2.8.1...v2.8.2) (2026-08-31)
+
+### Corrigido
+
+* monta DATABASE_URL no entrypoint em vez de interpolação aninhada do Compose ([4f698b3](https://github.com/Welington98/openmonetis/commit/4f698b38196bfaac3c7d0054f49e03f3350ac994))
+
 ## [2.8.1](https://github.com/Welington98/openmonetis/compare/v2.8.0...v2.8.1) (2026-08-30)
 
 ### Corrigido
