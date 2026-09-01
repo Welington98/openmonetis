@@ -1,7 +1,9 @@
 import {
 	buildDateOnlyStringFromPeriodDay,
+	compareDateOnly,
 	formatDateOnlyLabel,
 	getBusinessDateString,
+	isDateOnlyPast,
 	parseUtcDateString,
 	toDateOnlyString,
 } from "@/shared/utils/date";
@@ -139,6 +141,103 @@ export function buildDueDateInfoFromPeriodDay(
 			`${fallbackPrefix} ${dueDay}`,
 		date: dueDate,
 	};
+}
+
+const compareDateOnlyAscWithNullsLast = (
+	left: string | null,
+	right: string | null,
+): number => {
+	if (!left && !right) return 0;
+	if (!left) return 1;
+	if (!right) return -1;
+	return compareDateOnly(left, right);
+};
+
+const compareDateOnlyDescWithNullsLast = (
+	left: string | null,
+	right: string | null,
+): number => {
+	if (!left && !right) return 0;
+	if (!left) return 1;
+	if (!right) return -1;
+	return compareDateOnly(right, left);
+};
+
+/**
+ * Ordena itens financeiros (contas/faturas) pendentes antes dos liquidados,
+ * atrasados antes dos demais, depois por vencimento crescente e valor
+ * decrescente; entre liquidados, pela data de liquidação mais recente.
+ * Compartilhado entre o snapshot de boletos do dashboard, o snapshot de
+ * faturas de cartão e a página de contas a pagar/receber para evitar 3
+ * cópias do mesmo algoritmo.
+ */
+export type FinancialUrgencyAccessors<T> = {
+	isSettled: (item: T) => boolean;
+	dueDate: (item: T) => string | null;
+	settledDate: (item: T) => string | null;
+	amount: (item: T) => number;
+	tieBreak: (a: T, b: T) => number;
+};
+
+export function compareFinancialUrgency<T>(
+	a: T,
+	b: T,
+	accessors: FinancialUrgencyAccessors<T>,
+	today: string = getBusinessDateString(),
+): number {
+	const aSettled = accessors.isSettled(a);
+	const bSettled = accessors.isSettled(b);
+	if (aSettled !== bSettled) {
+		return aSettled ? 1 : -1;
+	}
+
+	if (!aSettled && !bSettled) {
+		const aDue = accessors.dueDate(a);
+		const bDue = accessors.dueDate(b);
+		const aOverdue = aDue ? isDateOnlyPast(aDue, today) : false;
+		const bOverdue = bDue ? isDateOnlyPast(bDue, today) : false;
+
+		if (aOverdue !== bOverdue) {
+			return aOverdue ? -1 : 1;
+		}
+
+		const dueDiff = compareDateOnlyAscWithNullsLast(aDue, bDue);
+		if (dueDiff !== 0) {
+			return dueDiff;
+		}
+
+		const amountDiff = accessors.amount(b) - accessors.amount(a);
+		if (amountDiff !== 0) {
+			return amountDiff;
+		}
+	}
+
+	if (aSettled && bSettled) {
+		const settledDiff = compareDateOnlyDescWithNullsLast(
+			accessors.settledDate(a),
+			accessors.settledDate(b),
+		);
+		if (settledDiff !== 0) {
+			return settledDiff;
+		}
+
+		const amountDiff = accessors.amount(b) - accessors.amount(a);
+		if (amountDiff !== 0) {
+			return amountDiff;
+		}
+	}
+
+	return accessors.tieBreak(a, b);
+}
+
+export function sortByFinancialUrgency<T>(
+	items: T[],
+	accessors: FinancialUrgencyAccessors<T>,
+): T[] {
+	const today = getBusinessDateString();
+	return [...items].sort((a, b) =>
+		compareFinancialUrgency(a, b, accessors, today),
+	);
 }
 
 export function buildRelativeDueDateInfoFromPeriodDay(

@@ -987,20 +987,17 @@ export async function toggleTransactionSettlementAction(
 			};
 		}
 
-		const isBoleto = existing.paymentMethod === "Boleto";
-		const isIncomeBill = isBoleto && existing.transactionType === "Receita";
+		const isIncome = existing.transactionType === "Receita";
 		const customPaymentDate =
-			isBoleto && data.value && data.paymentDate
+			data.value && data.paymentDate
 				? parseLocalDateString(data.paymentDate)
 				: null;
-		const boletoPaymentDate = isBoleto
-			? data.value
-				? (customPaymentDate ?? getBusinessTodayDate())
-				: null
+		const boletoPaymentDate = data.value
+			? (customPaymentDate ?? getBusinessTodayDate())
 			: null;
 
 		const shouldUpdateAccount =
-			isBoleto && data.value && data.paymentAccountId !== undefined;
+			data.value && data.paymentAccountId !== undefined;
 
 		if (shouldUpdateAccount && data.paymentAccountId) {
 			const paymentAccount = await db.query.financialAccounts.findFirst({
@@ -1014,7 +1011,7 @@ export async function toggleTransactionSettlementAction(
 			if (!paymentAccount) {
 				return {
 					success: false,
-					error: `Conta de ${isIncomeBill ? "recebimento" : "pagamento"} não encontrada.`,
+					error: `Conta de ${isIncome ? "recebimento" : "pagamento"} não encontrada.`,
 				};
 			}
 		}
@@ -1044,8 +1041,8 @@ export async function toggleTransactionSettlementAction(
 		return {
 			success: true,
 			message: data.value
-				? `Lançamento marcado como ${isIncomeBill ? "recebido" : "pago"}.`
-				: `${isIncomeBill ? "Recebimento" : "Pagamento"} desfeito com sucesso.`,
+				? `Lançamento marcado como ${isIncome ? "recebido" : "pago"}.`
+				: `${isIncome ? "Recebimento" : "Pagamento"} desfeito com sucesso.`,
 		};
 	} catch (error) {
 		return handleActionError(error);

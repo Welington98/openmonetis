@@ -26,11 +26,7 @@ import {
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { TRANSFER_CATEGORY_NAME } from "@/shared/lib/transfers/constants";
-import {
-	compareDateOnly,
-	getBusinessDateString,
-	isDateOnlyPast,
-} from "@/shared/utils/date";
+import { sortByFinancialUrgency } from "@/shared/utils/financial-dates";
 import { safeToNumber as toNumber } from "@/shared/utils/number";
 
 const PAYMENT_METHOD_BOLETO = "Boleto";
@@ -151,31 +147,10 @@ const shouldIncludeNamedItem = (name: string) => {
 	return true;
 };
 
-const compareDateOnlyAscWithNullsLast = (
-	left: string | null,
-	right: string | null,
-) => {
-	if (!left && !right) return 0;
-	if (!left) return 1;
-	if (!right) return -1;
-	return compareDateOnly(left, right);
-};
-
-const compareDateOnlyDescWithNullsLast = (
-	left: string | null,
-	right: string | null,
-) => {
-	if (!left && !right) return 0;
-	if (!left) return 1;
-	if (!right) return -1;
-	return compareDateOnly(right, left);
-};
-
 const buildBillsSnapshot = (
 	rows: CurrentPeriodTransactionRow[],
 ): DashboardBillsSnapshot => {
-	const today = getBusinessDateString();
-	const bills = rows
+	const unsortedBills = rows
 		.filter((row) => row.paymentMethod === PAYMENT_METHOD_BOLETO)
 		.map((row) => ({
 			id: row.id,
@@ -188,51 +163,15 @@ const buildBillsSnapshot = (
 			isSettled: Boolean(row.isSettled),
 			accountId: row.accountId ?? null,
 			transactionType: row.transactionType,
-		}))
-		.sort((a, b) => {
-			if (a.isSettled !== b.isSettled) {
-				return a.isSettled ? 1 : -1;
-			}
+		}));
 
-			if (!a.isSettled && !b.isSettled) {
-				const aIsOverdue = a.dueDate ? isDateOnlyPast(a.dueDate, today) : false;
-				const bIsOverdue = b.dueDate ? isDateOnlyPast(b.dueDate, today) : false;
-
-				if (aIsOverdue !== bIsOverdue) {
-					return aIsOverdue ? -1 : 1;
-				}
-
-				const dueDateDiff = compareDateOnlyAscWithNullsLast(
-					a.dueDate,
-					b.dueDate,
-				);
-				if (dueDateDiff !== 0) {
-					return dueDateDiff;
-				}
-
-				const amountDiff = b.amount - a.amount;
-				if (amountDiff !== 0) {
-					return amountDiff;
-				}
-			}
-
-			if (a.isSettled && b.isSettled) {
-				const paidAtDiff = compareDateOnlyDescWithNullsLast(
-					a.boletoPaymentDate,
-					b.boletoPaymentDate,
-				);
-				if (paidAtDiff !== 0) {
-					return paidAtDiff;
-				}
-
-				const amountDiff = b.amount - a.amount;
-				if (amountDiff !== 0) {
-					return amountDiff;
-				}
-			}
-
-			return a.name.localeCompare(b.name, "pt-BR");
-		});
+	const bills = sortByFinancialUrgency(unsortedBills, {
+		isSettled: (bill) => bill.isSettled,
+		dueDate: (bill) => bill.dueDate,
+		settledDate: (bill) => bill.boletoPaymentDate,
+		amount: (bill) => bill.amount,
+		tieBreak: (a, b) => a.name.localeCompare(b.name, "pt-BR"),
+	});
 
 	const pendingBills = bills.filter((bill) => !bill.isSettled);
 
