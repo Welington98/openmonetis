@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.10.1](https://github.com/Welington98/openmonetis/compare/v2.10.0...v2.10.1) (2026-09-01)
+
+### Desempenho
+
+* **ci:** build docker multi-arch em runners nativos (sem QEMU) ([2a38515](https://github.com/Welington98/openmonetis/commit/2a38515a70ea3b3bd0fb083da27b5e19086563c0))
+
 ## [2.10.0](https://github.com/Welington98/openmonetis/compare/v2.9.0...v2.10.0) (2026-09-01)
 
 ### Adicionado
