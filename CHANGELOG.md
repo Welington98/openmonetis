@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.10.0](https://github.com/Welington98/openmonetis/compare/v2.9.0...v2.10.0) (2026-09-01)
+
+### Adicionado
+
+* **ci:** permite gerar imagem Docker de uma tag existente via workflow_dispatch ([58823d7](https://github.com/Welington98/openmonetis/commit/58823d77de353c3b2d1f06294abc13b645871cd3))
+
 ## [2.9.0](https://github.com/Welington98/openmonetis/compare/v2.8.2...v2.9.0) (2026-08-31)
 
 ### Adicionado
