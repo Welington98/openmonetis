@@ -72,17 +72,16 @@ jobs:
       branches: '["main"]'
     secrets: inherit
 
-  docker:
+  # Calcula a tag/versão uma única vez (a partir de `docker_tag` no dispatch
+  # manual, ou da versão publicada pelo semantic-release) para os jobs
+  # docker-build (matrix) e docker-merge usarem o mesmo valor.
+  resolve-version:
     runs-on: ubuntu-latest
     needs: release
-    # Roda após uma release nova de verdade, OU quando disparado manualmente
-    # com `docker_tag` preenchido (gera a imagem de uma tag já publicada,
-    # sem precisar de um commit feat/fix novo para o semantic-release liberar).
     if: needs.release.outputs.new-release-published == 'true' || (github.event_name == 'workflow_dispatch' && inputs.docker_tag != '')
-    permissions:
-      contents: read
-      packages: write
-
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Resolve tag e versão
         id: version
@@ -96,10 +95,30 @@ jobs:
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
+  # Builda cada plataforma em runner NATIVO (sem QEMU/emulação) e publica só
+  # o digest, sem tag ainda. O job docker-merge junta os digests num único
+  # manifest multi-arch e aplica as tags finais (padrão oficial do Buildx
+  # para builds multi-plataforma: https://docs.docker.com/build/ci/github-actions/multi-platform/).
+  docker-build:
+    needs: resolve-version
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            runner: ubuntu-latest
+          - platform: linux/arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
-          ref: ${{ steps.version.outputs.tag }}
+          ref: ${{ needs.resolve-version.outputs.tag }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -113,36 +132,87 @@ jobs:
 
       # ghcr.io exige o path da imagem em minúsculas; github.repository
       # preserva o casing do owner/repo (ex: Welington98/openmonetis).
-      - name: Compute image name and tags
+      - name: Compute image name
         id: image
         shell: bash
-        run: |
-          NAME="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
-          VERSION="${{ steps.version.outputs.version }}"
-          MAJOR_MINOR="${VERSION%.*}"
-          MAJOR="${MAJOR_MINOR%.*}"
+        run: echo "name=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
-          {
-            echo "tags<<EOF"
-            echo "$NAME:$VERSION"
-            echo "$NAME:$MAJOR_MINOR"
-            echo "$NAME:$MAJOR"
-            echo "$NAME:latest"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Prepare platform pair
+        shell: bash
+        run: echo "PLATFORM_PAIR=${PLATFORM//\//-}" >> "$GITHUB_ENV"
+        env:
+          PLATFORM: ${{ matrix.platform }}
 
-      - name: Build and push Docker image
+      - name: Build and push by digest
         id: build
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          push: true
-          tags: ${{ steps.image.outputs.tags }}
-          labels: org.opencontainers.image.version=${{ steps.version.outputs.version }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
+          labels: org.opencontainers.image.version=${{ needs.resolve-version.outputs.version }}
+          cache-from: type=gha,scope=${{ matrix.platform }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.platform }}
+          outputs: type=image,name=${{ steps.image.outputs.name }},push-by-digest=true,name-canonical=true,push=true
 
-      - name: Image digest
-        run: echo "${{ steps.build.outputs.digest }}"
+      - name: Export digest
+        shell: bash
+        run: |
+          mkdir -p /tmp/digests
+          digest="${{ steps.build.outputs.digest }}"
+          touch "/tmp/digests/${digest#sha256:}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v4
+        with:
+          name: digests-${{ env.PLATFORM_PAIR }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 1
+
+  docker-merge:
+    runs-on: ubuntu-latest
+    needs: [resolve-version, docker-build]
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v4
+        with:
+          path: /tmp/digests
+          pattern: digests-*
+          merge-multiple: true
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Compute image name and tag args
+        id: image
+        shell: bash
+        run: |
+          NAME="ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')"
+          VERSION="${{ needs.resolve-version.outputs.version }}"
+          MAJOR_MINOR="${VERSION%.*}"
+          MAJOR="${MAJOR_MINOR%.*}"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag_args=-t $NAME:$VERSION -t $NAME:$MAJOR_MINOR -t $NAME:$MAJOR -t $NAME:latest" >> "$GITHUB_OUTPUT"
+
+      - name: Create manifest list and push
+        working-directory: /tmp/digests
+        shell: bash
+        run: |
+          docker buildx imagetools create ${{ steps.image.outputs.tag_args }} \
+            $(printf '${{ steps.image.outputs.name }}@sha256:%s ' *)
+
+      - name: Inspect image
+        shell: bash
+        run: docker buildx imagetools inspect ${{ steps.image.outputs.name }}:${{ needs.resolve-version.outputs.version }}
