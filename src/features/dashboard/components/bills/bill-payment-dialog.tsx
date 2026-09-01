@@ -3,6 +3,7 @@ import {
 	RiLoader4Line,
 	RiMoneyDollarCircleLine,
 } from "@remixicon/react";
+import { useEffect, useState } from "react";
 import {
 	type BillDialogState,
 	formatBillDateLabel,
@@ -67,15 +68,30 @@ export function BillPaymentDialog({
 	onConfirm,
 }: BillPaymentDialogProps) {
 	const isProcessing = modalState === "processing" || isPending;
-	const income = bill ? isIncomeBill(bill) : false;
+	// Guarda o último `bill` não nulo: um `router.refresh()` disparado pela
+	// confirmação pode remover o item da lista de origem (quando ela só
+	// contém pendentes, como na página de contas a pagar/receber) antes da
+	// tela de sucesso terminar de exibir, o que faria o texto cair no
+	// fallback genérico de despesa mesmo para um recebimento.
+	const [lastBill, setLastBill] = useState<DashboardBill | null>(bill);
+	useEffect(() => {
+		if (bill) {
+			setLastBill(bill);
+		}
+	}, [bill]);
+	const displayBill = bill ?? lastBill;
+	const income = displayBill ? isIncomeBill(displayBill) : false;
 	const settlementLabel = income ? "Recebido" : "Pago";
-	const dueLabel = bill
-		? formatBillDateLabel(bill.dueDate, "Vencimento:")
+	const dueLabel = displayBill
+		? formatBillDateLabel(displayBill.dueDate, "Vencimento:")
 		: null;
-	const paidLabel = bill
-		? formatBillDateLabel(bill.boletoPaymentDate, `${settlementLabel} em:`)
+	const paidLabel = displayBill
+		? formatBillDateLabel(
+				displayBill.boletoPaymentDate,
+				`${settlementLabel} em:`,
+			)
 		: null;
-	const isBillPending = bill ? !bill.isSettled : false;
+	const isBillPending = displayBill ? !displayBill.isSettled : false;
 	const paymentDateValue = paymentDate.toISOString().split("T")[0] ?? "";
 	const selectedAccount = paymentAccountOptions.find(
 		(option) => option.value === paymentAccountId,
@@ -107,7 +123,7 @@ export function BillPaymentDialog({
 				{modalState === "success" ? (
 					<PaymentSuccess
 						title={income ? "Recebimento registrado!" : "Pagamento registrado!"}
-						description={`Atualizamos o status do boleto para ${income ? "recebido" : "pago"}. Em instantes ele aparecerá como baixado no histórico.`}
+						description={`Atualizamos o status do lançamento para ${income ? "recebido" : "pago"}. Em instantes ele aparecerá como baixado no histórico.`}
 						onClose={onClose}
 					/>
 				) : (
@@ -120,27 +136,29 @@ export function BillPaymentDialog({
 									</DialogTitle>
 									<DialogDescription className="mt-1 text-xs">
 										{isBillPending
-											? `Escolha a conta de ${income ? "destino" : "origem"} e a data em que o boleto foi ${income ? "recebido" : "pago"}.`
-											: "Boleto"}
+											? `Escolha a conta de ${income ? "destino" : "origem"} e a data em que o lançamento foi ${income ? "recebido" : "pago"}.`
+											: income
+												? "Recebimento"
+												: "Pagamento"}
 									</DialogDescription>
 								</div>
 							</div>
 						</DialogHeader>
 
-						{bill ? (
+						{displayBill ? (
 							<div className="space-y-3">
 								<Card className="flex flex-row items-start gap-2 p-4">
 									<EstablishmentLogo
-										name={bill.name}
+										name={displayBill.name}
 										size={36}
 										className="size-9 shrink-0"
 									/>
 									<div className="min-w-0">
 										<p className="text-xs font-medium text-muted-foreground uppercase">
-											Boleto
+											{income ? "Recebimento" : "Pagamento"}
 										</p>
 										<p className="truncate text-base font-semibold text-foreground">
-											{bill.name}
+											{displayBill.name}
 										</p>
 									</div>
 								</Card>
@@ -154,7 +172,7 @@ export function BillPaymentDialog({
 											</span>
 										</div>
 										<MoneyValues
-											amount={bill.amount}
+											amount={displayBill.amount}
 											className="text-xl font-semibold"
 										/>
 									</Card>
@@ -163,13 +181,13 @@ export function BillPaymentDialog({
 										<div className="flex items-center gap-1.5 text-muted-foreground">
 											<RiCalendarLine className="size-3.5" />
 											<span className="text-xs font-medium uppercase">
-												{bill.isSettled
+												{displayBill.isSettled
 													? `${settlementLabel} em`
 													: "Vencimento"}
 											</span>
 										</div>
 										<p className="font-semibold">
-											{bill.isSettled
+											{displayBill.isSettled
 												? (paidLabel?.replace(`${settlementLabel} em: `, "") ??
 													"—")
 												: (dueLabel?.replace("Vencimento: ", "") ?? "—")}

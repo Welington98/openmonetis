@@ -7,6 +7,7 @@ import {
 	RiBarChart2Line,
 	RiCalendarEventLine,
 	RiCheckDoubleLine,
+	RiExchangeDollarLine,
 	RiFileChartLine,
 	RiFlag2Line,
 	RiGroupLine,
@@ -66,6 +67,13 @@ export const NAV_SECTIONS: NavSection[] = [
 				icon: <RiArrowLeftRightLine className="size-4" />,
 				iconClass: "text-primary",
 				preservePeriod: true,
+			},
+			{
+				href: "/payables",
+				label: "Contas a pagar/receber",
+				description: "Veja tudo que está pendente de pagamento ou recebimento",
+				icon: <RiExchangeDollarLine className="size-4" />,
+				iconClass: "text-primary",
 			},
 			{
 				href: "/inbox",
