@@ -13,6 +13,7 @@ import { DeleteAccountForm } from "@/features/settings/components/delete-account
 import { LinkedAccountsForm } from "@/features/settings/components/linked-accounts-form";
 import { PasskeysForm } from "@/features/settings/components/passkeys-form";
 import { PreferencesForm } from "@/features/settings/components/preferences-form";
+import { PushNotificationsForm } from "@/features/settings/components/push-notifications-form";
 import { UpdateEmailForm } from "@/features/settings/components/update-email-form";
 import { UpdateNameForm } from "@/features/settings/components/update-name-form";
 import { UpdatePasswordForm } from "@/features/settings/components/update-password-form";
@@ -77,6 +78,9 @@ export default async function Page({ searchParams }: PageProps) {
 							<TabsTrigger value="preferencias">Preferências</TabsTrigger>
 							<TabsTrigger value="diario">Diário</TabsTrigger>
 							<TabsTrigger value="companion">Companion</TabsTrigger>
+							<TabsTrigger value="notificacoes-push">
+								Notificações push
+							</TabsTrigger>
 							<TabsTrigger value="google-agenda">Google Agenda</TabsTrigger>
 							<TabsTrigger value="nome">Alterar nome</TabsTrigger>
 							<TabsTrigger value="senha">Alterar senha</TabsTrigger>
@@ -173,6 +177,25 @@ export default async function Page({ searchParams }: PageProps) {
 							</div>
 							<Separator />
 							<CompanionTab tokens={userApiTokens} />
+						</div>
+					</Card>
+				</TabsContent>
+
+				<TabsContent value="notificacoes-push" className="mt-4">
+					<Card className="p-6">
+						<div className="space-y-4">
+							<div>
+								<h2 className="text-xl font-semibold mb-1">
+									Notificações push
+								</h2>
+								<p className="text-sm text-muted-foreground">
+									Ative para receber avisos no navegador ou celular sobre
+									faturas, boletos vencendo e orçamentos estourados — mesmo com
+									o OpenMonetis fechado.
+								</p>
+							</div>
+							<Separator />
+							<PushNotificationsForm />
 						</div>
 					</Card>
 				</TabsContent>

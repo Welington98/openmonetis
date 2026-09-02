@@ -1,3 +1,4 @@
+import withSerwistInit from "@serwist/next";
 import dotenv from "dotenv";
 import type { NextConfig } from "next";
 
@@ -75,4 +76,11 @@ const nextConfig: NextConfig = {
 	},
 };
 
-export default nextConfig;
+const withSerwist = withSerwistInit({
+	swSrc: "src/app/sw.ts",
+	swDest: "public/sw.js",
+	cacheOnNavigation: true,
+	disable: process.env.NODE_ENV === "development",
+});
+
+export default withSerwist(nextConfig);

@@ -18,6 +18,12 @@
 next-env.d.ts
 .turbo
 
+# === Serwist (Service Worker gerado no build) ===
+/public/sw.js
+/public/sw.js.map
+/public/swe-worker-*.js
+/public/swe-worker-*.js.map
+
 # === Build ===
 /build
 /dist
