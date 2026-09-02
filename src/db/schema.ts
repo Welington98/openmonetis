@@ -780,6 +780,10 @@ export const dashboardNotificationStates = pgTable(
 			mode: "date",
 			withTimezone: true,
 		}),
+		pushedAt: timestamp("pushed_at", {
+			mode: "date",
+			withTimezone: true,
+		}),
 		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
 			.notNull()
 			.defaultNow(),
@@ -791,6 +795,33 @@ export const dashboardNotificationStates = pgTable(
 		userIdNotificationKeyUnique: uniqueIndex(
 			"dashboard_notification_states_user_id_key_unique",
 		).on(table.userId, table.notificationKey),
+	}),
+);
+
+export const pushSubscriptions = pgTable(
+	"push_subscriptions",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		endpoint: text("endpoint").notNull(),
+		p256dh: text("p256dh").notNull(),
+		auth: text("auth").notNull(),
+		userAgent: text("user_agent"),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		lastUsedAt: timestamp("last_used_at", {
+			mode: "date",
+			withTimezone: true,
+		}),
+	},
+	(table) => ({
+		endpointUnique: uniqueIndex("push_subscriptions_endpoint_unique").on(
+			table.endpoint,
+		),
+		userIdIdx: index("push_subscriptions_user_id_idx").on(table.userId),
 	}),
 );
 

@@ -91,6 +91,8 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 
 ⚙️ **Personalização** — Tema dark/light, modo privacidade, ordem das colunas, agrupamento por data em lançamentos, exibição de anotações, tamanho máximo de anexos, resumo opcional no modal de lançamento e changelog visual para acompanhar as novidades do app.
 
+📶 **PWA e notificações push** — Instale como app (Android/iOS/desktop) com suporte offline via Service Worker. Ative notificações push do navegador para avisos de faturas/boletos vencendo e orçamentos estourados, mesmo com o app fechado.
+
 ### Stack técnica
 
 - **Next.js** (App Router, Turbopack) + **React** + **TypeScript**
@@ -496,6 +498,14 @@ PLUGGY_USE_SANDBOX=true # false usa conectores reais de bancos
 # externo (Vercel Cron, cron do host, GitHub Actions schedule, etc.) — o
 # projeto não roda nenhum scheduler dentro do próprio processo.
 CRON_SECRET=
+
+# Notificações Push (opcional, necessário para notificações do navegador)
+# Gere o par de chaves com: npx web-push generate-vapid-keys
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=
+VAPID_PRIVATE_KEY=
+VAPID_SUBJECT= # mailto:voce@exemplo.com
+# Envio automático via /api/cron/push-notifications, chamada periodicamente
+# pelo mesmo agendador externo — reaproveita CRON_SECRET acima.
 ```
 
 ### BETTER_AUTH_TRUSTED_ORIGINS
