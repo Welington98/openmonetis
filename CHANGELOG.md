@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.11.1](https://github.com/Welington98/openmonetis/compare/v2.11.0...v2.11.1) (2026-09-02)
+
+### Corrigido
+
+* **backup:** usa pg_restore do container em modo docker ([d5bbcc1](https://github.com/Welington98/openmonetis/commit/d5bbcc1e36ca676ffc215ac909dbfdb752457b56))
+
 ## [2.11.0](https://github.com/Welington98/openmonetis/compare/v2.10.1...v2.11.0) (2026-09-01)
 
 ### Adicionado
