@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.12.0](https://github.com/Welington98/openmonetis/compare/v2.11.1...v2.12.0) (2026-09-02)
+
+### Adicionado
+
+* adiciona suporte offline (PWA) e notificações push ([bb032b5](https://github.com/Welington98/openmonetis/commit/bb032b5743af397b7e079aaeab1d92649bbe0a61))
+
 ## [2.11.1](https://github.com/Welington98/openmonetis/compare/v2.11.0...v2.11.1) (2026-09-02)
 
 ### Corrigido
