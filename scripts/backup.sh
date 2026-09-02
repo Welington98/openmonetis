@@ -84,9 +84,18 @@ else
   exit 1
 fi
 
-# Extrai dados puros do dump custom (sem nova conexão ao banco)
-pg_restore --data-only --schema=public --no-owner --no-privileges \
-  -f - "$DUMP_FILE" | gzip > "$DATA_FILE"
+# Extrai dados puros do dump custom (sem nova conexão ao banco).
+# Em modo docker, usa o pg_restore de DENTRO do container: o arquivo foi
+# gerado pelo pg_dump do próprio container e pode estar num formato mais
+# novo do que o pg_restore instalado no host entende.
+if [[ "$DB_MODE" == "docker" ]]; then
+  docker exec -i "$DOCKER_CONTAINER" pg_restore \
+    --data-only --schema=public --no-owner --no-privileges \
+    -f - < "$DUMP_FILE" | gzip > "$DATA_FILE"
+else
+  pg_restore --data-only --schema=public --no-owner --no-privileges \
+    -f - "$DUMP_FILE" | gzip > "$DATA_FILE"
+fi
 
 log "Dump concluído: $(du -sh "$DUMP_FILE" | cut -f1) (.dump) | $(du -sh "$SQL_FILE" | cut -f1) (.sql.gz) | $(du -sh "$DATA_FILE" | cut -f1) (.data.sql.gz)"
 
