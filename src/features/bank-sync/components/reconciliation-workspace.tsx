@@ -298,13 +298,13 @@ export function ReconciliationWorkspace({
 
 	return (
 		<div className="flex flex-col gap-4">
-			<div className="flex flex-wrap items-center justify-between gap-3">
-				<div className="flex items-center gap-3">
+			<div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+				<div className="flex flex-wrap items-center gap-3">
 					<Select
 						value={selectedConnectionId}
 						onValueChange={setSelectedConnectionId}
 					>
-						<SelectTrigger className="w-72">
+						<SelectTrigger className="w-full sm:w-72">
 							<SelectValue placeholder="Conexão" />
 						</SelectTrigger>
 						<SelectContent>
