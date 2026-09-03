@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.13.0](https://github.com/Welington98/openmonetis/compare/v2.12.2...v2.13.0) (2026-09-03)
+
+### Adicionado
+
+* **import:** suporta importação de planilha exportada do app Meu Dinheiro ([f50b834](https://github.com/Welington98/openmonetis/commit/f50b834d82b2d50d133ee25c46e1098032aba902))
+
 ## [2.12.2](https://github.com/Welington98/openmonetis/compare/v2.12.1...v2.12.2) (2026-09-03)
 
 ### Corrigido
