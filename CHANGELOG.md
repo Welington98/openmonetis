@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.13.1](https://github.com/Welington98/openmonetis/compare/v2.13.0...v2.13.1) (2026-09-03)
+
+### Corrigido
+
+* **ui:** padroniza responsividade das abas no mobile ([ae67e44](https://github.com/Welington98/openmonetis/commit/ae67e44c04278d1f6fa1b197bd624a11980a7d25))
+
 ## [2.13.0](https://github.com/Welington98/openmonetis/compare/v2.12.2...v2.13.0) (2026-09-03)
 
 ### Adicionado
