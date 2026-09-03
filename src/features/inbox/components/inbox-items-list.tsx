@@ -105,7 +105,7 @@ export function InboxItemsList({
 		<div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
 			{groups.flatMap((group) =>
 				group.items.map((item) => (
-					<div key={item.id} className="flex flex-col gap-1.5">
+					<div key={item.id} className="flex min-w-0 flex-col gap-1.5">
 						<div className="flex items-center gap-1.5 text-muted-foreground">
 							<RiCalendarEventLine className="size-3 shrink-0" />
 							<span className="text-xs font-medium">{group.label}</span>

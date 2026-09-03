@@ -104,10 +104,10 @@ export const InboxCard = memo(function InboxCard({
 
 	return (
 		<Card
-			className={`flex h-54 flex-col gap-0 py-0 transition-colors ${selected ? "ring-2 ring-primary/30" : ""}`}
+			className={`flex h-54 min-w-0 flex-col gap-0 py-0 transition-colors ${selected ? "ring-2 ring-primary/30" : ""}`}
 		>
-			<CardHeader className="pt-4">
-				<div className="flex items-center justify-between">
+			<CardHeader className="min-w-0 pt-4">
+				<div className="flex min-w-0 items-center justify-between gap-2">
 					<CardTitle className="flex min-w-0 items-center gap-3 text-sm">
 						{onSelectToggle && (
 							<Checkbox

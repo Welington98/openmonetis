@@ -61,7 +61,7 @@ export function InboxBulkActions({
 	const appFilter =
 		appFilterOptions.length > 0 ? (
 			<Select value={activeApp ?? "all"} onValueChange={onAppChange}>
-				<SelectTrigger className="w-[190px]">
+				<SelectTrigger className="w-full sm:w-[190px]">
 					<SelectValue>
 						<span className="flex min-w-0 items-center gap-2">
 							<div className="relative size-5 shrink-0 overflow-hidden rounded-full">
@@ -118,7 +118,7 @@ export function InboxBulkActions({
 		<div className="mb-4 flex flex-wrap items-center gap-2">
 			{appFilter}
 			{items.length > 0 ? (
-				<div className="ml-auto flex items-center gap-2">
+				<div className="flex w-full flex-wrap items-center gap-2 sm:ml-auto sm:w-auto">
 					<Button variant="outline" size="sm" onClick={onToggleSelectAll}>
 						{allSelected ? "Cancelar seleção" : "Selecionar página"}
 					</Button>
