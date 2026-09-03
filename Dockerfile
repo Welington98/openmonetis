@@ -46,6 +46,14 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
 # `LOGO_DEV_TOKEN` é lido em runtime no servidor — basta configurá-lo no
 # host (Coolify, Railway, etc.) junto com `LOGO_DEV_SECRET_KEY`.
 
+# Chave pública VAPID: precisa estar disponível NO MOMENTO DO BUILD porque
+# é lida client-side (NEXT_PUBLIC_*) e o Next.js grava seu valor no bundle
+# estático durante `pnpm build`. Configurá-la só no host de runtime não tem
+# efeito. `VAPID_PRIVATE_KEY`/`VAPID_SUBJECT` continuam apenas no host, pois
+# são lidas em runtime no servidor.
+ARG NEXT_PUBLIC_VAPID_PUBLIC_KEY
+ENV NEXT_PUBLIC_VAPID_PUBLIC_KEY=${NEXT_PUBLIC_VAPID_PUBLIC_KEY}
+
 # Build da aplicação Next.js
 RUN pnpm build
 
