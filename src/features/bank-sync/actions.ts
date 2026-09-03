@@ -10,6 +10,7 @@ import {
 	statementLines,
 	transactions,
 } from "@/db/schema";
+import { resolveDefaultAvailableModel } from "@/features/insights/lib/model-provider";
 import { fetchStatementCategorizationMode } from "@/features/settings/queries";
 import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
 import { createTransactionAction } from "@/features/transactions/actions/single-actions";
@@ -1143,8 +1144,11 @@ export async function suggestCategoriesForPendingLinesAction(): Promise<
 			uncategorized.map((line) => line.description),
 		);
 
+		const aiConfigured =
+			mode === "ai" ? resolveDefaultAvailableModel() !== null : false;
+
 		const allCategories =
-			mode === "ai"
+			mode === "ai" && aiConfigured
 				? await db
 						.select({
 							id: categories.id,
@@ -1168,7 +1172,7 @@ export async function suggestCategoriesForPendingLinesAction(): Promise<
 				continue;
 			}
 
-			if (mode !== "ai") {
+			if (mode !== "ai" || !aiConfigured) {
 				unresolved++;
 				continue;
 			}
@@ -1201,12 +1205,19 @@ export async function suggestCategoriesForPendingLinesAction(): Promise<
 		if (byAi > 0) parts.push(`${byAi} pela IA`);
 		if (unresolved > 0) parts.push(`${unresolved} sem sugestão`);
 
+		let message =
+			parts.length > 0
+				? `Categorias sugeridas: ${parts.join(", ")}.`
+				: "Nada pra sugerir.";
+
+		if (mode === "ai" && !aiConfigured) {
+			message +=
+				" Categorização por IA não está configurada no servidor — defina uma chave de API (OPENAI_API_KEY, ANTHROPIC_API_KEY, GOOGLE_GENERATIVE_AI_API_KEY, DEEPSEEK_API_KEY ou MINIMAX_API_KEY) para habilitá-la.";
+		}
+
 		return {
 			success: true,
-			message:
-				parts.length > 0
-					? `Categorias sugeridas: ${parts.join(", ")}.`
-					: "Nada pra sugerir.",
+			message,
 			data: { byMapping, byAi, unresolved },
 		};
 	} catch (error) {
