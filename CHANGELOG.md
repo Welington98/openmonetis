@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.12.1](https://github.com/Welington98/openmonetis/compare/v2.12.0...v2.12.1) (2026-09-03)
+
+### Corrigido
+
+* propaga NEXT_PUBLIC_VAPID_PUBLIC_KEY para o build da imagem Docker ([0b55b9b](https://github.com/Welington98/openmonetis/commit/0b55b9b64c512f7cfb5881414d4d0169b597602b))
+
 ## [2.12.0](https://github.com/Welington98/openmonetis/compare/v2.11.1...v2.12.0) (2026-09-02)
 
 ### Adicionado
