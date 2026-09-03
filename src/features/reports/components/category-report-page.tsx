@@ -159,14 +159,14 @@ export function CategoryReportPage({
 					onValueChange={handleTabChange}
 					className="w-full"
 				>
-					<TabsList>
-						<TabsTrigger value="table">
-							<RiTable2 className="h-4 w-4 mr-2" />
-							Tabela
+					<TabsList variant="stacked" className="grid-cols-2 sm:w-auto">
+						<TabsTrigger value="table" variant="stacked" className="min-w-0">
+							<RiTable2 className="h-4 w-4 mr-2 shrink-0" />
+							<span className="truncate">Tabela</span>
 						</TabsTrigger>
-						<TabsTrigger value="chart">
-							<RiLineChartLine className="h-4 w-4 mr-2" />
-							Gráfico
+						<TabsTrigger value="chart" variant="stacked" className="min-w-0">
+							<RiLineChartLine className="h-4 w-4 mr-2 shrink-0" />
+							<span className="truncate">Gráfico</span>
 						</TabsTrigger>
 					</TabsList>
 

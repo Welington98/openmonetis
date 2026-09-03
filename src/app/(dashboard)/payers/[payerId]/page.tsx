@@ -327,10 +327,16 @@ export default async function Page({ params, searchParams }: PageProps) {
 
 			<LogoPrefetchProvider mappings={logoMappings}>
 				<Tabs defaultValue="profile" className="w-full">
-					<TabsList className="mb-2">
-						<TabsTrigger value="profile">Perfil</TabsTrigger>
-						<TabsTrigger value="painel">Painel</TabsTrigger>
-						<TabsTrigger value="lancamentos">Lançamentos</TabsTrigger>
+					<TabsList variant="stacked" className="mb-2 grid-cols-3 sm:w-auto">
+						<TabsTrigger value="profile" variant="stacked">
+							Perfil
+						</TabsTrigger>
+						<TabsTrigger value="painel" variant="stacked">
+							Painel
+						</TabsTrigger>
+						<TabsTrigger value="lancamentos" variant="stacked">
+							Lançamentos
+						</TabsTrigger>
 					</TabsList>
 					<PayerHeaderCard
 						payer={payerData}

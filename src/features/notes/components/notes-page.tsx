@@ -208,9 +208,13 @@ export function NotesPage({
 				</div>
 
 				<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-					<TabsList>
-						<TabsTrigger value="ativas">Ativas</TabsTrigger>
-						<TabsTrigger value="arquivadas">Arquivadas</TabsTrigger>
+					<TabsList variant="stacked" className="grid-cols-2 sm:w-auto">
+						<TabsTrigger value="ativas" variant="stacked">
+							Ativas
+						</TabsTrigger>
+						<TabsTrigger value="arquivadas" variant="stacked">
+							Arquivadas
+						</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="ativas" className="mt-4">

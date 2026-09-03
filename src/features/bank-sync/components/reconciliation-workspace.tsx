@@ -576,11 +576,19 @@ export function ReconciliationWorkspace({
 								value={activeTab}
 								onValueChange={(v) => setActiveTab(v as "classify" | "match")}
 							>
-								<TabsList>
-									<TabsTrigger value="classify">
+								<TabsList variant="stacked" className="grid-cols-2 sm:w-auto">
+									<TabsTrigger
+										value="classify"
+										variant="stacked"
+										className="h-auto whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:h-9 sm:whitespace-nowrap sm:px-4 sm:text-sm"
+									>
 										Classificar para lançamento
 									</TabsTrigger>
-									<TabsTrigger value="match">
+									<TabsTrigger
+										value="match"
+										variant="stacked"
+										className="h-auto whitespace-normal px-2 py-2 text-center text-xs leading-tight sm:h-9 sm:whitespace-nowrap sm:px-4 sm:text-sm"
+									>
 										Escolher lançamento existente
 									</TabsTrigger>
 								</TabsList>

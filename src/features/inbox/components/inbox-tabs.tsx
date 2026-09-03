@@ -8,27 +8,30 @@ type InboxTabsProps = {
 
 export function InboxTabs({ counts, isPending }: InboxTabsProps) {
 	return (
-		<TabsList className="grid h-auto w-full grid-cols-3 sm:inline-flex sm:h-9 sm:grid-cols-none">
+		<TabsList variant="stacked" className="grid-cols-3">
 			<TabsTrigger
 				value="pending"
+				variant="stacked"
 				disabled={isPending}
-				className="h-11 min-w-0 flex-col gap-0 px-1 text-sm leading-tight sm:h-9 sm:flex-row sm:gap-1 sm:px-4"
+				className="flex-col gap-0 px-1 text-sm leading-tight sm:flex-row sm:gap-1 sm:px-4"
 			>
 				<span>Pendentes</span>
 				<span>({counts.pending})</span>
 			</TabsTrigger>
 			<TabsTrigger
 				value="processed"
+				variant="stacked"
 				disabled={isPending}
-				className="h-11 min-w-0 flex-col gap-0 px-1 text-sm leading-tight sm:h-9 sm:flex-row sm:gap-1 sm:px-4"
+				className="flex-col gap-0 px-1 text-sm leading-tight sm:flex-row sm:gap-1 sm:px-4"
 			>
 				<span>Processados</span>
 				<span>({counts.processed})</span>
 			</TabsTrigger>
 			<TabsTrigger
 				value="discarded"
+				variant="stacked"
 				disabled={isPending}
-				className="h-11 min-w-0 flex-col gap-0 px-1 text-sm leading-tight sm:h-9 sm:flex-row sm:gap-1 sm:px-4"
+				className="flex-col gap-0 px-1 text-sm leading-tight sm:flex-row sm:gap-1 sm:px-4"
 			>
 				<span>Descartados</span>
 				<span>({counts.discarded})</span>

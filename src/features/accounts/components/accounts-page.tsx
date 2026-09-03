@@ -197,9 +197,13 @@ export function AccountsPage({
 				</div>
 
 				<Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-					<TabsList>
-						<TabsTrigger value="ativos">Ativas</TabsTrigger>
-						<TabsTrigger value="inativas">Inativas</TabsTrigger>
+					<TabsList variant="stacked" className="grid-cols-2 sm:w-auto">
+						<TabsTrigger value="ativos" variant="stacked">
+							Ativas
+						</TabsTrigger>
+						<TabsTrigger value="inativas" variant="stacked">
+							Inativas
+						</TabsTrigger>
 					</TabsList>
 
 					<TabsContent value="ativos" className="mt-4">
