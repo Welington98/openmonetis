@@ -60,14 +60,100 @@ function parseDateValue(value: unknown): string | null {
 }
 
 function parseAmountValue(value: unknown): number | null {
+	const signed = parseSignedAmountValue(value);
+	return signed === null ? null : Math.abs(signed);
+}
+
+function parseSignedAmountValue(value: unknown): number | null {
 	if (value == null || value === "") return null;
-	if (typeof value === "number") return Math.abs(value);
+	if (typeof value === "number") return value;
 	const num = Number.parseFloat(
 		String(value)
 			.replace(",", ".")
 			.replace(/[^\d.-]/g, ""),
 	);
-	return Number.isNaN(num) ? null : Math.abs(num);
+	return Number.isNaN(num) ? null : num;
+}
+
+// Cabeçalhos usados pelo relatório de exportação do app "Meu Dinheiro".
+const MEU_DINHEIRO_HEADERS = [
+	"Data prevista",
+	"Data efetiva",
+	"Valor previsto",
+	"Valor efetivo",
+	"Descrição",
+];
+
+function buildHeaderIndex(headerValues: unknown[]): Map<string, number> {
+	const index = new Map<string, number>();
+	headerValues.forEach((value, i) => {
+		if (value == null) return;
+		index.set(String(value).trim(), i);
+	});
+	return index;
+}
+
+function isMeuDinheiroFormat(headerIndex: Map<string, number>): boolean {
+	return MEU_DINHEIRO_HEADERS.every((header) => headerIndex.has(header));
+}
+
+function parseMeuDinheiroRow(
+	values: unknown[],
+	headerIndex: Map<string, number>,
+): ImportedTransaction | null {
+	const get = (header: string) => {
+		const i = headerIndex.get(header);
+		return i == null ? undefined : values[i];
+	};
+
+	const date =
+		parseDateValue(get("Data efetiva")) ?? parseDateValue(get("Data prevista"));
+	const description =
+		get("Descrição") != null ? String(get("Descrição")).trim() : "";
+	const signedAmount =
+		parseSignedAmountValue(get("Valor efetivo")) ??
+		parseSignedAmountValue(get("Valor previsto"));
+	const categoriaValue = get("Categoria");
+	const categoryRaw =
+		categoriaValue != null ? String(categoriaValue).trim() : null;
+
+	if (!date || !description || signedAmount === null || signedAmount === 0) {
+		return null;
+	}
+
+	return {
+		externalId: null,
+		externalIdOccurrence: 0,
+		date,
+		amount: Math.abs(signedAmount),
+		description,
+		sourceDescription: description,
+		transactionType: signedAmount > 0 ? "income" : "expense",
+		categoryRaw,
+	};
+}
+
+function parseSimpleRow(values: unknown[]): ImportedTransaction | null {
+	const date = parseDateValue(values[1]);
+	const description = values[2] != null ? String(values[2]).trim() : "";
+	const amount = parseAmountValue(values[3]);
+	const typeRaw =
+		values[4] != null ? String(values[4]).toLowerCase().trim() : "";
+	const transactionType = typeRaw === "receita" ? "income" : "expense";
+	const categoryRaw = values[5] != null ? String(values[5]).trim() : null;
+
+	if (!date || !description || amount === null || amount <= 0) return null;
+
+	return {
+		externalId: null,
+		externalIdOccurrence: 0,
+		date,
+		amount,
+		description,
+		sourceDescription: description,
+		transactionType,
+		categoryRaw,
+	};
 }
 
 export async function parseXls(buffer: ArrayBuffer): Promise<ImportStatement> {
@@ -86,6 +172,9 @@ export async function parseXls(buffer: ArrayBuffer): Promise<ImportStatement> {
 		);
 	}
 
+	const headerIndex = buildHeaderIndex(sheet.getRow(1).values as unknown[]);
+	const isMeuDinheiro = isMeuDinheiroFormat(headerIndex);
+
 	const transactions: ImportedTransaction[] = [];
 
 	sheet.eachRow((row, rowNumber) => {
@@ -93,26 +182,11 @@ export async function parseXls(buffer: ArrayBuffer): Promise<ImportStatement> {
 
 		// ExcelJS row.values é 1-indexed (values[0] é undefined)
 		const values = row.values as unknown[];
-		const date = parseDateValue(values[1]);
-		const description = values[2] != null ? String(values[2]).trim() : "";
-		const amount = parseAmountValue(values[3]);
-		const typeRaw =
-			values[4] != null ? String(values[4]).toLowerCase().trim() : "";
-		const transactionType = typeRaw === "receita" ? "income" : "expense";
-		const categoryRaw = values[5] != null ? String(values[5]).trim() : null;
+		const transaction = isMeuDinheiro
+			? parseMeuDinheiroRow(values, headerIndex)
+			: parseSimpleRow(values);
 
-		if (!date || !description || amount === null || amount <= 0) return;
-
-		transactions.push({
-			externalId: null,
-			externalIdOccurrence: 0,
-			date,
-			amount,
-			description,
-			sourceDescription: description,
-			transactionType,
-			categoryRaw,
-		});
+		if (transaction) transactions.push(transaction);
 	});
 
 	if (transactions.length === 0) {
@@ -123,7 +197,7 @@ export async function parseXls(buffer: ArrayBuffer): Promise<ImportStatement> {
 	const period = { from: dates[0], to: dates[dates.length - 1] };
 
 	return {
-		source: "Planilha",
+		source: isMeuDinheiro ? "Meu Dinheiro" : "Planilha",
 		accountNumber: null,
 		period,
 		isCreditCard: false,
