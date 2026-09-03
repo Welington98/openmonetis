@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.13.3](https://github.com/Welington98/openmonetis/compare/v2.13.2...v2.13.3) (2026-09-03)
+
+### Corrigido
+
+* corrige overflow horizontal na tela de conciliação bancária ([8f6fc42](https://github.com/Welington98/openmonetis/commit/8f6fc427787f1f63cb10de9d06e116ac123c4d99))
+
 ## [2.13.2](https://github.com/Welington98/openmonetis/compare/v2.13.1...v2.13.2) (2026-09-03)
 
 ### Corrigido
