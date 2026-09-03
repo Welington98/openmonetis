@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.13.2](https://github.com/Welington98/openmonetis/compare/v2.13.1...v2.13.2) (2026-09-03)
+
+### Corrigido
+
+* **bank-sync:** detecta automaticamente o provedor de IA configurado ([9a75c18](https://github.com/Welington98/openmonetis/commit/9a75c18a6ff5650f23e3c7582d549458aff6e259))
+
 ## [2.13.1](https://github.com/Welington98/openmonetis/compare/v2.13.0...v2.13.1) (2026-09-03)
 
 ### Corrigido
