@@ -33,17 +33,17 @@ export function PaymentOverviewWidgetView({
 			<TabsList className="grid grid-cols-2">
 				<TabsTrigger
 					value="conditions"
-					className="text-xs data-[state=active]:bg-transparent"
+					className="min-w-0 text-xs data-[state=active]:bg-transparent"
 				>
-					<RiSlideshowLine className="mr-1 size-3.5" />
-					Condições
+					<RiSlideshowLine className="mr-1 size-3.5 shrink-0" />
+					<span className="truncate">Condições</span>
 				</TabsTrigger>
 				<TabsTrigger
 					value="methods"
-					className="text-xs data-[state=active]:bg-transparent"
+					className="min-w-0 text-xs data-[state=active]:bg-transparent"
 				>
-					<RiMoneyDollarCircleLine className="mr-1 size-3.5" />
-					Formas de pagamento
+					<RiMoneyDollarCircleLine className="mr-1 size-3.5 shrink-0" />
+					<span className="truncate">Formas de pagamento</span>
 				</TabsTrigger>
 			</TabsList>
 

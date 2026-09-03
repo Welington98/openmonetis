@@ -140,9 +140,9 @@ export function CategoriesPage({ categories }: CategoriesPageProps) {
 					onValueChange={(value) => setActiveType(value as CategoryType)}
 					className="w-full"
 				>
-					<TabsList>
+					<TabsList variant="stacked" className="grid-cols-2 sm:w-auto">
 						{CATEGORY_TYPES.map((type) => (
-							<TabsTrigger key={type} value={type}>
+							<TabsTrigger key={type} value={type} variant="stacked">
 								{CATEGORY_TYPE_LABEL[type]}
 							</TabsTrigger>
 						))}

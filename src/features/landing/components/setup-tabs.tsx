@@ -11,9 +11,16 @@ import {
 export function SetupTabs() {
 	return (
 		<Tabs defaultValue="docker" className="w-full">
-			<TabsList className="justify-center mb-6">
-				<TabsTrigger value="docker">Docker (Recomendado)</TabsTrigger>
-				<TabsTrigger value="manual">Manual</TabsTrigger>
+			<TabsList
+				variant="stacked"
+				className="grid-cols-2 justify-center sm:w-auto mb-6"
+			>
+				<TabsTrigger value="docker" variant="stacked">
+					Docker (Recomendado)
+				</TabsTrigger>
+				<TabsTrigger value="manual" variant="stacked">
+					Manual
+				</TabsTrigger>
 			</TabsList>
 
 			<TabsContent value="docker">

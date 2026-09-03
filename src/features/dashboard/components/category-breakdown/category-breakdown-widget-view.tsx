@@ -76,17 +76,17 @@ export function CategoryBreakdownWidgetView({
 				<TabsList className="grid grid-cols-2">
 					<TabsTrigger
 						value="list"
-						className="text-xs data-[state=active]:bg-transparent"
+						className="min-w-0 text-xs data-[state=active]:bg-transparent"
 					>
-						<RiListUnordered className="mr-1 size-3.5" />
-						Lista
+						<RiListUnordered className="mr-1 size-3.5 shrink-0" />
+						<span className="truncate">Lista</span>
 					</TabsTrigger>
 					<TabsTrigger
 						value="chart"
-						className="text-xs data-[state=active]:bg-transparent"
+						className="min-w-0 text-xs data-[state=active]:bg-transparent"
 					>
-						<RiPieChart2Line className="mr-1 size-3.5" />
-						Gráfico
+						<RiPieChart2Line className="mr-1 size-3.5 shrink-0" />
+						<span className="truncate">Gráfico</span>
 					</TabsTrigger>
 				</TabsList>
 			</div>

@@ -37,17 +37,17 @@ export function SpendingOverviewWidget({
 			<TabsList className="grid grid-cols-2">
 				<TabsTrigger
 					value="expenses"
-					className="text-xs data-[state=active]:bg-transparent"
+					className="min-w-0 text-xs data-[state=active]:bg-transparent"
 				>
-					<RiArrowUpDoubleLine className="mr-1 size-3.5" />
-					Top gastos
+					<RiArrowUpDoubleLine className="mr-1 size-3.5 shrink-0" />
+					<span className="truncate">Top gastos</span>
 				</TabsTrigger>
 				<TabsTrigger
 					value="establishments"
-					className="text-xs data-[state=active]:bg-transparent"
+					className="min-w-0 text-xs data-[state=active]:bg-transparent"
 				>
-					<RiStore2Line className="mr-1 size-3.5" />
-					Estabelecimentos
+					<RiStore2Line className="mr-1 size-3.5 shrink-0" />
+					<span className="truncate">Estabelecimentos</span>
 				</TabsTrigger>
 			</TabsList>
 

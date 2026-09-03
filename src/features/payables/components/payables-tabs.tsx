@@ -12,19 +12,21 @@ export function PayablesTabs({
 	isPending,
 }: PayablesTabsProps) {
 	return (
-		<TabsList className="grid h-auto w-full grid-cols-2 sm:inline-flex sm:h-9 sm:grid-cols-none">
+		<TabsList variant="stacked" className="grid-cols-2">
 			<TabsTrigger
 				value="pagar"
+				variant="stacked"
 				disabled={isPending}
-				className="h-11 min-w-0 flex-col gap-0 px-1 text-sm leading-tight sm:h-9 sm:flex-row sm:gap-1 sm:px-4"
+				className="flex-col gap-0 px-1 text-sm leading-tight sm:flex-row sm:gap-1 sm:px-4"
 			>
 				<span>A pagar</span>
 				<span>({payableCount})</span>
 			</TabsTrigger>
 			<TabsTrigger
 				value="receber"
+				variant="stacked"
 				disabled={isPending}
-				className="h-11 min-w-0 flex-col gap-0 px-1 text-sm leading-tight sm:h-9 sm:flex-row sm:gap-1 sm:px-4"
+				className="flex-col gap-0 px-1 text-sm leading-tight sm:flex-row sm:gap-1 sm:px-4"
 			>
 				<span>A receber</span>
 				<span>({receivableCount})</span>
