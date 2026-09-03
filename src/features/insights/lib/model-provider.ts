@@ -14,6 +14,46 @@ type ResolveInsightsModelResult =
 	| { success: true; model: LanguageModel }
 	| { success: false; error: string };
 
+const AUTO_DETECT_MODEL_BY_PROVIDER = {
+	openai: "gpt-5.5",
+	anthropic: "claude-haiku-4-5-20251001",
+	google: "gemini-3-flash-preview",
+	deepseek: "deepseek-chat",
+	minimax: "MiniMax-M2",
+} as const;
+
+const AUTO_DETECT_ENV_VAR: Record<
+	keyof typeof AUTO_DETECT_MODEL_BY_PROVIDER,
+	string
+> = {
+	openai: "OPENAI_API_KEY",
+	anthropic: "ANTHROPIC_API_KEY",
+	google: "GOOGLE_GENERATIVE_AI_API_KEY",
+	deepseek: "DEEPSEEK_API_KEY",
+	minimax: "MINIMAX_API_KEY",
+};
+
+/**
+ * Escolhe automaticamente o primeiro provedor de IA com chave configurada no
+ * servidor (ordem: openai > anthropic > google > deepseek > minimax). Usado
+ * por features que precisam de um modelo padrão sem depender de escolha do
+ * usuário (ex: categorização automática no bank-sync). Retorna null se
+ * nenhuma chave estiver configurada.
+ */
+export function resolveDefaultAvailableModel(): {
+	modelId: string;
+	provider: keyof typeof AUTO_DETECT_MODEL_BY_PROVIDER;
+} | null {
+	for (const provider of Object.keys(AUTO_DETECT_MODEL_BY_PROVIDER) as Array<
+		keyof typeof AUTO_DETECT_MODEL_BY_PROVIDER
+	>) {
+		if (process.env[AUTO_DETECT_ENV_VAR[provider]]) {
+			return { modelId: AUTO_DETECT_MODEL_BY_PROVIDER[provider], provider };
+		}
+	}
+	return null;
+}
+
 function stripProviderPrefix(
 	modelId: string,
 	provider: "openrouter" | "ollama",

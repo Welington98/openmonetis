@@ -307,9 +307,10 @@ export function PreferencesForm({
 					</ToggleGroup>
 					{statementCategorizationMode === "ai" && (
 						<p className="text-muted-foreground text-xs">
-							Usa o mesmo provedor de IA configurado para os Insights. A
-							sugestão nunca é aplicada sozinha — você sempre confirma antes de
-							criar o lançamento.
+							Usa automaticamente o primeiro provedor de IA com chave
+							configurada no servidor (OpenAI, Anthropic, Google, DeepSeek ou
+							MiniMax). A sugestão nunca é aplicada sozinha — você sempre
+							confirma antes de criar o lançamento.
 						</p>
 					)}
 				</section>

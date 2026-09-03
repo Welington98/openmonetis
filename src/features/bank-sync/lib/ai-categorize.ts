@@ -1,19 +1,24 @@
 import { generateObject } from "ai";
 import { z } from "zod";
-import { DEFAULT_MODEL } from "@/features/insights/constants";
-import { resolveInsightsModel } from "@/features/insights/lib/model-provider";
+import {
+	resolveDefaultAvailableModel,
+	resolveInsightsModel,
+} from "@/features/insights/lib/model-provider";
 
 const suggestionSchema = z.object({
 	categoryId: z.string().nullable(),
 });
 
 /**
- * Sugere uma categoria pra uma transação sincronizada, usando o mesmo
- * provedor de IA já configurado para os Insights. Nunca aplica sozinha — só
- * retorna uma sugestão pra pré-preencher o formulário, que o usuário confirma
- * ou troca antes de criar o lançamento. Falha silenciosa (retorna null) se a
- * IA não estiver configurada ou a chamada falhar — categorização por IA é
- * sempre best-effort, nunca bloqueia o fluxo.
+ * Sugere uma categoria pra uma transação sincronizada, usando o primeiro
+ * provedor de IA com chave configurada no servidor (não depende de um
+ * modelo específico escolhido pelo usuário, ao contrário dos Insights).
+ * Nunca aplica sozinha — só retorna uma sugestão pra pré-preencher o
+ * formulário, que o usuário confirma ou troca antes de criar o lançamento.
+ * Falha silenciosa (retorna null) se nenhum provedor estiver configurado ou
+ * a chamada falhar — categorização por IA é sempre best-effort, nunca
+ * bloqueia o fluxo. Use `resolveDefaultAvailableModel()` diretamente se
+ * precisar diferenciar "não configurado" de "IA não achou categoria".
  */
 export async function suggestCategoryForStatementLine(input: {
 	description: string;
@@ -23,7 +28,10 @@ export async function suggestCategoryForStatementLine(input: {
 }): Promise<string | null> {
 	if (input.categories.length === 0) return null;
 
-	const resolvedModel = resolveInsightsModel(DEFAULT_MODEL);
+	const availableModel = resolveDefaultAvailableModel();
+	if (!availableModel) return null;
+
+	const resolvedModel = resolveInsightsModel(availableModel.modelId);
 	if (!resolvedModel.success) return null;
 
 	try {
