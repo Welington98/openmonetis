@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.15.0](https://github.com/Welington98/openmonetis/compare/v2.14.0...v2.15.0) (2026-09-04)
+
+### Adicionado
+
+* **bank-sync:** permite filtrar sincronização Pluggy por período ([2e4afbd](https://github.com/Welington98/openmonetis/commit/2e4afbddf12e4e5ecc470ca39c5bf0c9a91d9c6c))
+
 ## [2.14.0](https://github.com/Welington98/openmonetis/compare/v2.13.3...v2.14.0) (2026-09-04)
 
 ### Adicionado
