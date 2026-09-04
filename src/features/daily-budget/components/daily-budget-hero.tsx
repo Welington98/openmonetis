@@ -9,8 +9,14 @@ type DailyBudgetHeroProps = {
 };
 
 export function DailyBudgetHero({ overview }: DailyBudgetHeroProps) {
-	const { dailyBudget, spentToday, budgetStatus, incomeWarning, projection } =
-		overview;
+	const {
+		dailyBudget,
+		spentToday,
+		fixedSpentToday,
+		budgetStatus,
+		incomeWarning,
+		projection,
+	} = overview;
 	const isOverToday = dailyBudget.remainingToday < 0;
 	const currentMonth = projection.months[0];
 	const remainingThisMonth =
@@ -52,6 +58,16 @@ export function DailyBudgetHero({ overview }: DailyBudgetHeroProps) {
 				<div>
 					<p className="text-xs text-muted-foreground">Você gastou hoje</p>
 					<MoneyValues amount={spentToday} className="text-lg font-semibold" />
+					{fixedSpentToday > 0 && (
+						<p className="mt-1 text-xs text-muted-foreground">
+							<MoneyValues
+								amount={fixedSpentToday}
+								className="inline text-xs"
+							/>{" "}
+							em contas fixas já descontadas do orçamento do mês — não conta pro
+							limite diário.
+						</p>
+					)}
 				</div>
 				<div>
 					<p className="text-xs text-muted-foreground">Ainda disponível hoje</p>

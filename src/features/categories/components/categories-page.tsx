@@ -9,6 +9,7 @@ import {
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import type { CostCenter } from "@/db/schema";
 import { deleteCategoryAction } from "@/features/categories/actions";
 import { ConfirmActionDialog } from "@/shared/components/confirm-action-dialog";
 import { CategoryIconBadge } from "@/shared/components/entity-avatar";
@@ -44,9 +45,13 @@ const CATEGORIAS_PROTEGIDAS = [
 
 interface CategoriesPageProps {
 	categories: Category[];
+	costCenters: CostCenter[];
 }
 
-export function CategoriesPage({ categories }: CategoriesPageProps) {
+export function CategoriesPage({
+	categories,
+	costCenters,
+}: CategoriesPageProps) {
 	const [activeType, setActiveType] = useState<CategoryType>(CATEGORY_TYPES[0]);
 	const [editOpen, setEditOpen] = useState(false);
 	const [selectedCategory, setSelectedCategory] = useState<Category | null>(
@@ -126,6 +131,7 @@ export function CategoriesPage({ categories }: CategoriesPageProps) {
 					<CategoryDialog
 						mode="create"
 						defaultType={activeType}
+						costCenters={costCenters}
 						trigger={
 							<Button className="w-full sm:w-auto">
 								<RiAddFill className="size-4" />
@@ -241,6 +247,7 @@ export function CategoriesPage({ categories }: CategoriesPageProps) {
 			<CategoryDialog
 				mode="update"
 				category={selectedCategory ?? undefined}
+				costCenters={costCenters}
 				open={editOpen && !!selectedCategory}
 				onOpenChange={handleEditOpenChange}
 			/>

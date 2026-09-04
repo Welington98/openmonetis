@@ -6,6 +6,11 @@ export type CalculateDailyBudgetInput = {
 	daysRemaining: number;
 	calculationMode: DailyBudgetCalculationMode;
 	customDailyLimit: number | null;
+	/**
+	 * Gasto VARIÁVEL/discricionário de hoje — não inclui despesas de centro
+	 * de custo "fixa" (essas já saíram do `availableBalance` no dia 1º do
+	 * mês, então pagar uma conta fixa hoje não deve "estourar" o dia).
+	 */
 	spentToday: number;
 };
 
