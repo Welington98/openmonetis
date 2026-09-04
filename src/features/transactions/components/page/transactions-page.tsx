@@ -75,6 +75,7 @@ interface TransactionsPageProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	payerFilterOptions: TransactionFilterOption[];
 	categoryFilterOptions: TransactionFilterOption[];
 	accountCardFilterOptions: AccountCardFilterOption[];
@@ -113,6 +114,7 @@ export function TransactionsPage({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions,
 	payerFilterOptions,
 	categoryFilterOptions,
 	accountCardFilterOptions,
@@ -169,6 +171,7 @@ export function TransactionsPage({
 		accountId: string | undefined;
 		cardId: string | undefined;
 		categoryId: string | undefined;
+		costCenterId: string | undefined;
 		note: string;
 		isSettled: boolean | null;
 		dueDate: string | null;
@@ -182,6 +185,7 @@ export function TransactionsPage({
 		period: string;
 		name: string;
 		categoryId: string | undefined;
+		costCenterId: string | undefined;
 		note: string;
 		payerId: string | undefined;
 		accountId: string | undefined;
@@ -323,6 +327,7 @@ export function TransactionsPage({
 		period: string;
 		name: string;
 		categoryId: string | undefined;
+		costCenterId: string | undefined;
 		note: string;
 		payerId: string | undefined;
 		accountId: string | undefined;
@@ -358,6 +363,7 @@ export function TransactionsPage({
 			period: pendingEditData.period,
 			name: pendingEditData.name,
 			categoryId: pendingEditData.categoryId,
+			costCenterId: pendingEditData.costCenterId,
 			note: pendingEditData.note,
 			payerId: pendingEditData.payerId,
 			accountId: pendingEditData.accountId,
@@ -488,6 +494,7 @@ export function TransactionsPage({
 			accountId: pendingSplitEditData.accountId ?? null,
 			cardId: pendingSplitEditData.cardId ?? null,
 			categoryId: pendingSplitEditData.categoryId ?? null,
+			costCenterId: pendingSplitEditData.costCenterId ?? null,
 			note: pendingSplitEditData.note,
 			isSettled: pendingSplitEditData.isSettled,
 			dueDate: pendingSplitEditData.dueDate ?? undefined,
@@ -707,6 +714,7 @@ export function TransactionsPage({
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				defaultPeriod={selectedPeriod}
 				defaultAccountId={defaultAccountId}
@@ -731,6 +739,7 @@ export function TransactionsPage({
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				defaultPeriod={selectedPeriod}
 				defaultAccountId={defaultAccountId}
@@ -760,6 +769,7 @@ export function TransactionsPage({
 					accountOptions={accountOptions}
 					cardOptions={cardOptions}
 					categoryOptions={categoryOptions}
+					costCenterOptions={costCenterOptions}
 					estabelecimentos={estabelecimentos}
 					defaultPeriod={selectedPeriod}
 					defaultAccountId={defaultAccountId}
@@ -817,6 +827,7 @@ export function TransactionsPage({
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				transaction={transactionToCopy ?? undefined}
 				defaultPeriod={selectedPeriod}
@@ -839,6 +850,7 @@ export function TransactionsPage({
 				accountOptions={importAccountOptions ?? accountOptions}
 				cardOptions={importCardOptions ?? cardOptions}
 				categoryOptions={importCategoryOptions ?? categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				transaction={transactionToImport ?? undefined}
 				defaultPeriod={selectedPeriod}
@@ -868,6 +880,7 @@ export function TransactionsPage({
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				transaction={selectedTransaction ?? undefined}
 				defaultPeriod={selectedPeriod}

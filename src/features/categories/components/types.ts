@@ -5,12 +5,10 @@ export type Category = {
 	name: string;
 	type: CategoryType;
 	icon: string | null;
-	costCenterId: string | null;
 };
 
 export type CategoryFormValues = {
 	name: string;
 	type: CategoryType;
 	icon: string;
-	costCenterId: string | null;
 };

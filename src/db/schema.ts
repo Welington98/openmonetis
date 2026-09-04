@@ -238,7 +238,7 @@ export const financialAccounts = pgTable(
 	}),
 );
 
-// "fixa" | "variavel" | "economia" — decide como a categoria entra no motor
+// "fixa" | "variavel" | "economia" — decide como o lançamento entra no motor
 // de orçamento diário (ver src/features/daily-budget). "fixa" é pré-alocada
 // do saldo do mês inteiro no dia 1º; "variavel" é o que a cota diária mede
 // dia a dia; "economia" é só rótulo pra relatórios, não entra no cálculo
@@ -284,18 +284,11 @@ export const categories = pgTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
-		costCenterId: uuid("centro_custo_id").references(
-			(): AnyPgColumn => costCenters.id,
-			{ onDelete: "set null" },
-		),
 	},
 	(table) => ({
 		userIdTypeIdx: index("categorias_user_id_type_idx").on(
 			table.userId,
 			table.type,
-		),
-		costCenterIdIdx: index("categorias_centro_custo_id_idx").on(
-			table.costCenterId,
 		),
 	}),
 );
@@ -960,6 +953,10 @@ export const transactions = pgTable(
 			onDelete: "cascade",
 			onUpdate: "cascade",
 		}),
+		costCenterId: uuid("centro_custo_id").references(
+			(): AnyPgColumn => costCenters.id,
+			{ onDelete: "set null" },
+		),
 		payerId: uuid("pagador_id").references(() => payers.id, {
 			onDelete: "cascade",
 			onUpdate: "cascade",
@@ -1019,6 +1016,9 @@ export const transactions = pgTable(
 		// FK indexes: evitam seq scan em deletes/updates nas tabelas pai
 		accountIdIdx: index("lancamentos_conta_id_idx").on(table.accountId),
 		categoryIdIdx: index("lancamentos_categoria_id_idx").on(table.categoryId),
+		costCenterIdIdx: index("lancamentos_centro_custo_id_idx").on(
+			table.costCenterId,
+		),
 		anticipationIdIdx: index("lancamentos_antecipacao_id_idx").on(
 			table.anticipationId,
 		),
@@ -1336,10 +1336,6 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 		fields: [categories.userId],
 		references: [user.id],
 	}),
-	costCenter: one(costCenters, {
-		fields: [categories.costCenterId],
-		references: [costCenters.id],
-	}),
 	transactions: many(transactions),
 	budgets: many(budgets),
 }));
@@ -1349,7 +1345,7 @@ export const costCentersRelations = relations(costCenters, ({ one, many }) => ({
 		fields: [costCenters.userId],
 		references: [user.id],
 	}),
-	categories: many(categories),
+	transactions: many(transactions),
 }));
 
 export const payersRelations = relations(payers, ({ one, many }) => ({
@@ -1508,6 +1504,10 @@ export const transactionsRelations = relations(
 		category: one(categories, {
 			fields: [transactions.categoryId],
 			references: [categories.id],
+		}),
+		costCenter: one(costCenters, {
+			fields: [transactions.costCenterId],
+			references: [costCenters.id],
 		}),
 		payer: one(payers, {
 			fields: [transactions.payerId],

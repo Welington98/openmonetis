@@ -33,6 +33,10 @@ import {
 import MonthNavigation from "@/shared/components/month-picker/month-navigation";
 import { Button } from "@/shared/components/ui/button";
 import { getUserId } from "@/shared/lib/auth/server";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { loadLogoOptions } from "@/shared/lib/logo/options";
 import { getBusinessDateString } from "@/shared/utils/date";
 import { parsePeriodParam } from "@/shared/utils/period";
@@ -96,6 +100,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 		estabelecimentos,
 		userPreferences,
 		bankConnections,
+		costCenters,
 	] = await Promise.all([
 		fetchTransactionFilterSources(userId),
 		loadLogoOptions(),
@@ -103,7 +108,9 @@ export default async function Page({ params, searchParams }: PageProps) {
 		fetchRecentEstablishments(userId),
 		fetchUserPreferences(userId),
 		fetchBankConnections(userId),
+		fetchOrSeedCostCentersForUser(userId),
 	]);
+	const costCenterOptions = buildCostCenterOptions(costCenters);
 	const sluggedFilters = buildSluggedFilters(filterSources);
 	const slugMaps = buildSlugMaps(sluggedFilters);
 
@@ -223,6 +230,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 					accountOptions={accountOptions}
 					cardOptions={cardOptions}
 					categoryOptions={categoryOptions}
+					costCenterOptions={costCenterOptions}
 					payerFilterOptions={payerFilterOptions}
 					categoryFilterOptions={categoryFilterOptions}
 					accountCardFilterOptions={accountCardFilterOptions}

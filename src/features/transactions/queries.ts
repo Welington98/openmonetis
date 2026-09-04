@@ -13,6 +13,7 @@ import {
 import {
 	cards,
 	categories,
+	costCenters,
 	financialAccounts,
 	payers,
 	statementLines,
@@ -76,6 +77,7 @@ const mapTransactionRows = (
 		financialAccount: typeof financialAccounts.$inferSelect | null;
 		card: typeof cards.$inferSelect | null;
 		category: typeof categories.$inferSelect | null;
+		costCenter: typeof costCenters.$inferSelect | null;
 		hasAttachments: boolean;
 		isReconciled: boolean;
 	}[],
@@ -86,6 +88,7 @@ const mapTransactionRows = (
 		financialAccount: row.financialAccount,
 		card: row.card,
 		category: row.category,
+		costCenter: row.costCenter,
 		hasAttachments: row.hasAttachments,
 		isReconciled: row.isReconciled,
 	}));
@@ -104,6 +107,7 @@ async function selectTransactionsWithRelations({
 			financialAccount: financialAccounts,
 			card: cards,
 			category: categories,
+			costCenter: costCenters,
 			hasAttachments: sql<boolean>`EXISTS (
 				SELECT 1 FROM ${transactionAttachments}
 				WHERE ${transactionAttachments.transactionId} = ${transactions.id}
@@ -121,6 +125,7 @@ async function selectTransactionsWithRelations({
 		)
 		.leftJoin(cards, eq(transactions.cardId, cards.id))
 		.leftJoin(categories, eq(transactions.categoryId, categories.id))
+		.leftJoin(costCenters, eq(transactions.costCenterId, costCenters.id))
 		.where(
 			buildTransactionsWhere({
 				filters,

@@ -77,7 +77,7 @@ export function CostCentersDialog({
 				<DialogHeader>
 					<DialogTitle>Centros de custo</DialogTitle>
 					<DialogDescription>
-						Renomeie os centros de custo que classificam suas categorias de
+						Renomeie os centros de custo que classificam seus lançamentos de
 						despesa no orçamento diário.
 					</DialogDescription>
 				</DialogHeader>

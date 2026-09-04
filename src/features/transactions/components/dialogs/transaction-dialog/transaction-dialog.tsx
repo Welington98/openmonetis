@@ -61,6 +61,7 @@ export function TransactionDialog({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions = [],
 	estabelecimentos,
 	transaction,
 	defaultPeriod,
@@ -343,6 +344,7 @@ export function TransactionDialog({
 			accountId: formState.accountId ?? null,
 			cardId: formState.cardId ?? null,
 			categoryId: formState.categoryId ?? null,
+			costCenterId: formState.costCenterId ?? null,
 			note: formState.note.trim() || null,
 			isSettled:
 				formState.paymentMethod === "Cartão de crédito"
@@ -435,6 +437,7 @@ export function TransactionDialog({
 					period: formState.period,
 					name: formState.name.trim(),
 					categoryId: formState.categoryId,
+					costCenterId: formState.costCenterId,
 					note: formState.note.trim() || "",
 					payerId: formState.payerId,
 					accountId: formState.accountId,
@@ -469,6 +472,7 @@ export function TransactionDialog({
 					condition: formState.condition,
 					paymentMethod: formState.paymentMethod,
 					categoryId: formState.categoryId,
+					costCenterId: formState.costCenterId,
 					note: formState.note.trim() || "",
 					payerId: formState.payerId,
 					accountId: formState.accountId,
@@ -605,6 +609,7 @@ export function TransactionDialog({
 								onFieldChange={handleFieldChange}
 								categoryOptions={categoryOptions}
 								categoryGroups={categoryGroups}
+								costCenterOptions={costCenterOptions}
 								isUpdateMode={isUpdateMode}
 								hideTransactionType={
 									Boolean(isNewWithType) && !forceShowTransactionType

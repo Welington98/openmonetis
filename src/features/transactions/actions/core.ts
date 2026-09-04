@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
 	cards,
 	categories,
+	costCenters,
 	financialAccounts,
 	invoices,
 	payers,
@@ -65,6 +66,23 @@ export async function fetchOwnedCategoryIds(
 		.select({ id: categories.id })
 		.from(categories)
 		.where(and(eq(categories.userId, userId), inArray(categories.id, ids)));
+
+	return new Set(rows.map((row) => row.id));
+}
+
+export async function fetchOwnedCostCenterIds(
+	userId: string,
+	costCenterIds: Array<string | null | undefined>,
+): Promise<Set<string>> {
+	const ids = normalizeIds(costCenterIds);
+	if (ids.length === 0) {
+		return new Set();
+	}
+
+	const rows = await db
+		.select({ id: costCenters.id })
+		.from(costCenters)
+		.where(and(eq(costCenters.userId, userId), inArray(costCenters.id, ids)));
 
 	return new Set(rows.map((row) => row.id));
 }
@@ -144,6 +162,7 @@ export async function validateAllOwnership(
 		secondaryPayerId?: string | null;
 		splitPayerIds?: Array<string | null | undefined>;
 		categoryId?: string | null;
+		costCenterId?: string | null;
 		accountId?: string | null;
 		cardId?: string | null;
 	},
@@ -153,19 +172,26 @@ export async function validateAllOwnership(
 		fields.secondaryPayerId,
 		...(fields.splitPayerIds ?? []),
 	];
-	const [ownedPayerIds, ownedCategoryIds, ownedAccountIds, ownedCardIds] =
-		await Promise.all([
-			fetchOwnedPayerIds(userId, payerIds),
-			fetchOwnedCategoryIds(userId, [fields.categoryId]),
-			fetchOwnedAccountIds(userId, [fields.accountId]),
-			fetchOwnedCardIds(userId, [fields.cardId]),
-		]);
+	const [
+		ownedPayerIds,
+		ownedCategoryIds,
+		ownedCostCenterIds,
+		ownedAccountIds,
+		ownedCardIds,
+	] = await Promise.all([
+		fetchOwnedPayerIds(userId, payerIds),
+		fetchOwnedCategoryIds(userId, [fields.categoryId]),
+		fetchOwnedCostCenterIds(userId, [fields.costCenterId]),
+		fetchOwnedAccountIds(userId, [fields.accountId]),
+		fetchOwnedCardIds(userId, [fields.cardId]),
+	]);
 
 	const checks = [
 		!fields.payerId || ownedPayerIds.has(fields.payerId),
 		!fields.secondaryPayerId || ownedPayerIds.has(fields.secondaryPayerId),
 		(fields.splitPayerIds ?? []).every((id) => !id || ownedPayerIds.has(id)),
 		!fields.categoryId || ownedCategoryIds.has(fields.categoryId),
+		!fields.costCenterId || ownedCostCenterIds.has(fields.costCenterId),
 		!fields.accountId || ownedAccountIds.has(fields.accountId),
 		!fields.cardId || ownedCardIds.has(fields.cardId),
 	];
@@ -175,6 +201,7 @@ export async function validateAllOwnership(
 		"Pessoa secundária não encontrada ou sem permissão.",
 		"Uma das pessoas selecionadas não foi encontrada ou está sem permissão.",
 		"Categoria não encontrada.",
+		"Centro de custo não encontrado.",
 		"Conta não encontrada.",
 		"Cartão não encontrado.",
 	];
@@ -331,6 +358,7 @@ const baseFields = z.object({
 	accountId: uuidSchema("FinancialAccount").nullable().optional(),
 	cardId: uuidSchema("Cartão").nullable().optional(),
 	categoryId: uuidSchema("Category").nullable().optional(),
+	costCenterId: uuidSchema("Cost center").nullable().optional(),
 	note: noteSchema,
 	installmentCount: z.coerce
 		.number()
@@ -716,6 +744,7 @@ export const buildTransactionRecords = ({
 		accountId: data.accountId ?? null,
 		cardId: data.cardId ?? null,
 		categoryId: data.categoryId ?? null,
+		costCenterId: data.costCenterId ?? null,
 		recurrenceCount: null as number | null,
 		installmentCount: null as number | null,
 		currentInstallment: null as number | null,
@@ -908,6 +937,7 @@ export const updateBulkSchema = z.object({
 		.trim()
 		.min(1, "Informe o estabelecimento."),
 	categoryId: uuidSchema("Category").nullable().optional(),
+	costCenterId: uuidSchema("Cost center").nullable().optional(),
 	note: noteSchema,
 	payerId: uuidSchema("Payer").nullable().optional(),
 	accountId: uuidSchema("FinancialAccount").nullable().optional(),

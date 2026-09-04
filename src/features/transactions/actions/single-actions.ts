@@ -63,6 +63,7 @@ export async function createTransactionAction(
 			secondaryPayerId: data.secondaryPayerId,
 			splitPayerIds: data.splitShares?.map((share) => share.payerId),
 			categoryId: data.categoryId,
+			costCenterId: data.costCenterId,
 			accountId: data.accountId,
 			cardId: data.cardId,
 		});
@@ -216,6 +217,7 @@ export async function updateTransactionAction(
 			secondaryPayerId: data.secondaryPayerId,
 			splitPayerIds: data.splitShares?.map((share) => share.payerId),
 			categoryId: data.categoryId,
+			costCenterId: data.costCenterId,
 			accountId: data.accountId,
 			cardId: data.cardId,
 		});
@@ -335,6 +337,7 @@ export async function updateTransactionAction(
 				accountId: data.accountId ?? null,
 				cardId: data.cardId ?? null,
 				categoryId: data.categoryId ?? null,
+				costCenterId: data.costCenterId ?? null,
 				note: data.note ?? null,
 				isSettled: normalizedSettled,
 				installmentCount: data.installmentCount ?? null,
@@ -838,6 +841,7 @@ export async function updateTransactionSplitPairAction(
 			payerId: data.payerId,
 			splitPayerIds: data.splitShares?.map((share) => share.payerId),
 			categoryId: data.categoryId,
+			costCenterId: data.costCenterId,
 			accountId: data.accountId,
 			cardId: data.cardId,
 		});
@@ -914,6 +918,7 @@ export async function updateTransactionSplitPairAction(
 			accountId: data.accountId ?? null,
 			cardId: data.cardId ?? null,
 			categoryId: data.categoryId ?? null,
+			costCenterId: data.costCenterId ?? null,
 			note: data.note ?? null,
 			dueDate,
 			period,

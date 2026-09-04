@@ -51,6 +51,10 @@ import {
 } from "@/shared/components/ui/tabs";
 import { ExpandableWidgetCard } from "@/shared/components/widgets/expandable-widget-card";
 import { getUserId } from "@/shared/lib/auth/server";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { prefetchLogoMappings } from "@/shared/lib/logo/prefetch-server";
 import { getPayerAccess } from "@/shared/lib/payers/access";
 import {
@@ -188,6 +192,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 		shareRows,
 		currentUserShare,
 		estabelecimentos,
+		costCenters,
 	] = await Promise.all([
 		fetchPayerTransactions(filters),
 		fetchPayerMonthlyBreakdown({
@@ -223,7 +228,9 @@ export default async function Page({ params, searchParams }: PageProps) {
 		sharesPromise,
 		currentUserSharePromise,
 		fetchRecentEstablishments(userId),
+		fetchOrSeedCostCentersForUser(userId),
 	]);
+	const costCenterOptions = buildCostCenterOptions(costCenters);
 
 	const mappedTransactions = mapTransactionsData(transactionRows);
 	const transactionData = canEdit
@@ -407,6 +414,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 								accountOptions={optionSets.accountOptions}
 								cardOptions={optionSets.cardOptions}
 								categoryOptions={optionSets.categoryOptions}
+								costCenterOptions={costCenterOptions}
 								payerFilterOptions={payerFilterOptions}
 								categoryFilterOptions={optionSets.categoryFilterOptions}
 								accountCardFilterOptions={optionSets.accountCardFilterOptions}

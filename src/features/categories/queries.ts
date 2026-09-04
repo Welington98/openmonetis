@@ -8,7 +8,6 @@ type CategoryData = {
 	name: string;
 	type: CategoryType;
 	icon: string | null;
-	costCenterId: string | null;
 };
 
 export async function fetchCategoriesForUser(
@@ -23,6 +22,5 @@ export async function fetchCategoriesForUser(
 		name: category.name,
 		type: category.type as CategoryType,
 		icon: category.icon,
-		costCenterId: category.costCenterId,
 	}));
 }

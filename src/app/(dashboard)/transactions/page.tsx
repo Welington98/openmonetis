@@ -20,6 +20,10 @@ import {
 import { LogoPrefetchProvider } from "@/shared/components/entity-avatar";
 import MonthNavigation from "@/shared/components/month-picker/month-navigation";
 import { getUserId } from "@/shared/lib/auth/server";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { prefetchLogoMappings } from "@/shared/lib/logo/prefetch-server";
 import { parsePeriodParam } from "@/shared/utils/period";
 
@@ -40,10 +44,13 @@ export default async function Page({ searchParams }: PageProps) {
 	const searchFilters = extractTransactionSearchFilters(resolvedSearchParams);
 	const pagination = resolveTransactionPagination(resolvedSearchParams);
 
-	const [filterSources, userPreferences] = await Promise.all([
+	const [filterSources, userPreferences, costCenters] = await Promise.all([
 		fetchTransactionFilterSources(userId),
 		fetchUserPreferences(userId),
+		fetchOrSeedCostCentersForUser(userId),
 	]);
+
+	const costCenterOptions = buildCostCenterOptions(costCenters);
 
 	const sluggedFilters = buildSluggedFilters(filterSources);
 	const slugMaps = buildSlugMaps(sluggedFilters);
@@ -96,6 +103,7 @@ export default async function Page({ searchParams }: PageProps) {
 					accountOptions={accountOptions}
 					cardOptions={cardOptions}
 					categoryOptions={categoryOptions}
+					costCenterOptions={costCenterOptions}
 					payerFilterOptions={payerFilterOptions}
 					categoryFilterOptions={categoryFilterOptions}
 					accountCardFilterOptions={accountCardFilterOptions}

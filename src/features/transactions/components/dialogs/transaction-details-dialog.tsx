@@ -223,6 +223,17 @@ export function TransactionDetailsDialog({
 									})()}
 								</li>
 
+								{transaction.centroCustoName && (
+									<li className="min-w-0 flex items-center justify-between gap-3">
+										<span className="text-muted-foreground">
+											Centro de custo
+										</span>
+										<span className="min-w-0 truncate">
+											{transaction.centroCustoName}
+										</span>
+									</li>
+								)}
+
 								<li className="min-w-0 flex items-center justify-between gap-3">
 									<span className="text-muted-foreground">Responsável</span>
 									{(() => {

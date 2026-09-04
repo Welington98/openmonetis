@@ -133,7 +133,6 @@ export function CategoriesPage({
 					<CategoryDialog
 						mode="create"
 						defaultType={activeType}
-						costCenters={costCenters}
 						trigger={
 							<Button className="w-full sm:w-auto">
 								<RiAddFill className="size-4" />
@@ -258,7 +257,6 @@ export function CategoriesPage({
 			<CategoryDialog
 				mode="update"
 				category={selectedCategory ?? undefined}
-				costCenters={costCenters}
 				open={editOpen && !!selectedCategory}
 				onOpenChange={handleEditOpenChange}
 			/>

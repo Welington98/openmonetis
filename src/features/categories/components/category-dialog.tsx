@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
-import type { CostCenter } from "@/db/schema";
 import {
 	createCategoryAction,
 	updateCategoryAction,
@@ -30,7 +29,6 @@ interface CategoryDialogProps {
 	trigger?: React.ReactNode;
 	category?: Category;
 	defaultType?: CategoryFormValues["type"];
-	costCenters: CostCenter[];
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
 }
@@ -51,7 +49,6 @@ const buildInitialValues = ({
 		name: category?.name ?? "",
 		type: initialType,
 		icon,
-		costCenterId: category?.costCenterId ?? null,
 	};
 };
 
@@ -60,7 +57,6 @@ export function CategoryDialog({
 	trigger,
 	category,
 	defaultType,
-	costCenters,
 	open,
 	onOpenChange,
 }: CategoryDialogProps) {
@@ -117,7 +113,6 @@ export function CategoryDialog({
 			name: formState.name.trim(),
 			type: formState.type,
 			icon: formState.icon.trim(),
-			costCenterId: formState.costCenterId,
 		};
 
 		startTransition(async () => {
@@ -158,11 +153,7 @@ export function CategoryDialog({
 				</DialogHeader>
 
 				<form className="flex flex-col gap-5" onSubmit={handleSubmit}>
-					<CategoryFormFields
-						values={formState}
-						onChange={updateField}
-						costCenters={costCenters}
-					/>
+					<CategoryFormFields values={formState} onChange={updateField} />
 
 					{errorMessage && (
 						<p className="text-sm text-destructive">{errorMessage}</p>

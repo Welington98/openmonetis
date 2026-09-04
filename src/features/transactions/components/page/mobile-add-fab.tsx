@@ -25,6 +25,7 @@ interface MobileAddFabProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	estabelecimentos: string[];
 	defaultPeriod: string;
 	defaultAccountId?: string | null;
@@ -42,6 +43,7 @@ export function MobileAddFab({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions,
 	estabelecimentos,
 	defaultPeriod,
 	defaultAccountId,
@@ -99,6 +101,7 @@ export function MobileAddFab({
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				defaultPeriod={defaultPeriod}
 				defaultAccountId={defaultAccountId}
