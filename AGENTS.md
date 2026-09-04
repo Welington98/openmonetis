@@ -117,6 +117,7 @@ src/
 │   ├── diary/
 │   ├── inbox/
 │   ├── attachments/
+│   ├── mcp/                       # tools do servidor MCP (/api/mcp) — ver seção MCP Server abaixo
 │   ├── reports/
 │   └── settings/
 ├── shared/
@@ -306,6 +307,18 @@ Arquivo: `src/shared/lib/actions/helpers.ts`
 
 ---
 
+## MCP Server
+
+Rota: `src/app/api/mcp/route.ts`. Tools: `src/features/mcp/server.ts` (`registerFinanceTools`). Stack: `mcp-handler` sobre `@modelcontextprotocol/server` v2 (handler HTTP Web-standard, compativel com Route Handlers do App Router).
+
+- Auth via Bearer token `opm_xxx` (mesma tabela `apiTokens` do Companion) — `verifyOpmApiToken()` em `src/shared/lib/auth/api-token.ts`, chamado pelo `verifyToken` do `withMcpAuth` na rota.
+- Regra critica ao adicionar uma tool nova: o `userId` usado nas queries **sempre** vem de `ctx.http.authInfo.extra.userId` (helper `requireUserId(ctx)`), **nunca** de um argumento da tool — senao qualquer chamador autenticado poderia ler dados de outro usuario.
+- Tools sao somente-leitura por design. Uma tool de escrita exige revisao de seguranca antes de entrar (confirmacao explicita, escopo de dano, etc.).
+- Reaproveitar as queries que ja existem nas features (`fetchTransactionsPageWithRelations`, `fetchDashboardAccounts`, `fetchCategoryReport`, etc.) em vez de duplicar logica de negocio.
+- Sem rate limiting implementado (diferente do inbox — ver Security Rules abaixo). Considerar antes de expor a rota publicamente sem proxy/WAF na frente.
+
+---
+
 ## Dashboard Fetcher
 
 Padrao recomendado:
@@ -362,7 +375,7 @@ Usar Drizzle ORM (parametrizado por padrao) — nunca concatenar input de usuari
 CSP definida em `src/proxy.ts` via middleware — alterar la, nao em `next.config.ts`. Headers de seguranca (HSTS, X-Frame-Options, etc.) definidos em `next.config.ts`. Nao remover nem enfraquecer essas configuracoes.
 
 ### Rate Limiting
-Login: 5 tentativas/min. Signup: 3 tentativas/min. API tokens: 100 req/min (inbox), 20 req/min (batch). Configurado em `src/shared/lib/auth/config.ts` e nas rotas de inbox. Nao remover.
+Login: 5 tentativas/min. Signup: 3 tentativas/min. API tokens: 100 req/min (inbox), 20 req/min (batch). Configurado em `src/shared/lib/auth/config.ts` e nas rotas de inbox. Nao remover. `/api/mcp` ainda nao tem rate limiting proprio — ver seção MCP Server acima antes de expor a rota sem proteção externa.
 
 ### Tratamento de Erros
 Erros nao devem expor stack traces, paths ou nomes de bibliotecas ao cliente. Usar mensagens genericas: `"Algo deu errado"`. Logar detalhes apenas no servidor com `console.error()`.
