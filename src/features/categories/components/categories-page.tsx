@@ -5,6 +5,7 @@ import {
 	RiDeleteBin5Line,
 	RiExternalLinkLine,
 	RiPencilLine,
+	RiPriceTag3Line,
 } from "@remixicon/react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
@@ -35,6 +36,7 @@ import {
 	type CategoryType,
 } from "@/shared/lib/categories/constants";
 import { CategoryDialog } from "./category-dialog";
+import { CostCentersDialog } from "./cost-centers-dialog";
 import type { Category } from "./types";
 
 const CATEGORIAS_PROTEGIDAS = [
@@ -127,7 +129,7 @@ export function CategoriesPage({
 	return (
 		<>
 			<div className="flex w-full flex-col gap-6">
-				<div className="flex">
+				<div className="flex flex-wrap gap-3">
 					<CategoryDialog
 						mode="create"
 						defaultType={activeType}
@@ -136,6 +138,15 @@ export function CategoriesPage({
 							<Button className="w-full sm:w-auto">
 								<RiAddFill className="size-4" />
 								Nova categoria
+							</Button>
+						}
+					/>
+					<CostCentersDialog
+						costCenters={costCenters}
+						trigger={
+							<Button variant="outline" className="w-full sm:w-auto">
+								<RiPriceTag3Line className="size-4" />
+								Centros de custo
 							</Button>
 						}
 					/>
