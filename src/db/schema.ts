@@ -238,6 +238,36 @@ export const financialAccounts = pgTable(
 	}),
 );
 
+// "fixa" | "variavel" | "economia" — decide como a categoria entra no motor
+// de orçamento diário (ver src/features/daily-budget). "fixa" é pré-alocada
+// do saldo do mês inteiro no dia 1º; "variavel" é o que a cota diária mede
+// dia a dia; "economia" é só rótulo pra relatórios, não entra no cálculo
+// (a reserva de economia usada no cálculo continua sendo a meta configurada
+// em dailyBudgetSettings).
+export const costCenters = pgTable(
+	"centros_custo",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		name: text("nome").notNull(),
+		kind: text("tipo_roteamento").notNull(),
+		createdAt: timestamp("created_at", {
+			mode: "date",
+			withTimezone: true,
+		})
+			.notNull()
+			.defaultNow(),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+	},
+	(table) => ({
+		userIdIdx: index("centros_custo_user_id_idx").on(table.userId),
+	}),
+);
+
+export type CostCenter = typeof costCenters.$inferSelect;
+export type NewCostCenter = typeof costCenters.$inferInsert;
+
 export const categories = pgTable(
 	"categorias",
 	{
@@ -254,11 +284,18 @@ export const categories = pgTable(
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
+		costCenterId: uuid("centro_custo_id").references(
+			(): AnyPgColumn => costCenters.id,
+			{ onDelete: "set null" },
+		),
 	},
 	(table) => ({
 		userIdTypeIdx: index("categorias_user_id_type_idx").on(
 			table.userId,
 			table.type,
+		),
+		costCenterIdIdx: index("categorias_centro_custo_id_idx").on(
+			table.costCenterId,
 		),
 	}),
 );
@@ -1299,8 +1336,20 @@ export const categoriesRelations = relations(categories, ({ one, many }) => ({
 		fields: [categories.userId],
 		references: [user.id],
 	}),
+	costCenter: one(costCenters, {
+		fields: [categories.costCenterId],
+		references: [costCenters.id],
+	}),
 	transactions: many(transactions),
 	budgets: many(budgets),
+}));
+
+export const costCentersRelations = relations(costCenters, ({ one, many }) => ({
+	user: one(user, {
+		fields: [costCenters.userId],
+		references: [user.id],
+	}),
+	categories: many(categories),
 }));
 
 export const payersRelations = relations(payers, ({ one, many }) => ({

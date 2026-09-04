@@ -1,6 +1,8 @@
 import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
 	budgets,
+	categories,
+	costCenters,
 	dailyBudgetSettings,
 	financialAccounts,
 	transactions,
@@ -36,6 +38,7 @@ import {
 } from "@/features/daily-budget/lib/month-progress";
 import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
 import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+import type { CostCenterKind } from "@/shared/lib/cost-centers/constants";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import {
@@ -57,6 +60,8 @@ export type DailyBudgetOverview = {
 	monthlyBudgetTotal: number;
 	spentThisMonth: number;
 	spentToday: number;
+	/** Fatia de `spentToday` que é despesa fixa (já descontada do mês inteiro desde o dia 1º, não conta pro limite diário). */
+	fixedSpentToday: number;
 	expectedIncome: number;
 	calculationMode: "automatico" | "personalizado";
 	customDailyLimit: number | null;
@@ -88,12 +93,18 @@ function notAutoInvoiceFilter() {
  * mesmo conjunto de filtros da feature Orçamentos (pagador admin, exclui
  * lançamentos automáticos de fatura, exclui contas não consideradas no
  * saldo — mas card sem conta atrelada continua contando, é despesa real).
+ *
+ * `costCenterKind` filtra por centro de custo da categoria do lançamento
+ * (join transactions -> categories -> costCenters). Categoria sem centro de
+ * custo definido (ou lançamento sem categoria) é tratada como "variavel" —
+ * mesmo critério seguro usado no backfill de categorias antigas.
  */
 async function fetchExpenseAndIncomeTotals(
 	userId: string,
 	adminPayerId: string,
 	period: string,
 	dateFilter?: { op: "lte" | "gt" | "eq"; date: Date },
+	costCenterKind?: CostCenterKind,
 ): Promise<{ income: number; expenses: number }> {
 	const conditions = [
 		eq(transactions.userId, userId),
@@ -115,6 +126,14 @@ async function fetchExpenseAndIncomeTotals(
 		);
 	}
 
+	if (costCenterKind === "variavel") {
+		conditions.push(
+			or(isNull(categories.costCenterId), eq(costCenters.kind, "variavel")),
+		);
+	} else if (costCenterKind) {
+		conditions.push(eq(costCenters.kind, costCenterKind));
+	}
+
 	const rows = await db
 		.select({
 			transactionType: transactions.transactionType,
@@ -125,6 +144,8 @@ async function fetchExpenseAndIncomeTotals(
 			financialAccounts,
 			eq(transactions.accountId, financialAccounts.id),
 		)
+		.leftJoin(categories, eq(transactions.categoryId, categories.id))
+		.leftJoin(costCenters, eq(categories.costCenterId, costCenters.id))
 		.where(and(...conditions))
 		.groupBy(transactions.transactionType);
 
@@ -284,6 +305,7 @@ function buildEmptyOverview(monthProgress: MonthProgress): DailyBudgetOverview {
 		monthlyBudgetTotal: 0,
 		spentThisMonth: 0,
 		spentToday: 0,
+		fixedSpentToday: 0,
 		expectedIncome: 0,
 		calculationMode: "automatico",
 		customDailyLimit: null,
@@ -326,29 +348,62 @@ export async function fetchDailyBudgetOverview(
 		budgetTotals,
 		settings,
 		thresholds,
-		spentSoFar,
-		futureKnown,
+		fixedSpentSoFar,
+		fixedFutureKnown,
+		fixedSpentToday,
+		variableSpentSoFar,
+		variableFutureKnown,
+		variableSpentToday,
 		wholeMonth,
-		spentTodayResult,
 		cardExpensesToday,
 		dailyRowsPerPeriod,
 	] = await Promise.all([
 		fetchMonthlyBudgetTotals(userId, projectionPeriods),
 		fetchSettings(userId, period),
 		fetchThresholds(userId),
-		fetchExpenseAndIncomeTotals(userId, adminPayerId, period, {
-			op: "lte",
-			date: todayDate,
-		}),
-		fetchExpenseAndIncomeTotals(userId, adminPayerId, period, {
-			op: "gt",
-			date: todayDate,
-		}),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "lte", date: todayDate },
+			"fixa",
+		),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "gt", date: todayDate },
+			"fixa",
+		),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "eq", date: todayDate },
+			"fixa",
+		),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "lte", date: todayDate },
+			"variavel",
+		),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "gt", date: todayDate },
+			"variavel",
+		),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "eq", date: todayDate },
+			"variavel",
+		),
 		fetchExpenseAndIncomeTotals(userId, adminPayerId, period),
-		fetchExpenseAndIncomeTotals(userId, adminPayerId, period, {
-			op: "eq",
-			date: todayDate,
-		}),
 		fetchCardExpensesToday(userId, adminPayerId, todayDate),
 		Promise.all(
 			projectionPeriods.map((p) =>
@@ -358,14 +413,21 @@ export async function fetchDailyBudgetOverview(
 	]);
 
 	const monthlyBudgetTotal = budgetTotals.get(period) ?? 0;
-	const spentThisMonth = spentSoFar.expenses;
-	const spentToday = spentTodayResult.expenses;
+	// Despesa fixa pré-alocada do mês inteiro (passado + futuro) — pagar a
+	// conta em qualquer dia não muda a cota diária, ela já saiu do saldo.
+	const totalFixedThisMonth =
+		fixedSpentSoFar.expenses + fixedFutureKnown.expenses;
+	// Total real já gasto (fixo + variável, purchaseDate <= hoje) — usado só
+	// pra exibição/ritmo do mês, não entra na cota diária.
+	const spentThisMonth = fixedSpentSoFar.expenses + variableSpentSoFar.expenses;
+	const spentToday = fixedSpentToday.expenses + variableSpentToday.expenses;
 	const expectedIncome = wholeMonth.income;
 
 	const availableBalanceResult = calculateAvailableBalance({
 		monthlyBudgetTotal,
-		spentThisMonth,
-		futureKnownExpenses: futureKnown.expenses,
+		totalFixedThisMonth,
+		variableSpentSoFar: variableSpentSoFar.expenses,
+		variableFutureKnown: variableFutureKnown.expenses,
 		targetSavings: settings.targetSavings,
 		safetyBuffer: settings.safetyBuffer,
 	});
@@ -375,11 +437,13 @@ export async function fetchDailyBudgetOverview(
 		daysRemaining: monthProgress.daysRemaining,
 		calculationMode: settings.calculationMode,
 		customDailyLimit: settings.customDailyLimit,
-		spentToday,
+		// Só o gasto variável de hoje conta pro limite do dia — o fixo já foi
+		// pré-alocado do saldo do mês inteiro, não importa quando é pago.
+		spentToday: variableSpentToday.expenses,
 	});
 
 	const averageSpending = calculateAverageDailySpending({
-		totalVariableSpentThisCycle: spentThisMonth,
+		totalVariableSpentThisCycle: variableSpentSoFar.expenses,
 		daysElapsedInCycle: monthProgress.daysElapsed,
 	});
 
@@ -438,6 +502,7 @@ export async function fetchDailyBudgetOverview(
 		monthlyBudgetTotal,
 		spentThisMonth,
 		spentToday,
+		fixedSpentToday: fixedSpentToday.expenses,
 		expectedIncome,
 		calculationMode: settings.calculationMode,
 		customDailyLimit: settings.customDailyLimit,
@@ -451,7 +516,10 @@ export async function fetchDailyBudgetOverview(
 		projection,
 		movements: {
 			income: expectedIncome,
-			expenses: spentThisMonth + futureKnown.expenses,
+			expenses:
+				spentThisMonth +
+				fixedFutureKnown.expenses +
+				variableFutureKnown.expenses,
 			cardExpenses: cardExpensesToday,
 		},
 	};

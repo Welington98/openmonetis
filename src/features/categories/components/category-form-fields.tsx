@@ -2,6 +2,7 @@
 
 import { RiMoreLine } from "@remixicon/react";
 import { useMemo, useState } from "react";
+import type { CostCenter } from "@/db/schema";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
@@ -14,8 +15,10 @@ import {
 import {
 	CATEGORY_TYPE_LABEL,
 	CATEGORY_TYPES,
+	type CategoryType,
 } from "@/shared/lib/categories/constants";
 import { getCategoryIconOptions } from "@/shared/lib/categories/icons";
+import { COST_CENTER_KIND_LABEL } from "@/shared/lib/cost-centers/constants";
 import { cn } from "@/shared/utils/ui";
 
 import { CategoryIcon } from "./category-icon";
@@ -23,9 +26,15 @@ import { CategoryPickerDialog } from "./category-picker-dialog";
 import { TypeSelectContent } from "./category-select-items";
 import type { CategoryFormValues } from "./types";
 
+const NO_COST_CENTER_VALUE = "none";
+
 interface CategoryFormFieldsProps {
 	values: CategoryFormValues;
-	onChange: (field: keyof CategoryFormValues, value: string) => void;
+	onChange: <K extends keyof CategoryFormValues>(
+		field: K,
+		value: CategoryFormValues[K],
+	) => void;
+	costCenters: CostCenter[];
 }
 
 const iconOptions = getCategoryIconOptions();
@@ -33,6 +42,7 @@ const iconOptions = getCategoryIconOptions();
 export function CategoryFormFields({
 	values,
 	onChange,
+	costCenters,
 }: CategoryFormFieldsProps) {
 	const [pickerOpen, setPickerOpen] = useState(false);
 
@@ -57,7 +67,7 @@ export function CategoryFormFields({
 				<Label htmlFor="category-type">Tipo da categoria</Label>
 				<Select
 					value={values.type}
-					onValueChange={(value) => onChange("type", value)}
+					onValueChange={(value) => onChange("type", value as CategoryType)}
 				>
 					<SelectTrigger id="category-type" className="w-full">
 						<SelectValue placeholder="Selecione o tipo">
@@ -75,6 +85,46 @@ export function CategoryFormFields({
 					</SelectContent>
 				</Select>
 			</div>
+
+			{values.type === "despesa" && (
+				<div className="flex flex-col gap-2">
+					<Label htmlFor="category-cost-center">Centro de custo</Label>
+					<Select
+						value={values.costCenterId ?? NO_COST_CENTER_VALUE}
+						onValueChange={(value) =>
+							onChange(
+								"costCenterId",
+								value === NO_COST_CENTER_VALUE ? null : value,
+							)
+						}
+					>
+						<SelectTrigger id="category-cost-center" className="w-full">
+							<SelectValue placeholder="Selecione o centro de custo" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={NO_COST_CENTER_VALUE}>
+								Sem centro de custo
+							</SelectItem>
+							{costCenters.map((costCenter) => (
+								<SelectItem key={costCenter.id} value={costCenter.id}>
+									{costCenter.name} (
+									{
+										COST_CENTER_KIND_LABEL[
+											costCenter.kind as keyof typeof COST_CENTER_KIND_LABEL
+										]
+									}
+									)
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<p className="text-xs text-muted-foreground">
+						Define como essa categoria entra no orçamento diário — despesas
+						"Fixa" não contam pro limite do dia, já saem do orçamento do mês
+						inteiro.
+					</p>
+				</div>
+			)}
 
 			<div className="flex flex-col gap-2">
 				<Label>Ícone</Label>
