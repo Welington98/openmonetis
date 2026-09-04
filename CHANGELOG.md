@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.16.0](https://github.com/Welington98/openmonetis/compare/v2.15.0...v2.16.0) (2026-09-04)
+
+### Adicionado
+
+* **categories:** allow renaming cost centers ([44928b9](https://github.com/Welington98/openmonetis/commit/44928b9d2020c40ceb4dddd6e407f3a0a9fe900e))
+
 ## [2.15.0](https://github.com/Welington98/openmonetis/compare/v2.14.0...v2.15.0) (2026-09-04)
 
 ### Adicionado
