@@ -172,17 +172,20 @@ export type PluggyTransaction = {
 
 /**
  * GET /v2/transactions — pagina por cursor até esgotar `next`.
- * `dateFrom` no formato yyyy-mm-dd (opcional, usado no sync incremental).
+ * `dateFrom`/`dateTo` no formato yyyy-mm-dd (opcionais — `dateFrom` sozinho é
+ * usado no sync incremental; os dois juntos permitem filtrar por período
+ * específico no sync manual).
  */
 export async function fetchPluggyTransactions(
 	accountId: string,
-	options: { dateFrom?: string } = {},
+	options: { dateFrom?: string; dateTo?: string } = {},
 ): Promise<PluggyTransaction[]> {
 	const apiKey = await getPluggyApiKey();
 	const transactions: PluggyTransaction[] = [];
 
 	const params = new URLSearchParams({ accountId });
 	if (options.dateFrom) params.set("dateFrom", options.dateFrom);
+	if (options.dateTo) params.set("dateTo", options.dateTo);
 
 	let path: string | null = `/v2/transactions?${params.toString()}`;
 	while (path) {

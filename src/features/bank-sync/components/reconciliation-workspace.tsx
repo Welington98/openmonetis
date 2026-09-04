@@ -2,6 +2,7 @@
 
 import {
 	RiBankLine,
+	RiCalendarLine,
 	RiCheckLine,
 	RiCloseLine,
 	RiDownload2Line,
@@ -34,6 +35,7 @@ import { ConfirmActionDialog } from "@/shared/components/confirm-action-dialog";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Checkbox } from "@/shared/components/ui/checkbox";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import {
 	Empty,
 	EmptyDescription,
@@ -42,6 +44,11 @@ import {
 	EmptyTitle,
 } from "@/shared/components/ui/empty";
 import { Input } from "@/shared/components/ui/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/shared/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -97,6 +104,9 @@ export function ReconciliationWorkspace({
 		connectorName: string;
 	} | null>(null);
 	const [isSyncing, startSync] = useTransition();
+	const [syncDateFrom, setSyncDateFrom] = useState("");
+	const [syncDateTo, setSyncDateTo] = useState("");
+	const [syncFilterOpen, setSyncFilterOpen] = useState(false);
 	const [isSuggesting, startSuggest] = useTransition();
 	const [isBulkImporting, startBulkImport] = useTransition();
 	const [isBackfilling, startBackfill] = useTransition();
@@ -203,6 +213,8 @@ export function ReconciliationWorkspace({
 		startSync(async () => {
 			const result = await triggerManualSyncAction({
 				connectionId: selectedConnection.id,
+				dateFrom: syncDateFrom || undefined,
+				dateTo: syncDateTo || undefined,
 			});
 			if (result.success) {
 				toast.success(result.message);
@@ -210,6 +222,11 @@ export function ReconciliationWorkspace({
 				toast.error(result.error);
 			}
 		});
+	};
+
+	const handleClearSyncDateRange = () => {
+		setSyncDateFrom("");
+		setSyncDateTo("");
 	};
 
 	const handleSuggestCategories = () => {
@@ -369,6 +386,57 @@ export function ReconciliationWorkspace({
 					<RiRefreshLine className="size-4" />
 					{isSyncing ? "Sincronizando..." : "Sincronizar"}
 				</Button>
+				<Popover open={syncFilterOpen} onOpenChange={setSyncFilterOpen}>
+					<PopoverTrigger asChild>
+						<Button
+							variant={syncDateFrom || syncDateTo ? "secondary" : "ghost"}
+							size="sm"
+							disabled={!selectedConnection}
+						>
+							<RiCalendarLine className="size-4" />
+							{syncDateFrom || syncDateTo
+								? `${formatDateOnly(syncDateFrom) ?? "início"} – ${formatDateOnly(syncDateTo) ?? "hoje"}`
+								: "Filtrar período"}
+						</Button>
+					</PopoverTrigger>
+					<PopoverContent className="w-72" align="start">
+						<div className="flex flex-col gap-3">
+							<p className="text-muted-foreground text-xs">
+								Sincroniza só as transações desse período, em vez de puxar tudo.
+								Deixe em branco pra usar o comportamento padrão.
+							</p>
+							<div className="flex flex-col gap-1.5">
+								<span className="text-xs">De</span>
+								<DatePicker
+									value={syncDateFrom}
+									onChange={setSyncDateFrom}
+									placeholder="Data inicial"
+								/>
+							</div>
+							<div className="flex flex-col gap-1.5">
+								<span className="text-xs">Até</span>
+								<DatePicker
+									value={syncDateTo}
+									onChange={setSyncDateTo}
+									placeholder="Data final"
+								/>
+							</div>
+							<div className="flex justify-end gap-2">
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={handleClearSyncDateRange}
+									disabled={!syncDateFrom && !syncDateTo}
+								>
+									Limpar
+								</Button>
+								<Button size="sm" onClick={() => setSyncFilterOpen(false)}>
+									Aplicar
+								</Button>
+							</div>
+						</div>
+					</PopoverContent>
+				</Popover>
 				<Button
 					variant="outline"
 					size="sm"

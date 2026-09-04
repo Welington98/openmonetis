@@ -22,6 +22,11 @@ export type SyncResult = {
 	statementLinesCreated: number;
 };
 
+export type SyncDateRange = {
+	dateFrom?: string;
+	dateTo?: string;
+};
+
 function pluggyTypeToLocal(
 	type: PluggyTransaction["type"],
 ): "despesa" | "receita" {
@@ -33,10 +38,16 @@ function pluggyTypeToLocal(
  * e grava como `linhas_extrato` pendentes de revisão (nunca cria lançamento
  * direto). Dedup por `externalId` via `ON CONFLICT DO NOTHING` no índice
  * único — chamadas repetidas são idempotentes.
+ *
+ * `dateRange` permite filtrar manualmente por período (ex.: só reimportar um
+ * mês específico); quando omitido, usa o comportamento padrão: histórico
+ * completo na primeira sincronização, e uma janela incremental dos últimos
+ * 30 dias nas seguintes.
  */
 export async function syncBankConnection(
 	connectionId: string,
 	userId: string,
+	dateRange: SyncDateRange = {},
 ): Promise<SyncResult> {
 	const [connection] = await db
 		.select()
@@ -80,14 +91,20 @@ export async function syncBankConnection(
 
 	let statementLinesCreated = 0;
 
-	for (const account of pluggyAccounts) {
-		const dateFrom = hasLinkedAccounts
+	// Um período explícito (filtro manual) sempre tem prioridade sobre a
+	// janela incremental padrão de 30 dias.
+	const dateFrom =
+		dateRange.dateFrom ??
+		(hasLinkedAccounts
 			? (toDateOnlyString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) ??
 				undefined)
-			: undefined;
+			: undefined);
+	const dateTo = dateRange.dateTo;
 
+	for (const account of pluggyAccounts) {
 		const pluggyTransactions = await fetchPluggyTransactions(account.id, {
 			dateFrom,
+			dateTo,
 		});
 
 		if (pluggyTransactions.length === 0) continue;
