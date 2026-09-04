@@ -63,11 +63,27 @@ import {
 	TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { formatCurrency } from "@/shared/utils/currency";
-import { formatDateOnly } from "@/shared/utils/date";
+import {
+	compareDateOnly,
+	formatDateOnly,
+	getBusinessDateString,
+} from "@/shared/utils/date";
 
 type FilterKey = "todos" | "pendentes" | "classificados" | "ia";
 
 const ALL_CONNECTIONS_VALUE = "__all__";
+
+/** Primeiro e último dia do mês atual (fuso de negócio do app), como "YYYY-MM-DD". */
+function getCurrentMonthRange(): { from: string; to: string } {
+	const [yearStr, monthStr] = getBusinessDateString().split("-");
+	const year = Number(yearStr);
+	const month = Number(monthStr);
+	const lastDay = new Date(year, month, 0).getDate();
+	return {
+		from: `${yearStr}-${monthStr}-01`,
+		to: `${yearStr}-${monthStr}-${String(lastDay).padStart(2, "0")}`,
+	};
+}
 
 interface ReconciliationWorkspaceProps {
 	data: ReconciliationWorkspaceData;
@@ -104,17 +120,34 @@ export function ReconciliationWorkspace({
 		connectorName: string;
 	} | null>(null);
 	const [isSyncing, startSync] = useTransition();
-	const [syncDateFrom, setSyncDateFrom] = useState("");
-	const [syncDateTo, setSyncDateTo] = useState("");
+	// Período exibido na lista e usado como filtro na sincronização manual —
+	// por padrão, só o mês atual; "Limpar" no popover volta a mostrar tudo.
+	const [syncDateFrom, setSyncDateFrom] = useState(
+		() => getCurrentMonthRange().from,
+	);
+	const [syncDateTo, setSyncDateTo] = useState(() => getCurrentMonthRange().to);
 	const [syncFilterOpen, setSyncFilterOpen] = useState(false);
 	const [isSuggesting, startSuggest] = useTransition();
 	const [isBulkImporting, startBulkImport] = useTransition();
 	const [isBackfilling, startBackfill] = useTransition();
 
 	const scopedLines = useMemo(() => {
-		if (selectedConnectionId === ALL_CONNECTIONS_VALUE) return lines;
-		return lines.filter((l) => l.bankConnectionId === selectedConnectionId);
-	}, [lines, selectedConnectionId]);
+		return lines.filter((l) => {
+			if (
+				selectedConnectionId !== ALL_CONNECTIONS_VALUE &&
+				l.bankConnectionId !== selectedConnectionId
+			) {
+				return false;
+			}
+			if (syncDateFrom && compareDateOnly(l.date, syncDateFrom) < 0) {
+				return false;
+			}
+			if (syncDateTo && compareDateOnly(l.date, syncDateTo) > 0) {
+				return false;
+			}
+			return true;
+		});
+	}, [lines, selectedConnectionId, syncDateFrom, syncDateTo]);
 
 	const counts = useMemo(
 		() => ({
@@ -391,19 +424,19 @@ export function ReconciliationWorkspace({
 						<Button
 							variant={syncDateFrom || syncDateTo ? "secondary" : "ghost"}
 							size="sm"
-							disabled={!selectedConnection}
 						>
 							<RiCalendarLine className="size-4" />
 							{syncDateFrom || syncDateTo
 								? `${formatDateOnly(syncDateFrom) ?? "início"} – ${formatDateOnly(syncDateTo) ?? "hoje"}`
-								: "Filtrar período"}
+								: "Todos os períodos"}
 						</Button>
 					</PopoverTrigger>
 					<PopoverContent className="w-72" align="start">
 						<div className="flex flex-col gap-3">
 							<p className="text-muted-foreground text-xs">
-								Sincroniza só as transações desse período, em vez de puxar tudo.
-								Deixe em branco pra usar o comportamento padrão.
+								Mostra na lista, e sincroniza do Pluggy, só as transações desse
+								período. Por padrão mostra o mês atual — clique em "Limpar" pra
+								ver todos os períodos.
 							</p>
 							<div className="flex flex-col gap-1.5">
 								<span className="text-xs">De</span>
