@@ -37,6 +37,7 @@
 - [Docker](#-docker)
 - [Backup](#-backup)
 - [Storage S3 Compatível](#-storage-s3-compatível)
+- [Servidor MCP](#-servidor-mcp)
 - [Variáveis de Ambiente](#-variáveis-de-ambiente)
 - [Design System](#-design-system)
 - [Arquitetura](#-arquitetura)
@@ -88,6 +89,8 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 <p align="center">
   <img src="./public/images/companion-preview-light.webp" alt="OpenMonetis Companion" width="300" height="600" />
 </p>
+
+🔌 **Servidor MCP** — Exponha seus lançamentos, categorias, contas e resumos por categoria como tools somente-leitura para assistentes de IA compatíveis com [Model Context Protocol](https://modelcontextprotocol.io) (Claude Code, Claude Desktop), autenticado com o mesmo token pessoal usado pelo Companion. Veja [Servidor MCP](#-servidor-mcp).
 
 ⚙️ **Personalização** — Tema dark/light, modo privacidade, ordem das colunas, agrupamento por data em lançamentos, exibição de anotações, tamanho máximo de anexos, resumo opcional no modal de lançamento e changelog visual para acompanhar as novidades do app.
 
@@ -427,6 +430,62 @@ O token **nunca chega ao cliente**. O servidor constrói a URL `https://img.logo
 
 ---
 
+## 🔌 Servidor MCP
+
+O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model Context Protocol) somente-leitura em `/api/mcp`, para que um assistente de IA consulte seus dados financeiros diretamente — sem copiar e colar extratos ou planilhas.
+
+### Tools disponíveis
+
+- **`list_transactions`** — lista lançamentos com filtros de data, tipo, categoria e busca por nome
+- **`get_transaction`** — detalha um lançamento específico pelo ID
+- **`list_categories`** — lista as categorias cadastradas
+- **`list_accounts`** — lista contas com saldo atual calculado e saldo total consolidado
+- **`category_summary`** — soma receitas/despesas por categoria em um intervalo de meses, com comparação mês a mês
+
+Nenhuma tool escreve dados — é só consulta.
+
+### Como gerar um token
+
+Vá em **Configurações → Tokens de API**, crie um token com um nome identificável (ex.: "Claude") e copie o valor `opm_...` exibido — ele só aparece uma vez. É o mesmo tipo de token usado pelo OpenMonetis Companion.
+
+### Como conectar
+
+**Claude Code:**
+
+```bash
+claude mcp add --transport http openmonetis https://SEU_DOMINIO/api/mcp \
+  --header "Authorization: Bearer opm_seu_token_aqui"
+```
+
+**Claude Desktop** (ainda não fala HTTP nativamente — use o proxy [`mcp-remote`](https://www.npmjs.com/package/mcp-remote)):
+
+```json
+{
+  "mcpServers": {
+    "openmonetis": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://SEU_DOMINIO/api/mcp",
+        "--header",
+        "Authorization: Bearer ${OPENMONETIS_TOKEN}"
+      ],
+      "env": {
+        "OPENMONETIS_TOKEN": "opm_seu_token_aqui"
+      }
+    }
+  }
+}
+```
+
+Em desenvolvimento local, use `http://localhost:3000/api/mcp` no lugar de `SEU_DOMINIO`.
+
+### Arquitetura
+
+O `userId` que escopa todas as consultas vem exclusivamente do token Bearer verificado — nunca de argumentos passados pela IA na chamada da tool, então não há como uma tool ler dados de outro usuário. A validação do token (`verifyOpmApiToken` em `src/shared/lib/auth/api-token.ts`) reaproveita a mesma tabela `tokens_api` usada pelo Companion, incluindo expiração, revogação e registro de último uso. O handler é construído com [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) sobre `@modelcontextprotocol/server`, expondo um handler HTTP compatível com Route Handlers do Next.js App Router.
+
+---
+
 ## 🔐 Variáveis de Ambiente
 
 **Perfil 2 (dev):** copie `.env.example` para `.env` — o `DATABASE_URL` já vem com `localhost`, pronto para uso com `pnpm dev`.
@@ -563,7 +622,7 @@ O projeto segue arquitetura **feature-first** dentro de `src/`:
 openmonetis/
 ├── src/
 │   ├── app/                       # Next.js App Router (rotas finas)
-│   │   ├── api/                   # API Routes (auth, health, inbox)
+│   │   ├── api/                   # API Routes (auth, health, inbox, mcp)
 │   │   ├── (auth)/                # Login e cadastro
 │   │   ├── (dashboard)/           # Rotas protegidas (transactions, cards, accounts, etc.)
 │   │   └── (landing-page)/        # Página inicial pública
@@ -578,6 +637,7 @@ openmonetis/
 │   │   ├── budgets/               # Orçamentos
 │   │   ├── payers/                # Pagadores e compartilhamento
 │   │   ├── inbox/                 # Pré-lançamentos do Companion
+│   │   ├── mcp/                   # Tools do servidor MCP (/api/mcp)
 │   │   ├── insights/              # Análises com IA
 │   │   ├── reports/               # Relatórios e exportações
 │   │   ├── notes/                 # Anotações
