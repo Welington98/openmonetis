@@ -152,14 +152,38 @@ const connectionIdSchema = z.object({
 	connectionId: z.string().uuid("Conexão inválida."),
 });
 
+const dateOnlySchema = z
+	.string()
+	.regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.");
+
+const triggerManualSyncSchema = connectionIdSchema.extend({
+	dateFrom: dateOnlySchema.nullable().optional(),
+	dateTo: dateOnlySchema.nullable().optional(),
+});
+
+/**
+ * Sincronização manual, disparada pelo usuário. `dateFrom`/`dateTo` (opcionais)
+ * permitem restringir a um período específico em vez de puxar tudo — útil
+ * pra reimportar só um mês, por exemplo, sem reprocessar o histórico inteiro.
+ */
 export async function triggerManualSyncAction(
-	input: z.infer<typeof connectionIdSchema>,
+	input: z.infer<typeof triggerManualSyncSchema>,
 ): Promise<ActionResult<{ statementLinesCreated: number }>> {
 	try {
 		const userId = await getUserId();
-		const data = connectionIdSchema.parse(input);
+		const data = triggerManualSyncSchema.parse(input);
 
-		const result = await syncBankConnection(data.connectionId, userId);
+		if (data.dateFrom && data.dateTo && data.dateFrom > data.dateTo) {
+			return {
+				success: false,
+				error: "A data inicial não pode ser depois da data final.",
+			};
+		}
+
+		const result = await syncBankConnection(data.connectionId, userId, {
+			dateFrom: data.dateFrom ?? undefined,
+			dateTo: data.dateTo ?? undefined,
+		});
 		revalidateBankSync(userId);
 
 		return {
