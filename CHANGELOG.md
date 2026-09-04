@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.14.0](https://github.com/Welington98/openmonetis/compare/v2.13.3...v2.14.0) (2026-09-04)
+
+### Adicionado
+
+* **mcp:** adiciona servidor MCP via HTTP para consulta de dados financeiros ([28d336a](https://github.com/Welington98/openmonetis/commit/28d336a871574cc5462c8fb30e9dc0388e66a08d))
+
 ## [2.13.3](https://github.com/Welington98/openmonetis/compare/v2.13.2...v2.13.3) (2026-09-03)
 
 ### Corrigido
