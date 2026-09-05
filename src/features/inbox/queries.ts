@@ -15,6 +15,10 @@ import {
 	fetchRecentEstablishments,
 	fetchTransactionFilterSources,
 } from "@/features/transactions/queries";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 
 export async function fetchInboxItemsPage(
@@ -156,9 +160,14 @@ export async function fetchInboxDialogData(userId: string): Promise<{
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	estabelecimentos: string[];
 }> {
-	const filterSources = await fetchTransactionFilterSources(userId);
+	const [filterSources, estabelecimentos, costCenters] = await Promise.all([
+		fetchTransactionFilterSources(userId),
+		fetchRecentEstablishments(userId),
+		fetchOrSeedCostCentersForUser(userId),
+	]);
 	const sluggedFilters = buildSluggedFilters(filterSources);
 
 	const {
@@ -173,8 +182,6 @@ export async function fetchInboxDialogData(userId: string): Promise<{
 		payerRows: filterSources.payerRows,
 	});
 
-	const estabelecimentos = await fetchRecentEstablishments(userId);
-
 	return {
 		payerOptions,
 		splitPayerOptions,
@@ -182,6 +189,7 @@ export async function fetchInboxDialogData(userId: string): Promise<{
 		accountOptions,
 		cardOptions,
 		categoryOptions,
+		costCenterOptions: buildCostCenterOptions(costCenters),
 		estabelecimentos,
 	};
 }

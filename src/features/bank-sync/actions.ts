@@ -21,6 +21,7 @@ import {
 	revalidateForEntity,
 } from "@/shared/lib/actions/helpers";
 import { getUserId } from "@/shared/lib/auth/server";
+import { fetchOrSeedCostCentersForUser } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 import type { ActionResult } from "@/shared/lib/types/actions";
 import { toDateOnlyString } from "@/shared/utils/date";
@@ -37,6 +38,20 @@ import { fetchBankSyncDialogData, fetchStatementLines } from "./queries";
 
 function revalidateBankSync(userId: string) {
 	revalidateForEntity("bankSync", userId);
+}
+
+/**
+ * Lançamentos importados automaticamente (sem revisão manual) sempre entram
+ * como "variável" — mesmo fallback seguro usado pra lançamento sem centro de
+ * custo em outros lugares do orçamento diário.
+ */
+async function resolveVariableCostCenterId(
+	userId: string,
+): Promise<string | null> {
+	const costCenters = await fetchOrSeedCostCentersForUser(userId);
+	return (
+		costCenters.find((costCenter) => costCenter.kind === "variavel")?.id ?? null
+	);
 }
 
 /**
@@ -722,10 +737,13 @@ export async function bulkImportStatementLinesAction(
 		const { fallbackExpenseCategoryId, fallbackIncomeCategoryId } =
 			bulkImportSchema.parse(input);
 
-		const [lines, { defaultPayerId }] = await Promise.all([
-			fetchStatementLines(userId, "unmatched"),
-			fetchBankSyncDialogData(userId),
-		]);
+		const [lines, { defaultPayerId }, variableCostCenterId] = await Promise.all(
+			[
+				fetchStatementLines(userId, "unmatched"),
+				fetchBankSyncDialogData(userId),
+				resolveVariableCostCenterId(userId),
+			],
+		);
 
 		if (lines.length === 0) {
 			return {
@@ -762,9 +780,11 @@ export async function bulkImportStatementLinesAction(
 				continue;
 			}
 
+			const importTransactionType =
+				line.type === "receita" ? "Receita" : "Despesa";
 			const result = await createTransactionAction({
 				name: line.description,
-				transactionType: line.type === "receita" ? "Receita" : "Despesa",
+				transactionType: importTransactionType,
 				amount: Number(line.amount),
 				paymentMethod: isCardLine ? "Cartão de crédito" : "Pix",
 				condition: "À vista",
@@ -772,6 +792,8 @@ export async function bulkImportStatementLinesAction(
 				accountId: isCardLine ? null : line.linkedFinancialAccountId,
 				cardId: isCardLine ? line.linkedCardId : null,
 				categoryId,
+				costCenterId:
+					importTransactionType === "Despesa" ? variableCostCenterId : null,
 				payerId: defaultPayerId,
 				isSettled: true,
 				isSplit: false,
@@ -816,6 +838,7 @@ export type BulkClassifySummary = {
 	classified: number;
 	skippedNoAccount: number;
 	skippedNoCategory: number;
+	skippedNoCostCenter: number;
 };
 
 /**
@@ -830,6 +853,7 @@ export type BulkClassifySummary = {
 const bulkClassifyStatementLinesSchema = z.object({
 	statementLineIds: z.array(z.string().uuid()).min(1),
 	categoryId: z.string().uuid().nullable().optional(),
+	costCenterId: z.string().uuid().nullable().optional(),
 	accountId: z.string().uuid().nullable().optional(),
 	cardId: z.string().uuid().nullable().optional(),
 	payerId: z.string().uuid().nullable().optional(),
@@ -854,6 +878,7 @@ export async function bulkClassifyStatementLinesAction(
 		let classified = 0;
 		let skippedNoAccount = 0;
 		let skippedNoCategory = 0;
+		let skippedNoCostCenter = 0;
 
 		for (const line of targetLines) {
 			const isCardLine = line.pluggyAccountType === "CREDIT";
@@ -872,6 +897,12 @@ export async function bulkClassifyStatementLinesAction(
 				continue;
 			}
 
+			const transactionType = line.type === "receita" ? "Receita" : "Despesa";
+			if (transactionType === "Despesa" && !data.costCenterId) {
+				skippedNoCostCenter++;
+				continue;
+			}
+
 			const purchaseDate = toDateOnlyString(line.date);
 			if (!purchaseDate) {
 				skippedNoCategory++;
@@ -880,7 +911,7 @@ export async function bulkClassifyStatementLinesAction(
 
 			const result = await createTransactionAction({
 				name: line.description,
-				transactionType: line.type === "receita" ? "Receita" : "Despesa",
+				transactionType,
 				amount: Number(line.amount),
 				paymentMethod: isCardLine
 					? "Cartão de crédito"
@@ -890,6 +921,7 @@ export async function bulkClassifyStatementLinesAction(
 				cardId,
 				purchaseDate,
 				categoryId,
+				costCenterId: transactionType === "Despesa" ? data.costCenterId : null,
 				payerId: data.payerId ?? defaultPayerId,
 				isSettled: true,
 				isSplit: false,
@@ -919,11 +951,19 @@ export async function bulkClassifyStatementLinesAction(
 		if (skippedNoCategory > 0) {
 			parts.push(`${skippedNoCategory} sem categoria`);
 		}
+		if (skippedNoCostCenter > 0) {
+			parts.push(`${skippedNoCostCenter} sem centro de custo`);
+		}
 
 		return {
 			success: true,
 			message: `${parts.join(", ")}.`,
-			data: { classified, skippedNoAccount, skippedNoCategory },
+			data: {
+				classified,
+				skippedNoAccount,
+				skippedNoCategory,
+				skippedNoCostCenter,
+			},
 		};
 	} catch (error) {
 		return handleActionError(error) as ActionResult<BulkClassifySummary>;

@@ -867,6 +867,7 @@ export function TransactionsPage({
 				accountOptions={importAccountOptions ?? accountOptions}
 				cardOptions={importCardOptions ?? cardOptions}
 				categoryOptions={importCategoryOptions ?? categoryOptions}
+				costCenterOptions={costCenterOptions}
 				defaultPayerId={importDefaultPayerId ?? defaultPayerId}
 			/>
 

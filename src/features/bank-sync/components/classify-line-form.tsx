@@ -26,6 +26,7 @@ interface ClassifyLineFormProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	onDone: (transactionId: string) => void;
 }
 
@@ -42,6 +43,7 @@ export function ClassifyLineForm({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions,
 	onDone,
 }: ClassifyLineFormProps) {
 	const isCardLine = line.pluggyAccountType === "CREDIT";
@@ -59,6 +61,7 @@ export function ClassifyLineForm({
 	);
 	const [cardId, setCardId] = useState<string | null>(line.linkedCardId);
 	const [categoryId, setCategoryId] = useState<string | null>(line.categoryId);
+	const [costCenterId, setCostCenterId] = useState<string | null>(null);
 	const [payerId, setPayerId] = useState<string | null>(defaultPayerId);
 	const [paymentMethod, setPaymentMethod] = useState("Pix");
 
@@ -71,6 +74,7 @@ export function ClassifyLineForm({
 		setAccountId(line.linkedFinancialAccountId);
 		setCardId(line.linkedCardId);
 		setCategoryId(line.categoryId);
+		setCostCenterId(null);
 		setPayerId(defaultPayerId);
 		setPaymentMethod("Pix");
 	}, [line.id]);
@@ -87,6 +91,7 @@ export function ClassifyLineForm({
 	const canSave =
 		!!(isCardLine ? cardId : accountId) &&
 		!!categoryId &&
+		(transactionType !== "Despesa" || !!costCenterId) &&
 		!!purchaseDate &&
 		!!description.trim();
 
@@ -94,6 +99,7 @@ export function ClassifyLineForm({
 		if (!canSave || !categoryId) return;
 		if (isCardLine && !cardId) return;
 		if (!isCardLine && !accountId) return;
+		if (transactionType === "Despesa" && !costCenterId) return;
 		setIsSaving(true);
 		try {
 			const result = await createTransactionAction({
@@ -108,6 +114,7 @@ export function ClassifyLineForm({
 				accountId: isCardLine ? null : accountId,
 				cardId: isCardLine ? cardId : null,
 				categoryId,
+				costCenterId: transactionType === "Despesa" ? costCenterId : null,
 				payerId,
 				isSettled: true,
 				isSplit: false,
@@ -254,6 +261,27 @@ export function ClassifyLineForm({
 					)}
 				</div>
 			</div>
+
+			{transactionType === "Despesa" && (
+				<div className="space-y-1.5">
+					<Label>Centro de custo *</Label>
+					<Select
+						value={costCenterId ?? undefined}
+						onValueChange={setCostCenterId}
+					>
+						<SelectTrigger className="w-full">
+							<SelectValue placeholder="Selecione" />
+						</SelectTrigger>
+						<SelectContent>
+							{costCenterOptions.map((opt) => (
+								<SelectItem key={opt.value} value={opt.value}>
+									{opt.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+				</div>
+			)}
 
 			<div className="space-y-1.5">
 				<Label>Pessoa</Label>

@@ -24,7 +24,6 @@ import type { CategorySectionProps } from "./transaction-dialog-types";
 
 const BUDGET_DANGER_RATIO = 1;
 const BUDGET_WARNING_RATIO = 0.8;
-const NO_COST_CENTER_VALUE = "none";
 
 const getBudgetTone = (ratio: number) => {
 	if (ratio >= BUDGET_DANGER_RATIO) return "text-red-600 dark:text-red-400";
@@ -192,21 +191,13 @@ export function CategorySection({
 				<div className="space-y-1 w-full">
 					<Label htmlFor="cost-center">Centro de custo</Label>
 					<Select
-						value={formState.costCenterId ?? NO_COST_CENTER_VALUE}
-						onValueChange={(value) =>
-							onFieldChange(
-								"costCenterId",
-								value === NO_COST_CENTER_VALUE ? undefined : value,
-							)
-						}
+						value={formState.costCenterId ?? ""}
+						onValueChange={(value) => onFieldChange("costCenterId", value)}
 					>
 						<SelectTrigger id="cost-center" className="w-full">
 							<SelectValue placeholder="Selecione o centro de custo" />
 						</SelectTrigger>
 						<SelectContent>
-							<SelectItem value={NO_COST_CENTER_VALUE}>
-								Sem centro de custo
-							</SelectItem>
 							{costCenterOptions.map((option) => (
 								<SelectItem key={option.value} value={option.value}>
 									{option.label}

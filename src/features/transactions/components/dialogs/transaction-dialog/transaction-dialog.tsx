@@ -308,6 +308,13 @@ export function TransactionDialog({
 			return;
 		}
 
+		if (formState.transactionType === "Despesa" && !formState.costCenterId) {
+			const message = "Selecione um centro de custo.";
+			setErrorMessage(message);
+			toast.error(message);
+			return;
+		}
+
 		if (formState.paymentMethod === "Cartão de crédito") {
 			if (!formState.cardId) {
 				const message = "Selecione o cartão.";

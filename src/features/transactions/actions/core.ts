@@ -407,6 +407,14 @@ const refineLancamento = (
 		});
 	}
 
+	if (data.transactionType === "Despesa" && !data.costCenterId) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			path: ["costCenterId"],
+			message: "Selecione um centro de custo.",
+		});
+	}
+
 	if (data.paymentMethod === "Cartão de crédito") {
 		if (!data.cardId) {
 			ctx.addIssue({

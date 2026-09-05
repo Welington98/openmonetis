@@ -47,6 +47,7 @@ export type DashboardWidgetQuickActionOptions = {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	estabelecimentos: string[];
 };
 

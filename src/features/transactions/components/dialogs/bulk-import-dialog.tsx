@@ -38,6 +38,7 @@ interface BulkImportDialogProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	defaultPayerId?: string | null;
 }
 
@@ -49,22 +50,29 @@ export function BulkImportDialog({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions,
 	defaultPayerId,
 }: BulkImportDialogProps) {
 	const [payerId, setPagadorId] = useState<string | undefined>(
 		defaultPayerId ?? undefined,
 	);
 	const [categoryId, setCategoriaId] = useState<string | undefined>(undefined);
+	const [costCenterId, setCostCenterId] = useState<string | undefined>(
+		undefined,
+	);
 	const [accountId, setContaId] = useState<string | undefined>(undefined);
 	const [cardId, setCartaoId] = useState<string | undefined>(undefined);
 	const [isPending, startTransition] = useTransition();
 	type CreateTransactionInput = Parameters<typeof createTransactionAction>[0];
+
+	const hasDespesa = items.some((item) => item.transactionType === "Despesa");
 
 	// Reset form when dialog opens/closes
 	const handleOpenChange = (newOpen: boolean) => {
 		if (!newOpen) {
 			setPagadorId(defaultPayerId ?? undefined);
 			setCategoriaId(undefined);
+			setCostCenterId(undefined);
 			setContaId(undefined);
 			setCartaoId(undefined);
 		}
@@ -96,6 +104,11 @@ export function BulkImportDialog({
 
 		if (!categoryId) {
 			toast.error("Selecione a categoria.");
+			return;
+		}
+
+		if (hasDespesa && !costCenterId) {
+			toast.error("Selecione o centro de custo.");
 			return;
 		}
 
@@ -136,6 +149,8 @@ export function BulkImportDialog({
 					accountId: isCredit ? null : (accountId ?? null),
 					cardId: isCredit ? (cardId ?? null) : null,
 					categoryId: categoryId ?? null,
+					costCenterId:
+						item.transactionType === "Despesa" ? (costCenterId ?? null) : null,
 					note: item.note ?? null,
 					isSettled: isCredit ? null : Boolean(item.isSettled),
 					installmentCount:
@@ -270,6 +285,24 @@ export function BulkImportDialog({
 							</SelectContent>
 						</Select>
 					</div>
+
+					{hasDespesa && (
+						<div className="space-y-2">
+							<Label htmlFor="cost-center">Centro de custo *</Label>
+							<Select value={costCenterId} onValueChange={setCostCenterId}>
+								<SelectTrigger id="cost-center" className="w-full">
+									<SelectValue placeholder="Selecione o centro de custo" />
+								</SelectTrigger>
+								<SelectContent>
+									{costCenterOptions.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											{option.label}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+						</div>
+					)}
 
 					{hasNonCredit && (
 						<div className="space-y-2">

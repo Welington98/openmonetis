@@ -86,6 +86,7 @@ export function ReconciliationWorkspace({
 		accountOptions,
 		cardOptions,
 		categoryOptions,
+		costCenterOptions,
 	} = data;
 
 	const [lines, setLines] = useState<StatementLineWithCategory[]>(
@@ -608,6 +609,7 @@ export function ReconciliationWorkspace({
 							accountOptions={accountOptions}
 							cardOptions={cardOptions}
 							categoryOptions={categoryOptions}
+							costCenterOptions={costCenterOptions}
 							onDone={handleBulkClassifyDone}
 							onCancel={() => setSelectedIds(new Set())}
 						/>
@@ -669,6 +671,7 @@ export function ReconciliationWorkspace({
 										accountOptions={accountOptions}
 										cardOptions={cardOptions}
 										categoryOptions={categoryOptions}
+										costCenterOptions={costCenterOptions}
 										onDone={() =>
 											handleLineResolved(selectedLine.id, "matched")
 										}
