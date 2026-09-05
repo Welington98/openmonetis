@@ -5,6 +5,13 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.17.0](https://github.com/Welington98/openmonetis/compare/v2.16.0...v2.17.0) (2026-09-05)
+
+### Adicionado
+
+* **cost-centers:** make cost center mandatory for expenses ([5eed02d](https://github.com/Welington98/openmonetis/commit/5eed02d7e8ca1ea8edb8ccb8b4c0ca7b069a8230))
+* **cost-centers:** move cost center from category to each expense ([d764bf6](https://github.com/Welington98/openmonetis/commit/d764bf6140c3b37f00511691d01a06554f52dcec))
+
 ## [2.16.0](https://github.com/Welington98/openmonetis/compare/v2.15.0...v2.16.0) (2026-09-04)
 
 ### Adicionado
