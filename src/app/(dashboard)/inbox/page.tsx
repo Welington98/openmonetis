@@ -28,6 +28,7 @@ const EMPTY_DIALOG_DATA = {
 	accountOptions: [],
 	cardOptions: [],
 	categoryOptions: [],
+	costCenterOptions: [],
 	estabelecimentos: [],
 };
 
@@ -70,6 +71,7 @@ export default async function Page({ searchParams }: PageProps) {
 				accountOptions={dialogData.accountOptions}
 				cardOptions={dialogData.cardOptions}
 				categoryOptions={dialogData.categoryOptions}
+				costCenterOptions={dialogData.costCenterOptions}
 				estabelecimentos={dialogData.estabelecimentos}
 				appLogoMap={appLogoMap}
 			/>

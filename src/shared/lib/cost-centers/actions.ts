@@ -46,6 +46,7 @@ export async function updateCostCenterAction(
 		}
 
 		revalidateForEntity("categories", user.id);
+		revalidateForEntity("transactions", user.id);
 
 		return {
 			success: true,

@@ -28,6 +28,7 @@ interface BulkClassifyPanelProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	onDone: (summary: BulkClassifySummary) => void;
 	onCancel: () => void;
 }
@@ -38,11 +39,13 @@ export function BulkClassifyPanel({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions,
 	onDone,
 	onCancel,
 }: BulkClassifyPanelProps) {
 	const [isSaving, setIsSaving] = useState(false);
 	const [categoryId, setCategoryId] = useState<string | null>(null);
+	const [costCenterId, setCostCenterId] = useState<string | null>(null);
 	const [accountId, setAccountId] = useState<string | null>(null);
 	const [cardId, setCardId] = useState<string | null>(null);
 	const [payerId, setPayerId] = useState<string | null>(null);
@@ -66,6 +69,7 @@ export function BulkClassifyPanel({
 			const result = await bulkClassifyStatementLinesAction({
 				statementLineIds: selectedLines.map((line) => line.id),
 				categoryId,
+				costCenterId,
 				accountId,
 				cardId,
 				payerId,
@@ -127,6 +131,29 @@ export function BulkClassifyPanel({
 							))}
 						</SelectContent>
 					</Select>
+				</div>
+				<div className="space-y-1.5">
+					<Label>Centro de custo</Label>
+					<Select
+						value={costCenterId ?? KEEP_VALUE}
+						onValueChange={(v) => setCostCenterId(v === KEEP_VALUE ? null : v)}
+					>
+						<SelectTrigger className="w-full">
+							<SelectValue placeholder="Manter em branco" />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value={KEEP_VALUE}>Manter em branco</SelectItem>
+							{costCenterOptions.map((opt) => (
+								<SelectItem key={opt.value} value={opt.value}>
+									{opt.label}
+								</SelectItem>
+							))}
+						</SelectContent>
+					</Select>
+					<p className="text-muted-foreground text-xs">
+						Obrigatório para despesas — linhas de despesa sem centro de custo
+						selecionado são ignoradas.
+					</p>
 				</div>
 				{hasBankLines && (
 					<div className="space-y-1.5">

@@ -9,6 +9,10 @@ import {
 	fetchTransactionFilterSources,
 } from "@/features/transactions/queries";
 import { getUserId } from "@/shared/lib/auth/server";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import type { SelectOption } from "../components/types";
 
 export type TransactionDialogOptions = {
@@ -18,15 +22,17 @@ export type TransactionDialogOptions = {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	estabelecimentos: string[];
 };
 
 export async function fetchTransactionDialogOptionsAction(): Promise<TransactionDialogOptions> {
 	const userId = await getUserId();
 
-	const [filterSources, estabelecimentos] = await Promise.all([
+	const [filterSources, estabelecimentos, costCenters] = await Promise.all([
 		fetchTransactionFilterSources(userId),
 		fetchRecentEstablishments(userId),
+		fetchOrSeedCostCentersForUser(userId),
 	]);
 
 	const sluggedFilters = buildSluggedFilters(filterSources);
@@ -43,6 +49,8 @@ export async function fetchTransactionDialogOptionsAction(): Promise<Transaction
 		payerRows: filterSources.payerRows,
 	});
 
+	const costCenterOptions: SelectOption[] = buildCostCenterOptions(costCenters);
+
 	return {
 		payerOptions,
 		splitPayerOptions,
@@ -50,6 +58,7 @@ export async function fetchTransactionDialogOptionsAction(): Promise<Transaction
 		accountOptions,
 		cardOptions,
 		categoryOptions,
+		costCenterOptions,
 		estabelecimentos,
 	};
 }

@@ -14,6 +14,7 @@ export interface TransactionDialogProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions?: SelectOption[];
 	estabelecimentos: string[];
 	transaction?: TransactionItem;
 	defaultPeriod?: string;
@@ -39,6 +40,7 @@ export interface TransactionDialogProps {
 		period: string;
 		name: string;
 		categoryId: string | undefined;
+		costCenterId: string | undefined;
 		note: string;
 		payerId: string | undefined;
 		accountId: string | undefined;
@@ -60,6 +62,7 @@ export interface TransactionDialogProps {
 		condition: string;
 		paymentMethod: string;
 		categoryId: string | undefined;
+		costCenterId: string | undefined;
 		note: string;
 		payerId: string | undefined;
 		accountId: string | undefined;
@@ -90,6 +93,7 @@ export interface CategorySectionProps extends BaseFieldSectionProps {
 		label: string;
 		options: SelectOption[];
 	}>;
+	costCenterOptions?: SelectOption[];
 	isUpdateMode: boolean;
 	hideTransactionType?: boolean;
 }

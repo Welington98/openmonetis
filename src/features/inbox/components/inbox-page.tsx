@@ -49,6 +49,7 @@ interface InboxPageProps {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	estabelecimentos: string[];
 	appLogoMap: Record<string, string>;
 }
@@ -66,6 +67,7 @@ export function InboxPage({
 	accountOptions,
 	cardOptions,
 	categoryOptions,
+	costCenterOptions,
 	estabelecimentos,
 	appLogoMap,
 }: InboxPageProps) {
@@ -517,6 +519,7 @@ export function InboxPage({
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				estabelecimentos={estabelecimentos}
 				defaultPurchaseDate={defaultPurchaseDate}
 				defaultName={defaultName}

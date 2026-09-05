@@ -14,6 +14,10 @@ import {
 } from "@/features/transactions/queries";
 import MonthNavigation from "@/shared/components/month-picker/month-navigation";
 import { getUserId } from "@/shared/lib/auth/server";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { displayPeriod, parsePeriodParam } from "@/shared/utils/period";
 
 type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -41,11 +45,14 @@ export default async function Page({ params, searchParams }: PageProps) {
 	const periodoParam = getSingleParam(resolvedSearchParams, "periodo");
 	const { period: selectedPeriod } = parsePeriodParam(periodoParam);
 
-	const [filterSources, estabelecimentos, userPreferences] = await Promise.all([
-		fetchTransactionFilterSources(userId),
-		fetchRecentEstablishments(userId),
-		fetchUserPreferences(userId),
-	]);
+	const [filterSources, estabelecimentos, userPreferences, costCenters] =
+		await Promise.all([
+			fetchTransactionFilterSources(userId),
+			fetchRecentEstablishments(userId),
+			fetchUserPreferences(userId),
+			fetchOrSeedCostCentersForUser(userId),
+		]);
+	const costCenterOptions = buildCostCenterOptions(costCenters);
 	const detail = await fetchCategoryDetails(
 		userId,
 		categoryId,
@@ -97,6 +104,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 				accountOptions={accountOptions}
 				cardOptions={cardOptions}
 				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
 				payerFilterOptions={payerFilterOptions}
 				categoryFilterOptions={categoryFilterOptions}
 				accountCardFilterOptions={accountCardFilterOptions}

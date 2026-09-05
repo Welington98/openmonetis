@@ -22,6 +22,8 @@ export type TransactionItem = {
 	categoriaName: string | null;
 	categoriaType: string | null;
 	categoriaIcon: string | null;
+	costCenterId: string | null;
+	centroCustoName: string | null;
 	installmentCount: number | null;
 	recurrenceCount: number | null;
 	currentInstallment: number | null;

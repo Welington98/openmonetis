@@ -25,6 +25,7 @@ import {
 	revalidateForEntity,
 } from "@/shared/lib/actions/helpers";
 import { getUser } from "@/shared/lib/auth/server";
+import { fetchOrSeedCostCentersForUser } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import type { ActionResult } from "@/shared/lib/types/actions";
@@ -81,6 +82,16 @@ async function resolveDespesaCategoryId(
 	return fallback?.id ?? null;
 }
 
+/** Lançamentos do diário são gasto do dia a dia — sempre entram como "variável". */
+async function resolveDiaryCostCenterId(
+	userId: string,
+): Promise<string | null> {
+	const costCenters = await fetchOrSeedCostCentersForUser(userId);
+	return (
+		costCenters.find((costCenter) => costCenter.kind === "variavel")?.id ?? null
+	);
+}
+
 /**
  * Cria/atualiza/apaga o lançamento real vinculado ao check-in de hoje, e
  * devolve o `transactionId` a gravar em `diaryEntries` (null = sem gasto, ou
@@ -111,11 +122,14 @@ async function syncDiaryTransaction({
 		return null;
 	}
 
-	const [adminPayerId, accountId, categoryId] = await Promise.all([
-		getAdminPayerId(userId),
-		resolveDefaultAccountId(userId),
-		resolveDespesaCategoryId(userId, category),
-	]);
+	const [adminPayerId, accountId, categoryId, costCenterId] = await Promise.all(
+		[
+			getAdminPayerId(userId),
+			resolveDefaultAccountId(userId),
+			resolveDespesaCategoryId(userId, category),
+			resolveDiaryCostCenterId(userId),
+		],
+	);
 
 	if (!accountId || !categoryId) {
 		if (existingTransactionId) {
@@ -134,6 +148,7 @@ async function syncDiaryTransaction({
 		payerId: adminPayerId ?? undefined,
 		accountId,
 		categoryId,
+		costCenterId,
 		note: note ?? null,
 		isSettled: true,
 		isSplit: false,

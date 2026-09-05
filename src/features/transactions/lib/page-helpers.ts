@@ -15,6 +15,7 @@ import {
 import {
 	cards,
 	type categories,
+	type costCenters,
 	financialAccounts,
 	type payers,
 	transactionAttachments,
@@ -54,6 +55,7 @@ type PayerRow = typeof payers.$inferSelect;
 type AccountRow = typeof financialAccounts.$inferSelect;
 type CardRow = typeof cards.$inferSelect;
 type CategoryRow = typeof categories.$inferSelect;
+type CostCenterRow = typeof costCenters.$inferSelect;
 
 export type ResolvedSearchParams =
 	| Record<string, string | string[] | undefined>
@@ -591,6 +593,7 @@ type TransactionRowWithRelations = Partial<typeof transactions.$inferSelect> & {
 	financialAccount?: AccountRow | null;
 	card?: CardRow | null;
 	category?: CategoryRow | null;
+	costCenter?: CostCenterRow | null;
 	hasAttachments?: boolean;
 	isReconciled?: boolean;
 };
@@ -620,6 +623,8 @@ export const mapTransactionsData = (rows: TransactionRowWithRelations[]) =>
 		categoriaName: item.category?.name ?? null,
 		categoriaType: item.category?.type ?? null,
 		categoriaIcon: item.category?.icon ?? null,
+		costCenterId: item.costCenterId ?? null,
+		centroCustoName: item.costCenter?.name ?? null,
 		installmentCount: item.installmentCount ?? null,
 		recurrenceCount: item.recurrenceCount ?? null,
 		currentInstallment: item.currentInstallment ?? null,

@@ -1,7 +1,6 @@
 import { eq } from "drizzle-orm";
 import { categories } from "@/db/schema";
 import type { CategoryType } from "@/shared/lib/categories/constants";
-import { fetchOrSeedCostCentersForUser } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 
 type DefaultCategory = {
@@ -74,18 +73,12 @@ export async function seedDefaultCategoriesForUser(userId: string | undefined) {
 		return;
 	}
 
-	const costCenters = await fetchOrSeedCostCentersForUser(userId);
-	const variableCostCenterId = costCenters.find(
-		(costCenter) => costCenter.kind === "variavel",
-	)?.id;
-
 	await db.insert(categories).values(
 		DEFAULT_CATEGORIES.map((category) => ({
 			name: category.name,
 			type: category.type,
 			icon: category.icon,
 			userId,
-			costCenterId: category.type === "despesa" ? variableCostCenterId : null,
 		})),
 	);
 }

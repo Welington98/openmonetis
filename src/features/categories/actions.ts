@@ -28,7 +28,6 @@ const categoryBaseSchema = z.object({
 		.max(100, "O ícone deve ter no máximo 100 caracteres.")
 		.nullish()
 		.transform((value) => normalizeIconInput(value)),
-	costCenterId: uuidSchema("Cost center").nullish(),
 });
 
 const createCategorySchema = categoryBaseSchema;
@@ -55,10 +54,6 @@ export async function createCategoryAction(
 			type: data.type,
 			icon: data.icon,
 			userId: user.id,
-			// Centro de custo só se aplica a despesas — receita nunca entra no
-			// cálculo do orçamento diário fixo/variável.
-			costCenterId:
-				data.type === "despesa" ? (data.costCenterId ?? null) : null,
 		});
 
 		revalidateForEntity("categories", user.id);
@@ -108,8 +103,6 @@ export async function updateCategoryAction(
 				name: data.name,
 				type: data.type,
 				icon: data.icon,
-				costCenterId:
-					data.type === "despesa" ? (data.costCenterId ?? null) : null,
 			})
 			.where(and(eq(categories.id, data.id), eq(categories.userId, user.id)))
 			.returning();

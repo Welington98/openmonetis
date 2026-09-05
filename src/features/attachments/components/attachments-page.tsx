@@ -363,6 +363,7 @@ export function AttachmentsPage({
 					accountOptions={dialogOptions.accountOptions}
 					cardOptions={dialogOptions.cardOptions}
 					categoryOptions={dialogOptions.categoryOptions}
+					costCenterOptions={dialogOptions.costCenterOptions}
 					estabelecimentos={dialogOptions.estabelecimentos}
 				/>
 			)}

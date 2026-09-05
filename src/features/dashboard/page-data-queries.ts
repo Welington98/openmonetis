@@ -9,6 +9,10 @@ import {
 	fetchRecentEstablishments,
 	fetchTransactionFilterSources,
 } from "@/features/transactions/queries";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 
 type DashboardQuickActionOptions = {
 	payerOptions: ReturnType<typeof buildOptionSets>["payerOptions"];
@@ -17,15 +21,17 @@ type DashboardQuickActionOptions = {
 	accountOptions: ReturnType<typeof buildOptionSets>["accountOptions"];
 	cardOptions: ReturnType<typeof buildOptionSets>["cardOptions"];
 	categoryOptions: ReturnType<typeof buildOptionSets>["categoryOptions"];
+	costCenterOptions: ReturnType<typeof buildCostCenterOptions>;
 	estabelecimentos: string[];
 };
 
 async function fetchDashboardQuickActionOptionsInternal(
 	userId: string,
 ): Promise<DashboardQuickActionOptions> {
-	const [filterSources, estabelecimentos] = await Promise.all([
+	const [filterSources, estabelecimentos, costCenters] = await Promise.all([
 		fetchTransactionFilterSources(userId),
 		fetchRecentEstablishments(userId),
+		fetchOrSeedCostCentersForUser(userId),
 	]);
 
 	const sluggedFilters = buildSluggedFilters(filterSources);
@@ -48,6 +54,7 @@ async function fetchDashboardQuickActionOptionsInternal(
 		accountOptions,
 		cardOptions,
 		categoryOptions,
+		costCenterOptions: buildCostCenterOptions(costCenters),
 		estabelecimentos,
 	};
 }

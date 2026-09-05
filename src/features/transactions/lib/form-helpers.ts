@@ -80,6 +80,7 @@ export type TransactionFormState = {
 	accountId: string | undefined;
 	cardId: string | undefined;
 	categoryId: string | undefined;
+	costCenterId: string | undefined;
 	installmentCount: string;
 	startInstallment: string;
 	recurrenceCount: string;
@@ -194,6 +195,9 @@ export function buildTransactionInitialState(
 		categoryId: isImporting
 			? undefined
 			: (transaction?.categoryId ?? undefined),
+		costCenterId: isImporting
+			? undefined
+			: (transaction?.costCenterId ?? undefined),
 		installmentCount: transaction?.installmentCount
 			? String(transaction.installmentCount)
 			: "",

@@ -17,6 +17,10 @@ import {
 	buildSluggedFilters,
 } from "@/features/transactions/lib/page-helpers";
 import { fetchTransactionFilterSources } from "@/features/transactions/queries";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 import { fetchPluggyAccounts } from "./lib/pluggy-client";
 
@@ -273,6 +277,7 @@ export type ReconciliationWorkspaceData = {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 };
 
 /** Tudo que a tela de Conciliação bancária (/bank-sync) precisa pra renderizar. */
@@ -316,8 +321,12 @@ export async function fetchBankSyncDialogData(userId: string): Promise<{
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 }> {
-	const filterSources = await fetchTransactionFilterSources(userId);
+	const [filterSources, costCenters] = await Promise.all([
+		fetchTransactionFilterSources(userId),
+		fetchOrSeedCostCentersForUser(userId),
+	]);
 	const sluggedFilters = buildSluggedFilters(filterSources);
 
 	const {
@@ -339,5 +348,6 @@ export async function fetchBankSyncDialogData(userId: string): Promise<{
 		accountOptions,
 		cardOptions,
 		categoryOptions,
+		costCenterOptions: buildCostCenterOptions(costCenters),
 	};
 }

@@ -1,7 +1,6 @@
 import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
 	budgets,
-	categories,
 	costCenters,
 	dailyBudgetSettings,
 	financialAccounts,
@@ -94,10 +93,10 @@ function notAutoInvoiceFilter() {
  * lançamentos automáticos de fatura, exclui contas não consideradas no
  * saldo — mas card sem conta atrelada continua contando, é despesa real).
  *
- * `costCenterKind` filtra por centro de custo da categoria do lançamento
- * (join transactions -> categories -> costCenters). Categoria sem centro de
- * custo definido (ou lançamento sem categoria) é tratada como "variavel" —
- * mesmo critério seguro usado no backfill de categorias antigas.
+ * `costCenterKind` filtra por centro de custo do próprio lançamento (join
+ * transactions -> costCenters). Lançamento sem centro de custo definido é
+ * tratado como "variavel" — mesmo critério seguro usado no backfill de
+ * categorias antigas.
  */
 async function fetchExpenseAndIncomeTotals(
 	userId: string,
@@ -128,7 +127,7 @@ async function fetchExpenseAndIncomeTotals(
 
 	if (costCenterKind === "variavel") {
 		conditions.push(
-			or(isNull(categories.costCenterId), eq(costCenters.kind, "variavel")),
+			or(isNull(transactions.costCenterId), eq(costCenters.kind, "variavel")),
 		);
 	} else if (costCenterKind) {
 		conditions.push(eq(costCenters.kind, costCenterKind));
@@ -144,8 +143,7 @@ async function fetchExpenseAndIncomeTotals(
 			financialAccounts,
 			eq(transactions.accountId, financialAccounts.id),
 		)
-		.leftJoin(categories, eq(transactions.categoryId, categories.id))
-		.leftJoin(costCenters, eq(categories.costCenterId, costCenters.id))
+		.leftJoin(costCenters, eq(transactions.costCenterId, costCenters.id))
 		.where(and(...conditions))
 		.groupBy(transactions.transactionType);
 

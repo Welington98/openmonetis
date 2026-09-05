@@ -177,6 +177,7 @@ export async function updateTransactionBulkAction(
 		const ownershipError = await validateAllOwnership(user.id, {
 			payerId: data.payerId,
 			categoryId: data.categoryId,
+			costCenterId: data.costCenterId,
 			accountId: data.accountId,
 			cardId: data.cardId,
 		});
@@ -225,6 +226,7 @@ export async function updateTransactionBulkAction(
 		const baseUpdatePayload: Record<string, unknown> = {
 			name: data.name,
 			categoryId: data.categoryId ?? null,
+			costCenterId: data.costCenterId ?? null,
 			note: data.note ?? null,
 			// "period" atualiza todos os pagadores do mês — preserva o payerId de cada linha
 			...(data.scope !== "period" && { payerId: data.payerId ?? null }),

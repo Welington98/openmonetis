@@ -1,6 +1,10 @@
 import { eq } from "drizzle-orm";
 import { type CostCenter, costCenters } from "@/db/schema";
-import { DEFAULT_COST_CENTERS } from "@/shared/lib/cost-centers/constants";
+import {
+	COST_CENTER_KIND_LABEL,
+	type CostCenterKind,
+	DEFAULT_COST_CENTERS,
+} from "@/shared/lib/cost-centers/constants";
 import { db } from "@/shared/lib/db";
 
 /**
@@ -30,4 +34,14 @@ export async function fetchOrSeedCostCentersForUser(
 			})),
 		)
 		.returning();
+}
+
+/** Formata centros de custo como opções de `<Select>`, rotuladas com o tipo de roteamento. */
+export function buildCostCenterOptions(
+	costCenterRows: CostCenter[],
+): Array<{ value: string; label: string }> {
+	return costCenterRows.map((costCenter) => ({
+		value: costCenter.id,
+		label: `${costCenter.name} (${COST_CENTER_KIND_LABEL[costCenter.kind as CostCenterKind]})`,
+	}));
 }

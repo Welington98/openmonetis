@@ -323,6 +323,13 @@
       "when": 1788540058896,
       "tag": "0046_oval_oracle",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1788559916843,
+      "tag": "0047_bouncy_pete_wisdom",
+      "breakpoints": true
     }
   ]
 }

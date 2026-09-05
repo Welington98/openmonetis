@@ -9,6 +9,10 @@ import {
 	fetchRecentEstablishments,
 	fetchTransactionFilterSources,
 } from "@/features/transactions/queries";
+import {
+	buildCostCenterOptions,
+	fetchOrSeedCostCentersForUser,
+} from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import type { CalendarData, CalendarEvent } from "@/shared/lib/types/calendar";
@@ -228,7 +232,10 @@ export const fetchCalendarData = async ({
 		payerRows: filterSources.payerRows,
 	});
 
-	const estabelecimentos = await fetchRecentEstablishments(userId);
+	const [estabelecimentos, costCenters] = await Promise.all([
+		fetchRecentEstablishments(userId),
+		fetchOrSeedCostCentersForUser(userId),
+	]);
 
 	return {
 		events: allEvents,
@@ -239,6 +246,7 @@ export const fetchCalendarData = async ({
 			accountOptions: optionSets.accountOptions,
 			cardOptions: optionSets.cardOptions,
 			categoryOptions: optionSets.categoryOptions,
+			costCenterOptions: buildCostCenterOptions(costCenters),
 			estabelecimentos,
 		},
 	};

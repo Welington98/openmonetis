@@ -63,6 +63,7 @@ export type CalendarFormOptions = {
 	accountOptions: SelectOption[];
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
+	costCenterOptions: SelectOption[];
 	estabelecimentos: string[];
 };
 

@@ -236,6 +236,7 @@ export function DashboardGridEditable({
 								accountOptions={quickActionOptions.accountOptions}
 								cardOptions={quickActionOptions.cardOptions}
 								categoryOptions={quickActionOptions.categoryOptions}
+								costCenterOptions={quickActionOptions.costCenterOptions}
 								estabelecimentos={quickActionOptions.estabelecimentos}
 								defaultPeriod={period}
 								defaultTransactionType="Receita"
@@ -250,6 +251,7 @@ export function DashboardGridEditable({
 								accountOptions={quickActionOptions.accountOptions}
 								cardOptions={quickActionOptions.cardOptions}
 								categoryOptions={quickActionOptions.categoryOptions}
+								costCenterOptions={quickActionOptions.costCenterOptions}
 								estabelecimentos={quickActionOptions.estabelecimentos}
 								defaultPeriod={period}
 								defaultTransactionType="Despesa"
@@ -269,6 +271,7 @@ export function DashboardGridEditable({
 								accountOptions={quickActionOptions.accountOptions}
 								cardOptions={quickActionOptions.cardOptions}
 								categoryOptions={quickActionOptions.categoryOptions}
+								costCenterOptions={quickActionOptions.costCenterOptions}
 								estabelecimentos={quickActionOptions.estabelecimentos}
 								defaultPeriod={period}
 								defaultTransactionType="Receita"
@@ -294,6 +297,7 @@ export function DashboardGridEditable({
 								accountOptions={quickActionOptions.accountOptions}
 								cardOptions={quickActionOptions.cardOptions}
 								categoryOptions={quickActionOptions.categoryOptions}
+								costCenterOptions={quickActionOptions.costCenterOptions}
 								estabelecimentos={quickActionOptions.estabelecimentos}
 								defaultPeriod={period}
 								defaultTransactionType="Despesa"
