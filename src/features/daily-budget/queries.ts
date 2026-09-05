@@ -4,9 +4,14 @@ import {
 	costCenters,
 	dailyBudgetSettings,
 	financialAccounts,
+	invoices,
 	transactions,
 	userPreferences,
 } from "@/db/schema";
+import {
+	type AccumulatedSavingsResult,
+	calculateAccumulatedSavings,
+} from "@/features/daily-budget/lib/accumulated-savings";
 import {
 	type AvailableBalanceResult,
 	calculateAvailableBalance,
@@ -35,10 +40,16 @@ import {
 	calculateMonthProgress,
 	type MonthProgress,
 } from "@/features/daily-budget/lib/month-progress";
+import {
+	calculateRealAvailableBalance,
+	type RealAvailableBalanceResult,
+} from "@/features/daily-budget/lib/real-available-balance";
+import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
 import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
 import type { CostCenterKind } from "@/shared/lib/cost-centers/constants";
 import { db } from "@/shared/lib/db";
+import { INVOICE_PAYMENT_STATUS } from "@/shared/lib/invoices";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import {
 	buildDateOnlyStringFromPeriodDay,
@@ -69,6 +80,7 @@ export type DailyBudgetOverview = {
 	availableBalance: AvailableBalanceResult["availableBalance"];
 	dailyBudget: DailyBudgetResult;
 	averageSpending: AverageDailySpendingResult;
+	accumulatedSavings: AccumulatedSavingsResult;
 	/** null quando não há orçamento configurado pro mês — sem base pra calcular o ritmo. */
 	budgetStatus: BudgetStatusResult | null;
 	incomeWarning: IncomeWarningResult;
@@ -104,15 +116,39 @@ async function fetchExpenseAndIncomeTotals(
 	period: string,
 	dateFilter?: { op: "lte" | "gt" | "eq"; date: Date },
 	costCenterKind?: CostCenterKind,
+	options?: {
+		/**
+		 * Quando false, não filtra por `period` (fatura) — usado pra "gasto de
+		 * hoje", que deve contar pelo que aconteceu na data, não pela fatura em
+		 * que vai cair (senão uma compra no cartão feita perto do fechamento,
+		 * que já pertence à fatura do mês seguinte, some do "hoje" sem aparecer
+		 * em lugar nenhum até a próxima virada de mês).
+		 */
+		matchPeriod?: boolean;
+		/**
+		 * Quando true, ignora lançamentos de cartão de crédito — usado pro
+		 * disponível "de verdade", onde o débito de cartão é reservado à parte
+		 * (via fatura paga/não paga), não pela data da compra.
+		 */
+		excludeCard?: boolean;
+	},
 ): Promise<{ income: number; expenses: number }> {
+	const matchPeriod = options?.matchPeriod ?? true;
 	const conditions = [
 		eq(transactions.userId, userId),
 		eq(transactions.payerId, adminPayerId),
-		eq(transactions.period, period),
 		inArray(transactions.transactionType, ["Receita", "Despesa"]),
 		notAutoInvoiceFilter(),
 		excludeTransactionsFromExcludedAccounts(),
 	];
+
+	if (matchPeriod) {
+		conditions.push(eq(transactions.period, period));
+	}
+
+	if (options?.excludeCard) {
+		conditions.push(isNull(transactions.cardId));
+	}
 
 	if (dateFilter) {
 		const { op, date } = dateFilter;
@@ -225,6 +261,118 @@ async function fetchCardExpensesToday(
 	return row?.total ? -safeToNumber(row.total) : 0;
 }
 
+/**
+ * Débito de cartão do período que ainda vai sair da conta: soma dos
+ * lançamentos de cada cartão nesse período (qualquer data de compra, cost
+ * center não importa aqui — é dívida real, não classificação de
+ * orçamento), menos o que já foi pago (fatura com paymentStatus "pago" já
+ * gerou o lançamento de pagamento, que por sua vez já reduziu o saldo real
+ * das contas — reservar de novo seria contar a mesma saída duas vezes).
+ */
+async function fetchUnpaidCardDebtForPeriod(
+	userId: string,
+	adminPayerId: string,
+	period: string,
+): Promise<number> {
+	const rows = await db
+		.select({
+			cardId: transactions.cardId,
+			total: sql<string>`sum(${transactions.amount})`,
+		})
+		.from(transactions)
+		.leftJoin(
+			financialAccounts,
+			eq(transactions.accountId, financialAccounts.id),
+		)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.payerId, adminPayerId),
+				eq(transactions.period, period),
+				eq(transactions.transactionType, "Despesa"),
+				sql`${transactions.cardId} is not null`,
+				notAutoInvoiceFilter(),
+				excludeTransactionsFromExcludedAccounts(),
+			),
+		)
+		.groupBy(transactions.cardId);
+
+	if (rows.length === 0) {
+		return 0;
+	}
+
+	const cardIds = rows
+		.map((row) => row.cardId)
+		.filter((id): id is string => Boolean(id));
+
+	const invoiceRows =
+		cardIds.length > 0
+			? await db
+					.select({
+						cardId: invoices.cardId,
+						paymentStatus: invoices.paymentStatus,
+					})
+					.from(invoices)
+					.where(
+						and(
+							eq(invoices.userId, userId),
+							eq(invoices.period, period),
+							inArray(invoices.cardId, cardIds),
+						),
+					)
+			: [];
+
+	const paidCardIds = new Set(
+		invoiceRows
+			.filter((row) => row.paymentStatus === INVOICE_PAYMENT_STATUS.PAID)
+			.map((row) => row.cardId),
+	);
+
+	let unpaidTotal = 0;
+	for (const row of rows) {
+		if (row.cardId && paidCardIds.has(row.cardId)) continue;
+		unpaidTotal += -safeToNumber(row.total);
+	}
+
+	return unpaidTotal;
+}
+
+const HISTORICAL_MONTHS_FOR_AVERAGE = 3;
+
+/**
+ * Média diária de gasto variável dos últimos meses fechados (não inclui o
+ * mês corrente) — usada pra "chutar" a média diária no começo do mês
+ * corrente, quando ainda há poucos dias de dados pra confiar no ritmo atual.
+ */
+async function fetchHistoricalVariableDailyAverages(
+	userId: string,
+	adminPayerId: string,
+	currentPeriod: string,
+): Promise<number[]> {
+	const pastPeriods = Array.from(
+		{ length: HISTORICAL_MONTHS_FOR_AVERAGE },
+		(_, index) => addMonthsToPeriod(currentPeriod, -(index + 1)),
+	);
+
+	const totals = await Promise.all(
+		pastPeriods.map((p) =>
+			fetchExpenseAndIncomeTotals(
+				userId,
+				adminPayerId,
+				p,
+				undefined,
+				"variavel",
+			),
+		),
+	);
+
+	return pastPeriods.map((p, index) => {
+		const [year, month] = p.split("-").map(Number);
+		const daysInThatMonth = new Date(year ?? 0, month ?? 0, 0).getDate();
+		return daysInThatMonth > 0 ? totals[index].expenses / daysInThatMonth : 0;
+	});
+}
+
 /** Soma dos orçamentos criados (feature Orçamentos), por período, pra vários meses de uma vez. */
 async function fetchMonthlyBudgetTotals(
 	userId: string,
@@ -317,6 +465,7 @@ function buildEmptyOverview(monthProgress: MonthProgress): DailyBudgetOverview {
 			personalizedLimitRisksNegativeBalance: false,
 		},
 		averageSpending: { averageDailySpending: 0 },
+		accumulatedSavings: { accumulatedSavings: 0 },
 		budgetStatus: null,
 		incomeWarning: { isOverIncome: false, difference: 0 },
 		projection: { months: [] },
@@ -353,7 +502,12 @@ export async function fetchDailyBudgetOverview(
 		variableFutureKnown,
 		variableSpentToday,
 		wholeMonth,
+		futureAll,
+		nonCardFutureExpenses,
+		unpaidCardDebt,
 		cardExpensesToday,
+		accountsSnapshot,
+		historicalVariableDailyAverages,
 		dailyRowsPerPeriod,
 	] = await Promise.all([
 		fetchMonthlyBudgetTotals(userId, projectionPeriods),
@@ -379,6 +533,7 @@ export async function fetchDailyBudgetOverview(
 			period,
 			{ op: "eq", date: todayDate },
 			"fixa",
+			{ matchPeriod: false },
 		),
 		fetchExpenseAndIncomeTotals(
 			userId,
@@ -400,9 +555,25 @@ export async function fetchDailyBudgetOverview(
 			period,
 			{ op: "eq", date: todayDate },
 			"variavel",
+			{ matchPeriod: false },
 		),
 		fetchExpenseAndIncomeTotals(userId, adminPayerId, period),
+		fetchExpenseAndIncomeTotals(userId, adminPayerId, period, {
+			op: "gt",
+			date: todayDate,
+		}),
+		fetchExpenseAndIncomeTotals(
+			userId,
+			adminPayerId,
+			period,
+			{ op: "gt", date: todayDate },
+			undefined,
+			{ excludeCard: true },
+		),
+		fetchUnpaidCardDebtForPeriod(userId, adminPayerId, period),
 		fetchCardExpensesToday(userId, adminPayerId, todayDate),
+		fetchDashboardAccounts(userId),
+		fetchHistoricalVariableDailyAverages(userId, adminPayerId, period),
 		Promise.all(
 			projectionPeriods.map((p) =>
 				fetchDailyMovementRows(userId, adminPayerId, p),
@@ -421,14 +592,40 @@ export async function fetchDailyBudgetOverview(
 	const spentToday = fixedSpentToday.expenses + variableSpentToday.expenses;
 	const expectedIncome = wholeMonth.income;
 
-	const availableBalanceResult = calculateAvailableBalance({
-		monthlyBudgetTotal,
-		totalFixedThisMonth,
-		variableSpentSoFar: variableSpentSoFar.expenses,
-		variableFutureKnown: variableFutureKnown.expenses,
-		targetSavings: settings.targetSavings,
-		safetyBuffer: settings.safetyBuffer,
-	});
+	// Disponível ancorado no dinheiro real (saldo das contas + o que ainda
+	// falta receber, menos o que ainda falta sair) — não depende de ter
+	// cadastrado orçamento nenhum, e naturalmente carrega o estouro (ou a
+	// sobra) de um mês pro outro, já que o saldo das contas não zera.
+	const realAvailableBalanceResult: RealAvailableBalanceResult =
+		calculateRealAvailableBalance({
+			currentAccountsBalance: accountsSnapshot.totalBalance,
+			futureIncome: futureAll.income,
+			nonCardFutureExpenses: nonCardFutureExpenses.expenses,
+			unpaidCardDebt,
+			targetSavings: settings.targetSavings,
+			safetyBuffer: settings.safetyBuffer,
+		});
+
+	// Quando existe orçamento cadastrado (feature Orçamentos), ele age como
+	// teto: nunca libera mais por dia do que o planejado, mesmo que o saldo
+	// real permita. Sem orçamento cadastrado, o disponível real manda sozinho
+	// — antes disso resultava em cota zero.
+	const availableBalance =
+		monthlyBudgetTotal > 0
+			? Math.min(
+					realAvailableBalanceResult.realAvailableBalance,
+					calculateAvailableBalance({
+						monthlyBudgetTotal,
+						totalFixedThisMonth,
+						variableSpentSoFar: variableSpentSoFar.expenses,
+						variableFutureKnown: variableFutureKnown.expenses,
+						targetSavings: settings.targetSavings,
+						safetyBuffer: settings.safetyBuffer,
+					}).availableBalance,
+				)
+			: realAvailableBalanceResult.realAvailableBalance;
+
+	const availableBalanceResult: AvailableBalanceResult = { availableBalance };
 
 	const dailyBudget = calculateDailyBudget({
 		availableBalance: availableBalanceResult.availableBalance,
@@ -443,6 +640,14 @@ export async function fetchDailyBudgetOverview(
 	const averageSpending = calculateAverageDailySpending({
 		totalVariableSpentThisCycle: variableSpentSoFar.expenses,
 		daysElapsedInCycle: monthProgress.daysElapsed,
+		daysInCycle: monthProgress.daysInMonth,
+		historicalDailyAverages: historicalVariableDailyAverages,
+	});
+
+	const accumulatedSavings = calculateAccumulatedSavings({
+		dailyBudgetAmount: dailyBudget.dailyBudgetAmount,
+		daysElapsed: monthProgress.daysElapsed,
+		variableSpentSoFar: variableSpentSoFar.expenses,
 	});
 
 	const budgetStatus =
@@ -509,6 +714,7 @@ export async function fetchDailyBudgetOverview(
 		availableBalance: availableBalanceResult.availableBalance,
 		dailyBudget,
 		averageSpending,
+		accumulatedSavings,
 		budgetStatus,
 		incomeWarning,
 		projection,
