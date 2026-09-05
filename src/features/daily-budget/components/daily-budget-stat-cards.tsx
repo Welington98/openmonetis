@@ -1,5 +1,6 @@
 import {
 	RiCalendarCheckLine,
+	RiCoinLine,
 	RiLineChartLine,
 	RiSafeLine,
 	RiScales3Line,
@@ -33,7 +34,13 @@ function lifeCostLabel(pct: number | null): {
 }
 
 export function DailyBudgetStatCards({ overview }: DailyBudgetStatCardsProps) {
-	const { dailyBudget, averageSpending, movements, projection } = overview;
+	const {
+		dailyBudget,
+		averageSpending,
+		accumulatedSavings,
+		movements,
+		projection,
+	} = overview;
 
 	const currentMonth = projection.months[0];
 	const remainingThisMonth =
@@ -66,6 +73,32 @@ export function DailyBudgetStatCards({ overview }: DailyBudgetStatCardsProps) {
 					amount={averageSpending.averageDailySpending}
 					className="text-xl font-semibold"
 				/>
+			),
+		},
+		{
+			label: "Ritmo acumulado",
+			icon: RiCoinLine,
+			iconClass:
+				accumulatedSavings.accumulatedSavings >= 0
+					? "text-success"
+					: "text-destructive",
+			value: (
+				<div className="flex flex-col gap-0.5">
+					<MoneyValues
+						amount={Math.abs(accumulatedSavings.accumulatedSavings)}
+						className={cn(
+							"text-xl font-semibold",
+							accumulatedSavings.accumulatedSavings >= 0
+								? "text-success"
+								: "text-destructive",
+						)}
+					/>
+					<span className="text-xs text-muted-foreground">
+						{accumulatedSavings.accumulatedSavings >= 0
+							? "economizado no ritmo até hoje"
+							: "acima do ritmo até hoje"}
+					</span>
+				</div>
 			),
 		},
 		{
