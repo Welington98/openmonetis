@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.18.0](https://github.com/Welington98/openmonetis/compare/v2.17.1...v2.18.0) (2026-09-06)
+
+### Adicionado
+
+* **daily-budget:** anchor daily quota on real money and fix pacing gaps ([25737f7](https://github.com/Welington98/openmonetis/commit/25737f7fef786e01e49bb484a75b388f9cdeb670))
+
 ## [2.17.1](https://github.com/Welington98/openmonetis/compare/v2.17.0...v2.17.1) (2026-09-06)
 
 ### Corrigido
