@@ -330,6 +330,13 @@
       "when": 1788559916843,
       "tag": "0047_bouncy_pete_wisdom",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1788735083242,
+      "tag": "0048_add_establishment_logos",
+      "breakpoints": true
     }
   ]
 }
