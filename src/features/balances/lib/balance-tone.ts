@@ -21,28 +21,24 @@ export function getBalanceTone(
 	return "success";
 }
 
+/**
+ * Fundo em tom pastel (opacidade fixa, igual pra qualquer valor da mesma
+ * faixa) — mais discreto e alinhado ao resto do design do app do que um
+ * preenchimento sólido/vibrante. Não escala com o valor: a faixa é que
+ * decide a cor, não o quão extremo o número é.
+ */
 const TONE_BG_TOKEN: Record<BalanceTone, string> = {
-	success: "bg-success",
-	warning: "bg-warning",
+	success: "bg-success/15",
+	warning: "bg-warning/15",
 	// Rosa reaproveita o token de gráfico `chart-5` (pink-500) — não é uma
 	// cor semântica própria do design system, mas é o único tom rosa já
 	// registrado (`@theme`), então evita hex solto.
-	attention: "bg-chart-5",
-	danger: "bg-destructive",
+	attention: "bg-chart-5/15",
+	danger: "bg-destructive/15",
 };
 
-/** Texto de contraste (tokens `-foreground` do design system) pra cima do fundo sólido de cada faixa. */
+/** Texto colorido — legível tanto sozinho (cards de resumo) quanto sobre o fundo pastel da mesma cor. */
 const TONE_TEXT_TOKEN: Record<BalanceTone, string> = {
-	success: "text-success-foreground",
-	warning: "text-warning-foreground",
-	// `chart-5` não tem um `-foreground` próprio (é token de gráfico, não
-	// semântico) — branco tem contraste suficiente sobre pink-500.
-	attention: "text-white",
-	danger: "text-destructive-foreground",
-};
-
-/** Texto colorido simples (sem fundo) — pra estatísticas fora de tabela, como os cards de resumo. */
-const TONE_TEXT_ON_LIGHT: Record<BalanceTone, string> = {
 	success: "text-success",
 	warning: "text-warning",
 	attention: "text-chart-5",
@@ -53,7 +49,7 @@ export function getBalanceTextClass(
 	balance: number,
 	warningThreshold: number,
 ): string {
-	return TONE_TEXT_ON_LIGHT[getBalanceTone(balance, warningThreshold)];
+	return TONE_TEXT_TOKEN[getBalanceTone(balance, warningThreshold)];
 }
 
 export type BalanceCellTone = {
@@ -62,11 +58,10 @@ export type BalanceCellTone = {
 };
 
 /**
- * Fundo sólido + texto de contraste pra uma célula de saldo, igual
- * formatação condicional de planilha: a cor é fixa pela FAIXA em que o
- * saldo cai (verde/amarelo/rosa/vermelho), não um gradiente proporcional
- * ao valor — evita que um dia claramente arriscado apareça desbotado só
- * porque não é o mais extremo da janela inteira.
+ * Fundo pastel + texto colorido pra uma célula de saldo, coordenados pela
+ * FAIXA em que o saldo cai (verde/amarelo/rosa/vermelho) — igual
+ * formatação condicional de planilha: cor fixa por faixa, não um
+ * gradiente proporcional ao valor.
  */
 export function getBalanceCellTone(
 	balance: number,

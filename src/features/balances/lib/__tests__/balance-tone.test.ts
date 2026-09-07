@@ -26,39 +26,39 @@ describe("getBalanceTone", () => {
 });
 
 describe("getBalanceCellTone", () => {
-	it("uses a solid green background for a comfortable balance, regardless of how far above the threshold it is", () => {
+	it("uses a pastel green background for a comfortable balance, regardless of how far above the threshold it is", () => {
 		expect(getBalanceCellTone(1100, 1000)).toEqual({
-			background: "bg-success",
-			text: "text-success-foreground",
+			background: "bg-success/15",
+			text: "text-success",
 		});
 		expect(getBalanceCellTone(1_000_000, 1000)).toEqual({
-			background: "bg-success",
-			text: "text-success-foreground",
+			background: "bg-success/15",
+			text: "text-success",
 		});
 	});
 
-	it("uses solid yellow for a positive balance below the threshold", () => {
+	it("uses pastel yellow for a positive balance below the threshold", () => {
 		expect(getBalanceCellTone(500, 1000)).toEqual({
-			background: "bg-warning",
-			text: "text-warning-foreground",
+			background: "bg-warning/15",
+			text: "text-warning",
 		});
 	});
 
-	it("uses solid pink for a mildly negative balance", () => {
+	it("uses pastel pink for a mildly negative balance", () => {
 		expect(getBalanceCellTone(-100, 1000)).toEqual({
-			background: "bg-chart-5",
-			text: "text-white",
+			background: "bg-chart-5/15",
+			text: "text-chart-5",
 		});
 	});
 
-	it("uses solid red for a balance negative beyond the threshold, regardless of how extreme", () => {
+	it("uses pastel red for a balance negative beyond the threshold, regardless of how extreme", () => {
 		expect(getBalanceCellTone(-9800, 1000)).toEqual({
-			background: "bg-destructive",
-			text: "text-destructive-foreground",
+			background: "bg-destructive/15",
+			text: "text-destructive",
 		});
 		expect(getBalanceCellTone(-1_000_000, 1000)).toEqual({
-			background: "bg-destructive",
-			text: "text-destructive-foreground",
+			background: "bg-destructive/15",
+			text: "text-destructive",
 		});
 	});
 });
