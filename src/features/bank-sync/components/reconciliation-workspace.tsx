@@ -63,7 +63,7 @@ import {
 	TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { formatCurrency } from "@/shared/utils/currency";
-import { formatDateOnly } from "@/shared/utils/date";
+import { formatDateOnly, toDateOnlyString } from "@/shared/utils/date";
 
 type FilterKey = "todos" | "pendentes" | "classificados" | "ia";
 
@@ -108,6 +108,9 @@ export function ReconciliationWorkspace({
 	const [syncDateFrom, setSyncDateFrom] = useState("");
 	const [syncDateTo, setSyncDateTo] = useState("");
 	const [syncFilterOpen, setSyncFilterOpen] = useState(false);
+	const [lineDateFrom, setLineDateFrom] = useState("");
+	const [lineDateTo, setLineDateTo] = useState("");
+	const [lineDateFilterOpen, setLineDateFilterOpen] = useState(false);
 	const [isSuggesting, startSuggest] = useTransition();
 	const [isBulkImporting, startBulkImport] = useTransition();
 	const [isBackfilling, startBackfill] = useTransition();
@@ -131,12 +134,18 @@ export function ReconciliationWorkspace({
 		const q = search.trim().toLowerCase();
 		return scopedLines.filter((line) => {
 			if (q && !line.description.toLowerCase().includes(q)) return false;
+			if (lineDateFrom || lineDateTo) {
+				const lineDate = toDateOnlyString(line.date);
+				if (lineDateFrom && (!lineDate || lineDate < lineDateFrom))
+					return false;
+				if (lineDateTo && (!lineDate || lineDate > lineDateTo)) return false;
+			}
 			if (filter === "pendentes") return line.status === "unmatched";
 			if (filter === "classificados") return line.status === "matched";
 			if (filter === "ia") return line.categorySource === "ai";
 			return true;
 		});
-	}, [scopedLines, search, filter]);
+	}, [scopedLines, search, filter, lineDateFrom, lineDateTo]);
 
 	const selectedLine =
 		filteredLines.find((l) => l.id === selectedLineId) ??
@@ -228,6 +237,11 @@ export function ReconciliationWorkspace({
 	const handleClearSyncDateRange = () => {
 		setSyncDateFrom("");
 		setSyncDateTo("");
+	};
+
+	const handleClearLineDateRange = () => {
+		setLineDateFrom("");
+		setLineDateTo("");
 	};
 
 	const handleSuggestCategories = () => {
@@ -487,11 +501,70 @@ export function ReconciliationWorkspace({
 			<div className="grid gap-4 lg:grid-cols-[380px_1fr]">
 				<div className="flex flex-col gap-3 rounded-lg border">
 					<div className="flex flex-col gap-2 border-b p-3">
-						<Input
-							value={search}
-							onChange={(e) => setSearch(e.target.value)}
-							placeholder="Buscar lançamentos..."
-						/>
+						<div className="flex items-center gap-2">
+							<Input
+								value={search}
+								onChange={(e) => setSearch(e.target.value)}
+								placeholder="Buscar lançamentos..."
+							/>
+							<Popover
+								open={lineDateFilterOpen}
+								onOpenChange={setLineDateFilterOpen}
+							>
+								<PopoverTrigger asChild>
+									<Button
+										variant={lineDateFrom || lineDateTo ? "secondary" : "ghost"}
+										size="sm"
+										className="shrink-0"
+									>
+										<RiCalendarLine className="size-4" />
+										{lineDateFrom || lineDateTo
+											? `${formatDateOnly(lineDateFrom) ?? "início"} – ${formatDateOnly(lineDateTo) ?? "hoje"}`
+											: "Período"}
+									</Button>
+								</PopoverTrigger>
+								<PopoverContent className="w-72" align="end">
+									<div className="flex flex-col gap-3">
+										<p className="text-muted-foreground text-xs">
+											Mostra só os lançamentos desse período nesta lista. Deixe
+											em branco pra ver todos.
+										</p>
+										<div className="flex flex-col gap-1.5">
+											<span className="text-xs">De</span>
+											<DatePicker
+												value={lineDateFrom}
+												onChange={setLineDateFrom}
+												placeholder="Data inicial"
+											/>
+										</div>
+										<div className="flex flex-col gap-1.5">
+											<span className="text-xs">Até</span>
+											<DatePicker
+												value={lineDateTo}
+												onChange={setLineDateTo}
+												placeholder="Data final"
+											/>
+										</div>
+										<div className="flex justify-end gap-2">
+											<Button
+												variant="ghost"
+												size="sm"
+												onClick={handleClearLineDateRange}
+												disabled={!lineDateFrom && !lineDateTo}
+											>
+												Limpar
+											</Button>
+											<Button
+												size="sm"
+												onClick={() => setLineDateFilterOpen(false)}
+											>
+												Aplicar
+											</Button>
+										</div>
+									</div>
+								</PopoverContent>
+							</Popover>
+						</div>
 						<div className="flex flex-wrap gap-1.5">
 							{(
 								[
