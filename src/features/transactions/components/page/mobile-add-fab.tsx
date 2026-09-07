@@ -16,6 +16,7 @@ import {
 	DropdownMenuItem,
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
+import { cn } from "@/shared/utils/ui";
 import { TransactionDialog } from "../dialogs/transaction-dialog/transaction-dialog";
 
 interface MobileAddFabProps {
@@ -34,7 +35,14 @@ interface MobileAddFabProps {
 	lockCardSelection?: boolean;
 	lockPaymentMethod?: boolean;
 	attachmentMaxSizeMb?: number;
+	/** "right" (padrão, canto inferior direito) ou "center" (centralizado horizontalmente, ex: telas sem lista/rolagem embaixo). */
+	position?: "right" | "center";
 }
+
+const POSITION_CLASS: Record<"right" | "center", string> = {
+	right: "right-4",
+	center: "left-1/2 -translate-x-1/2",
+};
 
 export function MobileAddFab({
 	payerOptions,
@@ -52,6 +60,7 @@ export function MobileAddFab({
 	lockCardSelection,
 	lockPaymentMethod,
 	attachmentMaxSizeMb,
+	position = "right",
 }: MobileAddFabProps) {
 	const [dialogType, setDialogType] = useState<"Despesa" | "Receita" | null>(
 		null,
@@ -59,7 +68,12 @@ export function MobileAddFab({
 
 	return (
 		<>
-			<div className="fixed right-4 bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 md:hidden">
+			<div
+				className={cn(
+					"fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] z-40 md:hidden",
+					POSITION_CLASS[position],
+				)}
+			>
 				<DropdownMenu>
 					<DropdownMenuTrigger asChild>
 						<Button
@@ -70,7 +84,11 @@ export function MobileAddFab({
 							<RiAddLine className="size-6" />
 						</Button>
 					</DropdownMenuTrigger>
-					<DropdownMenuContent align="end" side="top" className="w-56">
+					<DropdownMenuContent
+						align={position === "center" ? "center" : "end"}
+						side="top"
+						className="w-56"
+					>
 						<DropdownMenuItem onSelect={() => setDialogType("Receita")}>
 							<RiArrowRightDownLine className="size-4 text-success" />
 							Nova receita
