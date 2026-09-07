@@ -19,6 +19,11 @@ import {
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
 import { PERIOD_FORMAT_REGEX } from "@/shared/lib/invoices";
+import {
+	cleanupLoanBeforeAccountDeletion,
+	isAccountFundingActiveLoan,
+} from "@/shared/lib/loans/account-deletion";
+import { isLoanAccountType } from "@/shared/lib/loans/constants";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { noteSchema, uuidSchema } from "@/shared/lib/schemas/common";
 import {
@@ -107,7 +112,14 @@ export async function createAccountAction(
 
 		const logoFile = normalizeFilePath(data.logo);
 
-		const normalizedInitialBalance = Math.abs(data.initialBalance);
+		// Contas de empréstimo nunca têm saldo inicial próprio — o saldo delas
+		// é sempre derivado da tabela de amortização (ver
+		// `shared/lib/loans/outstanding-balance.ts`), igual à dívida de cartão
+		// de crédito. Forçado aqui como defesa mesmo que o cliente mande outro
+		// valor.
+		const normalizedInitialBalance = isLoanAccountType(data.accountType)
+			? 0
+			: Math.abs(data.initialBalance);
 		const hasInitialBalance = normalizedInitialBalance > 0;
 		const adminPayerId = hasInitialBalance
 			? await getAdminPayerId(user.id)
@@ -128,7 +140,9 @@ export async function createAccountAction(
 					status: data.status,
 					note: data.note ?? null,
 					logo: logoFile,
-					initialBalance: formatDecimalForDbRequired(data.initialBalance),
+					initialBalance: formatDecimalForDbRequired(
+						isLoanAccountType(data.accountType) ? 0 : data.initialBalance,
+					),
 					excludeFromBalance: data.excludeFromBalance,
 					excludeInitialBalanceFromIncome: data.excludeInitialBalanceFromIncome,
 					userId: user.id,
@@ -243,15 +257,27 @@ export async function deleteAccountAction(
 		const user = await getUser();
 		const data = deleteAccountSchema.parse(input);
 
-		const [deleted] = await db
-			.delete(financialAccounts)
-			.where(
-				and(
-					eq(financialAccounts.id, data.id),
-					eq(financialAccounts.userId, user.id),
-				),
-			)
-			.returning({ id: financialAccounts.id });
+		if (await isAccountFundingActiveLoan(user.id, data.id)) {
+			return {
+				success: false,
+				error:
+					"Esta conta é usada para pagar/receber um empréstimo. Configure outra conta de pagamento antes de excluir esta.",
+			};
+		}
+
+		const [deleted] = await db.transaction(async (tx: typeof db) => {
+			await cleanupLoanBeforeAccountDeletion(tx, user.id, data.id);
+
+			return tx
+				.delete(financialAccounts)
+				.where(
+					and(
+						eq(financialAccounts.id, data.id),
+						eq(financialAccounts.userId, user.id),
+					),
+				)
+				.returning({ id: financialAccounts.id });
+		});
 
 		if (!deleted) {
 			return {

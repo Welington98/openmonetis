@@ -2,6 +2,7 @@ import { and, eq, ilike, not, sql } from "drizzle-orm";
 import { bankConnections, financialAccounts, transactions } from "@/db/schema";
 import { INITIAL_BALANCE_NOTE } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
+import { fetchLoanOutstandingBalances } from "@/shared/lib/loans/outstanding-balance";
 import { loadLogoOptions } from "@/shared/lib/logo/options";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 
@@ -26,90 +27,98 @@ async function fetchAccountsByStatus(
 ): Promise<{ accounts: AccountData[]; logoOptions: string[] }> {
 	const adminPayerId = await getAdminPayerId(userId);
 
-	const [accountRows, logoOptions] = await Promise.all([
-		db
-			.select({
-				id: financialAccounts.id,
-				name: financialAccounts.name,
-				accountType: financialAccounts.accountType,
-				status: financialAccounts.status,
-				note: financialAccounts.note,
-				logo: financialAccounts.logo,
-				initialBalance: financialAccounts.initialBalance,
-				excludeFromBalance: financialAccounts.excludeFromBalance,
-				excludeInitialBalanceFromIncome:
+	const [accountRows, logoOptions, loanOutstandingBalances] = await Promise.all(
+		[
+			db
+				.select({
+					id: financialAccounts.id,
+					name: financialAccounts.name,
+					accountType: financialAccounts.accountType,
+					status: financialAccounts.status,
+					note: financialAccounts.note,
+					logo: financialAccounts.logo,
+					initialBalance: financialAccounts.initialBalance,
+					excludeFromBalance: financialAccounts.excludeFromBalance,
+					excludeInitialBalanceFromIncome:
+						financialAccounts.excludeInitialBalanceFromIncome,
+					bankConnectionId: financialAccounts.bankConnectionId,
+					pluggyConnectorName: sql<
+						string | null
+					>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
+					balanceMovements: sql<number>`
+            coalesce(
+              sum(
+                case
+                  when ${transactions.note} = ${INITIAL_BALANCE_NOTE} then 0
+                  else ${transactions.amount}
+                end
+              ),
+              0
+            )
+          `,
+				})
+				.from(financialAccounts)
+				.leftJoin(
+					transactions,
+					and(
+						eq(transactions.accountId, financialAccounts.id),
+						eq(transactions.userId, userId),
+						eq(transactions.isSettled, true),
+						adminPayerId ? eq(transactions.payerId, adminPayerId) : sql`false`,
+					),
+				)
+				.leftJoin(
+					bankConnections,
+					eq(financialAccounts.bankConnectionId, bankConnections.id),
+				)
+				.where(
+					and(
+						eq(financialAccounts.userId, userId),
+						archived
+							? ilike(financialAccounts.status, "inativa")
+							: not(ilike(financialAccounts.status, "inativa")),
+					),
+				)
+				.groupBy(
+					financialAccounts.id,
+					financialAccounts.name,
+					financialAccounts.accountType,
+					financialAccounts.status,
+					financialAccounts.note,
+					financialAccounts.logo,
+					financialAccounts.initialBalance,
+					financialAccounts.excludeFromBalance,
 					financialAccounts.excludeInitialBalanceFromIncome,
-				bankConnectionId: financialAccounts.bankConnectionId,
-				pluggyConnectorName: sql<
-					string | null
-				>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
-				balanceMovements: sql<number>`
-          coalesce(
-            sum(
-              case
-                when ${transactions.note} = ${INITIAL_BALANCE_NOTE} then 0
-                else ${transactions.amount}
-              end
-            ),
-            0
-          )
-        `,
-			})
-			.from(financialAccounts)
-			.leftJoin(
-				transactions,
-				and(
-					eq(transactions.accountId, financialAccounts.id),
-					eq(transactions.userId, userId),
-					eq(transactions.isSettled, true),
-					adminPayerId ? eq(transactions.payerId, adminPayerId) : sql`false`,
+					financialAccounts.bankConnectionId,
+					bankConnections.connectorName,
+					bankConnections.nickname,
 				),
-			)
-			.leftJoin(
-				bankConnections,
-				eq(financialAccounts.bankConnectionId, bankConnections.id),
-			)
-			.where(
-				and(
-					eq(financialAccounts.userId, userId),
-					archived
-						? ilike(financialAccounts.status, "inativa")
-						: not(ilike(financialAccounts.status, "inativa")),
-				),
-			)
-			.groupBy(
-				financialAccounts.id,
-				financialAccounts.name,
-				financialAccounts.accountType,
-				financialAccounts.status,
-				financialAccounts.note,
-				financialAccounts.logo,
-				financialAccounts.initialBalance,
-				financialAccounts.excludeFromBalance,
-				financialAccounts.excludeInitialBalanceFromIncome,
-				financialAccounts.bankConnectionId,
-				bankConnections.connectorName,
-				bankConnections.nickname,
-			),
-		loadLogoOptions(),
-	]);
+			loadLogoOptions(),
+			fetchLoanOutstandingBalances(userId),
+		],
+	);
 
-	const accounts = accountRows.map((account) => ({
-		id: account.id,
-		name: account.name,
-		accountType: account.accountType,
-		status: account.status,
-		note: account.note,
-		logo: account.logo,
-		initialBalance: Number(account.initialBalance ?? 0),
-		balance:
-			Number(account.initialBalance ?? 0) +
-			Number(account.balanceMovements ?? 0),
-		excludeFromBalance: account.excludeFromBalance,
-		excludeInitialBalanceFromIncome: account.excludeInitialBalanceFromIncome,
-		bankConnectionId: account.bankConnectionId,
-		pluggyConnectorName: account.pluggyConnectorName,
-	}));
+	const accounts = accountRows.map((account) => {
+		const loanBalance = loanOutstandingBalances.get(account.id);
+		return {
+			id: account.id,
+			name: account.name,
+			accountType: account.accountType,
+			status: account.status,
+			note: account.note,
+			logo: account.logo,
+			initialBalance: Number(account.initialBalance ?? 0),
+			balance:
+				loanBalance !== undefined
+					? loanBalance
+					: Number(account.initialBalance ?? 0) +
+						Number(account.balanceMovements ?? 0),
+			excludeFromBalance: account.excludeFromBalance,
+			excludeInitialBalanceFromIncome: account.excludeInitialBalanceFromIncome,
+			bankConnectionId: account.bankConnectionId,
+			pluggyConnectorName: account.pluggyConnectorName,
+		};
+	});
 
 	return { accounts, logoOptions };
 }

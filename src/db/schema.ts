@@ -902,6 +902,97 @@ export const installmentAnticipations = pgTable(
 	}),
 );
 
+// ===================== LOANS =====================
+
+export const loans = pgTable(
+	"emprestimos",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		accountId: uuid("conta_id")
+			.notNull()
+			.references(() => financialAccounts.id, { onDelete: "cascade" }),
+		// "contratado" | "concedido" — derivado server-side de
+		// financialAccounts.accountType, nunca aceito diretamente do cliente.
+		direction: text("direcao").notNull(),
+		principalAmount: numeric("valor_principal", {
+			precision: 12,
+			scale: 2,
+		}).notNull(),
+		interestRateMonthly: numeric("taxa_juros_mensal", {
+			precision: 7,
+			scale: 4,
+		}).notNull(),
+		installmentCount: smallint("qtde_parcelas").notNull(),
+		// "price" | "sac"
+		amortizationSystem: text("sistema_amortizacao").notNull(),
+		firstDueDate: date("primeiro_vencimento", { mode: "date" }).notNull(),
+		paymentAccountId: uuid("conta_pagamento_id")
+			.notNull()
+			.references(() => financialAccounts.id),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+		updatedAt: timestamp("updated_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		// Um empréstimo por conta — editar termos depois de criado não é suportado.
+		accountIdUnique: uniqueIndex("emprestimos_conta_id_key").on(
+			table.accountId,
+		),
+		userIdIdx: index("emprestimos_user_id_idx").on(table.userId),
+		paymentAccountIdIdx: index("emprestimos_conta_pagamento_id_idx").on(
+			table.paymentAccountId,
+		),
+	}),
+);
+
+export const loanInstallments = pgTable(
+	"emprestimo_parcelas",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		loanId: uuid("emprestimo_id")
+			.notNull()
+			.references((): AnyPgColumn => loans.id, { onDelete: "cascade" }),
+		transactionId: uuid("lancamento_id")
+			.notNull()
+			.references((): AnyPgColumn => transactions.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		installmentNumber: smallint("numero_parcela").notNull(),
+		principalAmount: numeric("valor_principal", {
+			precision: 12,
+			scale: 2,
+		}).notNull(),
+		interestAmount: numeric("valor_juros", {
+			precision: 12,
+			scale: 2,
+		}).notNull(),
+		remainingBalanceAfter: numeric("saldo_devedor_apos", {
+			precision: 12,
+			scale: 2,
+		}).notNull(),
+		dueDate: date("data_vencimento", { mode: "date" }).notNull(),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		loanIdInstallmentUnique: uniqueIndex(
+			"emprestimo_parcelas_emprestimo_id_numero_key",
+		).on(table.loanId, table.installmentNumber),
+		transactionIdIdx: index("emprestimo_parcelas_lancamento_id_idx").on(
+			table.transactionId,
+		),
+		userIdIdx: index("emprestimo_parcelas_user_id_idx").on(table.userId),
+	}),
+);
+
 // ===================== TRANSACTIONS =====================
 
 export const transactions = pgTable(
@@ -1288,6 +1379,7 @@ export const userRelations = relations(user, ({ many, one }) => ({
 	savingsGoals: many(savingsGoals),
 	payers: many(payers),
 	installmentAnticipations: many(installmentAnticipations),
+	loans: many(loans),
 	apiTokens: many(apiTokens),
 	inboxItems: many(inboxItems),
 	establishmentLogos: many(establishmentLogos),
@@ -1328,6 +1420,8 @@ export const financialAccountsRelations = relations(
 		cards: many(cards),
 		transactions: many(transactions),
 		savingsGoals: many(savingsGoals),
+		loans: many(loans, { relationName: "loanAccount" }),
+		loanPayments: many(loans, { relationName: "loanPaymentAccount" }),
 	}),
 );
 
@@ -1543,6 +1637,42 @@ export const installmentAnticipationsRelations = relations(
 	}),
 );
 
+export const loansRelations = relations(loans, ({ one, many }) => ({
+	user: one(user, {
+		fields: [loans.userId],
+		references: [user.id],
+	}),
+	account: one(financialAccounts, {
+		fields: [loans.accountId],
+		references: [financialAccounts.id],
+		relationName: "loanAccount",
+	}),
+	paymentAccount: one(financialAccounts, {
+		fields: [loans.paymentAccountId],
+		references: [financialAccounts.id],
+		relationName: "loanPaymentAccount",
+	}),
+	installments: many(loanInstallments),
+}));
+
+export const loanInstallmentsRelations = relations(
+	loanInstallments,
+	({ one }) => ({
+		loan: one(loans, {
+			fields: [loanInstallments.loanId],
+			references: [loans.id],
+		}),
+		transaction: one(transactions, {
+			fields: [loanInstallments.transactionId],
+			references: [transactions.id],
+		}),
+		user: one(user, {
+			fields: [loanInstallments.userId],
+			references: [user.id],
+		}),
+	}),
+);
+
 // ===================== ATTACHMENTS =====================
 
 export const attachments = pgTable(
@@ -1665,6 +1795,10 @@ export type DiaryStreak = typeof diaryStreaks.$inferSelect;
 export type NewDiaryStreak = typeof diaryStreaks.$inferInsert;
 export type DiaryAchievement = typeof diaryAchievements.$inferSelect;
 export type NewDiaryAchievement = typeof diaryAchievements.$inferInsert;
+export type Loan = typeof loans.$inferSelect;
+export type NewLoan = typeof loans.$inferInsert;
+export type LoanInstallment = typeof loanInstallments.$inferSelect;
+export type NewLoanInstallment = typeof loanInstallments.$inferInsert;
 export type Transaction = typeof transactions.$inferSelect;
 export type InstallmentAnticipation =
 	typeof installmentAnticipations.$inferSelect;
