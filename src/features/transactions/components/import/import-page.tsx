@@ -299,6 +299,7 @@ export function ImportPage({
 		duplicateCount,
 		uncategorizedCount,
 		withoutPayerCount,
+		selectedTotal,
 	} = useMemo(() => {
 		const selected = rows.filter((r) => r.selected);
 		return {
@@ -306,6 +307,11 @@ export function ImportPage({
 			duplicateCount: rows.filter((r) => r.isDuplicate).length,
 			uncategorizedCount: selected.filter((r) => !r.categoryId).length,
 			withoutPayerCount: selected.filter((r) => !r.payerId).length,
+			selectedTotal: selected.reduce(
+				(sum, r) =>
+					sum + (r.transactionType === "expense" ? -r.amount : r.amount),
+				0,
+			),
 		};
 	}, [rows]);
 
@@ -434,6 +440,7 @@ export function ImportPage({
 								statement={statement}
 								total={rows.length}
 								selected={selectedRows.length}
+								selectedTotal={selectedTotal}
 								duplicates={duplicateCount}
 								uncategorized={uncategorizedCount}
 								withoutPayer={withoutPayerCount}
