@@ -74,6 +74,8 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 
 🎯 **Orçamentos** — Defina limites por categoria e acompanhe o progresso.
 
+📈 **Orçamento diário** — Duas visões do mesmo orçamento, em abas: **Hoje** mostra quanto você pode gastar sem comprometer o resto do mês; **Projeção** mostra o saldo de caixa real projetado dia a dia por até 12 meses à frente, ancorado no saldo das contas, com entradas, contas fixas e faturas de cartão nas datas certas, cota diária de gasto variável e mapa de calor do ano inteiro — para saber com antecedência em que dia a conta fica negativa.
+
 💸 **Parcelamentos avançados** — Séries de parcelas, antecipação com cálculo de desconto, análise consolidada.
 
 🤖 **Insights com IA** — Análises geradas por Claude, GPT, Gemini, MiniMax, OpenRouter ou modelos locais via Ollama. Insights personalizados e histórico salvo.

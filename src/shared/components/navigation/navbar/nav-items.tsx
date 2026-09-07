@@ -56,7 +56,7 @@ export const NAV_SECTIONS: NavSection[] = [
 			{
 				href: "/daily-budget",
 				label: "Orçamento diário",
-				description: "Quanto você pode gastar hoje sem comprometer o mês",
+				description: "Quanto gastar hoje e o saldo projetado pra frente",
 				icon: <RiWalletLine className="size-4" />,
 				iconClass: "text-primary",
 			},
