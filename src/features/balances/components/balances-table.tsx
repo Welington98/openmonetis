@@ -51,7 +51,7 @@ const CARD_COLUMN_HELP = [
 
 const BALANCE_COLUMN_HELP = [
 	"Saldo acumulado da conta ao final daquele dia, considerando tudo que entrou e saiu até ali.",
-	"Verde é confortável, âmbar é atenção, vermelho é negativo.",
+	"Verde é confortável, amarelo é atenção (positivo mas abaixo da reserva), rosa é negativo dentro da margem, vermelho é negativo além da margem.",
 ] as const;
 
 const BUCKET_HELP: Partial<Record<BucketKey, readonly string[]>> = {
@@ -116,31 +116,19 @@ function ValueCell({
 function BalanceCell({
 	row,
 	warningThreshold,
-	referenceMagnitude,
 }: {
 	row: BalanceProjectionRow;
 	warningThreshold: number;
-	referenceMagnitude: number;
 }) {
-	const tone = getBalanceCellTone(
-		row.balance,
-		warningThreshold,
-		referenceMagnitude,
-	);
+	const tone = getBalanceCellTone(row.balance, warningThreshold);
 
 	return (
 		<td
-			className={cn(
-				"rounded-sm px-2 py-2 text-right transition-colors",
-				tone.background,
-			)}
+			className={cn("px-2 py-2 text-right transition-colors", tone.background)}
 		>
 			<MoneyValues
 				amount={row.balance}
-				className={cn(
-					tone.isSolid ? "font-semibold" : "font-medium",
-					tone.text,
-				)}
+				className={cn("font-semibold", tone.text)}
 			/>
 		</td>
 	);
@@ -181,14 +169,6 @@ export function BalancesTable({
 	}, [projection.rows]);
 
 	const month = months[Math.min(selectedIndex, Math.max(months.length - 1, 0))];
-
-	// Escala de cor pela janela inteira (não só o mês em exibição), pra bater
-	// com o mapa de calor da aba Horizonte e não pular de intensidade ao
-	// trocar de mês.
-	const referenceMagnitude = useMemo(
-		() => Math.max(...projection.rows.map((row) => Math.abs(row.balance)), 1),
-		[projection.rows],
-	);
 
 	if (!month) return null;
 
@@ -273,11 +253,7 @@ export function BalancesTable({
 										toneClassName={BUCKET_TONE[bucket]}
 									/>
 								</td>
-								<BalanceCell
-									row={row}
-									warningThreshold={warningThreshold}
-									referenceMagnitude={referenceMagnitude}
-								/>
+								<BalanceCell row={row} warningThreshold={warningThreshold} />
 							</tr>
 						))}
 					</tbody>
@@ -350,11 +326,7 @@ export function BalancesTable({
 										toneClassName="text-destructive"
 									/>
 								</td>
-								<BalanceCell
-									row={row}
-									warningThreshold={warningThreshold}
-									referenceMagnitude={referenceMagnitude}
-								/>
+								<BalanceCell row={row} warningThreshold={warningThreshold} />
 							</tr>
 						))}
 					</tbody>

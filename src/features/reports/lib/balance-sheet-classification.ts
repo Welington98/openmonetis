@@ -1,4 +1,14 @@
-const PASSIVO_KEYWORDS = ["cartao", "cartão", "credito", "crédito"];
+const PASSIVO_KEYWORDS = [
+	"cartao",
+	"cartão",
+	"credito",
+	"crédito",
+	// "empréstimo contratado" = dívida (passivo); frase completa pra não
+	// pegar "empréstimo concedido" (o oposto — dinheiro emprestado a
+	// terceiros, um ativo/recebível), que também contém "empréstimo".
+	"emprestimo contratado",
+	"empréstimo contratado",
+];
 
 const DIACRITICS_PATTERN = /[̀-ͯ]/g;
 

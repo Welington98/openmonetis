@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
 import {
 	getBalanceCellTone,
+	getBalanceTextClass,
 	getBalanceTone,
 } from "@/features/balances/lib/balance-tone";
 
 describe("getBalanceTone", () => {
-	it("is danger for any negative balance", () => {
-		expect(getBalanceTone(-0.01, 1000)).toBe("danger");
+	it("is danger for a balance negative beyond the threshold", () => {
+		expect(getBalanceTone(-1000.01, 1000)).toBe("danger");
+	});
+
+	it("is attention for a mildly negative balance within the threshold", () => {
+		expect(getBalanceTone(-0.01, 1000)).toBe("attention");
+		expect(getBalanceTone(-1000, 1000)).toBe("attention");
 	});
 
 	it("is warning below the threshold but not negative", () => {
+		expect(getBalanceTone(0, 1000)).toBe("warning");
 		expect(getBalanceTone(500, 1000)).toBe("warning");
 	});
 
@@ -19,26 +26,48 @@ describe("getBalanceTone", () => {
 });
 
 describe("getBalanceCellTone", () => {
-	it("uses tinted text on a faint background for a balance close to zero relative to the reference", () => {
-		const tone = getBalanceCellTone(1100, 1000, 10000);
-
-		expect(tone.background).toBe("bg-success/15");
-		expect(tone.text).toBe("text-success");
-		expect(tone.isSolid).toBe(false);
+	it("uses a pastel green background for a comfortable balance, regardless of how far above the threshold it is", () => {
+		expect(getBalanceCellTone(1100, 1000)).toEqual({
+			background: "bg-success/15",
+			text: "text-success",
+		});
+		expect(getBalanceCellTone(1_000_000, 1000)).toEqual({
+			background: "bg-success/15",
+			text: "text-success",
+		});
 	});
 
-	it("switches to foreground-contrast text on a solid background for an extreme balance", () => {
-		const tone = getBalanceCellTone(-9800, 1000, 10000);
-
-		expect(tone.background).toBe("bg-destructive");
-		expect(tone.text).toBe("text-destructive-foreground");
-		expect(tone.isSolid).toBe(true);
+	it("uses pastel yellow for a positive balance below the threshold", () => {
+		expect(getBalanceCellTone(500, 1000)).toEqual({
+			background: "bg-warning/15",
+			text: "text-warning",
+		});
 	});
 
-	it("never crashes with a zero reference magnitude", () => {
-		const tone = getBalanceCellTone(500, 1000, 0);
+	it("uses pastel pink for a mildly negative balance", () => {
+		expect(getBalanceCellTone(-100, 1000)).toEqual({
+			background: "bg-chart-5/15",
+			text: "text-chart-5",
+		});
+	});
 
-		expect(tone.background).toMatch(/^bg-/);
-		expect(tone.text).toMatch(/^text-/);
+	it("uses pastel red for a balance negative beyond the threshold, regardless of how extreme", () => {
+		expect(getBalanceCellTone(-9800, 1000)).toEqual({
+			background: "bg-destructive/15",
+			text: "text-destructive",
+		});
+		expect(getBalanceCellTone(-1_000_000, 1000)).toEqual({
+			background: "bg-destructive/15",
+			text: "text-destructive",
+		});
+	});
+});
+
+describe("getBalanceTextClass", () => {
+	it("returns tinted text matching each tone, for use without a background", () => {
+		expect(getBalanceTextClass(1100, 1000)).toBe("text-success");
+		expect(getBalanceTextClass(500, 1000)).toBe("text-warning");
+		expect(getBalanceTextClass(-100, 1000)).toBe("text-chart-5");
+		expect(getBalanceTextClass(-9800, 1000)).toBe("text-destructive");
 	});
 });

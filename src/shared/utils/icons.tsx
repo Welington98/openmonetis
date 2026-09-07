@@ -52,6 +52,12 @@ export const getAccountTypeIcon = (accountType: string): ReactNode => {
 		),
 		prepagovrva: <RemixIcons.RiCouponLine className={ICON_CLASS} aria-hidden />,
 		dinheiro: <RemixIcons.RiCashLine className={ICON_CLASS} aria-hidden />,
+		emprestimocontratado: (
+			<RemixIcons.RiFileList3Line className={ICON_CLASS} aria-hidden />
+		),
+		emprestimoconcedido: (
+			<RemixIcons.RiHandCoinLine className={ICON_CLASS} aria-hidden />
+		),
 		outros: <RemixIcons.RiMoreFill className={ICON_CLASS} aria-hidden />,
 	};
 

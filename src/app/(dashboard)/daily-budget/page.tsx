@@ -14,12 +14,14 @@ import {
 	DailyBudgetViewTabs,
 } from "@/features/daily-budget/components/daily-budget-view-tabs";
 import { fetchDailyBudgetOverview } from "@/features/daily-budget/queries";
+import { fetchTransactionDialogOptionsAction } from "@/features/transactions/actions/fetch-dialog-options";
+import { MobileAddFab } from "@/features/transactions/components/page/mobile-add-fab";
 import { InfoTooltip } from "@/shared/components/info-tooltip";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { getUserId } from "@/shared/lib/auth/server";
 import { getBusinessDateString } from "@/shared/utils/date";
-import { parsePeriodParam } from "@/shared/utils/period";
+import { derivePeriodFromDate, parsePeriodParam } from "@/shared/utils/period";
 
 const HELP_LINES = [
 	"Hoje: cota de disciplina do mês atual — reseta todo mês, não olha pra frente nem considera fatura no vencimento.",
@@ -68,6 +70,7 @@ async function DailyBudgetTodayContent({ userId }: { userId: string }) {
 			<DailyBudgetProjectionTable
 				projection={overview.projection}
 				today={today}
+				dailyBudgetAmount={overview.dailyBudget.dailyBudgetAmount}
 			/>
 		</>
 	);
@@ -146,6 +149,24 @@ function ProjectionSkeleton() {
 	);
 }
 
+/**
+ * Botão flutuante "adicionar lançamento" (mobile) centralizado embaixo da
+ * tela — ao contrário do FAB de `/transactions`, que fica no canto direito
+ * porque ali embaixo tem paginação. Busca as opções do formulário à parte,
+ * em Suspense próprio, pra não atrasar o conteúdo principal da aba.
+ */
+async function DailyBudgetMobileAddFab({ today }: { today: string }) {
+	const options = await fetchTransactionDialogOptionsAction();
+
+	return (
+		<MobileAddFab
+			{...options}
+			defaultPeriod={derivePeriodFromDate(today)}
+			position="center"
+		/>
+	);
+}
+
 export default async function Page({ searchParams }: PageProps) {
 	await connection();
 	const userId = await getUserId();
@@ -156,9 +177,10 @@ export default async function Page({ searchParams }: PageProps) {
 			: "hoje";
 	const inicioParam = getSingleParam(resolvedSearchParams, "inicio");
 	const { period: startPeriod } = parsePeriodParam(inicioParam);
+	const today = getBusinessDateString();
 
 	return (
-		<main className="mx-auto flex w-full max-w-5xl flex-col gap-6">
+		<main className="mx-auto flex w-full max-w-5xl flex-col gap-6 pb-20 md:pb-0">
 			<div>
 				<div className="flex items-center gap-1.5">
 					<h1 className="text-xl font-semibold">Orçamento diário</h1>
@@ -188,6 +210,10 @@ export default async function Page({ searchParams }: PageProps) {
 					</Suspense>
 				</>
 			)}
+
+			<Suspense fallback={null}>
+				<DailyBudgetMobileAddFab today={today} />
+			</Suspense>
 		</main>
 	);
 }

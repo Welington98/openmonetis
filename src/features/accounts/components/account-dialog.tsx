@@ -39,6 +39,8 @@ const DEFAULT_ACCOUNT_TYPES = [
 	"Conta Investimento",
 	"Dinheiro",
 	"Pré-Pago | VR/VA",
+	"Empréstimo Contratado",
+	"Empréstimo Concedido",
 	"Outros",
 ] as const;
 

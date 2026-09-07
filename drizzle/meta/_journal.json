@@ -337,6 +337,13 @@
       "when": 1788735083242,
       "tag": "0048_add_establishment_logos",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1788785311714,
+      "tag": "0049_lovely_talkback",
+      "breakpoints": true
     }
   ]
 }

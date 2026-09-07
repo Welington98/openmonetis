@@ -5,6 +5,8 @@ import {
 	isAccountInactive,
 } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
+import { isLoanAccountType } from "@/shared/lib/loans/constants";
+import { fetchLoanOutstandingBalances } from "@/shared/lib/loans/outstanding-balance";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { toDateOnlyString } from "@/shared/utils/date";
 import { safeToNumber as toNumber } from "@/shared/utils/number";
@@ -46,7 +48,10 @@ export type DashboardAccountsSnapshot = {
 export async function fetchDashboardAccounts(
 	userId: string,
 ): Promise<DashboardAccountsSnapshot> {
-	const adminPayerId = await getAdminPayerId(userId);
+	const [adminPayerId, loanOutstandingBalances] = await Promise.all([
+		getAdminPayerId(userId),
+		fetchLoanOutstandingBalances(userId),
+	]);
 
 	const rows = await db
 		.select({
@@ -97,6 +102,7 @@ export async function fetchDashboardAccounts(
 			): DashboardAccount => {
 				const initialBalance = toNumber(row.initialBalance);
 				const balanceMovements = toNumber(row.balanceMovements);
+				const loanBalance = loanOutstandingBalances.get(row.id);
 
 				return {
 					id: row.id,
@@ -105,17 +111,27 @@ export async function fetchDashboardAccounts(
 					status: row.status,
 					logo: row.logo,
 					initialBalance,
-					balance: initialBalance + balanceMovements,
+					balance:
+						loanBalance !== undefined
+							? loanBalance
+							: initialBalance + balanceMovements,
 					excludeFromBalance: row.excludeFromBalance,
 				};
 			},
 		)
 		.sort((a, b) => b.balance - a.balance);
 
+	// Contas de empréstimo nunca entram no total: as parcelas são lançadas na
+	// conta de pagamento, não na própria conta de empréstimo, então seu saldo
+	// (a dívida/recebível em aberto) não é "dinheiro disponível" e incluí-lo
+	// quebraria a âncora da projeção de saldo diário (ver
+	// `fetchSettledNetByDate` abaixo e `balances/lib/balance-projection.ts`).
 	const totalBalance = accounts
 		.filter(
 			(account) =>
-				!account.excludeFromBalance && !isAccountInactive(account.status),
+				!account.excludeFromBalance &&
+				!isAccountInactive(account.status) &&
+				!isLoanAccountType(account.accountType),
 		)
 		.reduce((total, account) => total + account.balance, 0);
 

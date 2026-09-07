@@ -41,7 +41,7 @@ export function DailyBudgetMovementsSummary({
 			<h3 className="mb-4 text-sm font-medium text-muted-foreground">
 				Movimentações do mês
 			</h3>
-			<div className="grid grid-cols-2 gap-4 @2xl/main:grid-cols-5">
+			<div className="grid grid-cols-2 gap-4 @lg/main:grid-cols-3 @2xl/main:grid-cols-5">
 				{items.map((item) => (
 					<div key={item.label} className="flex flex-col gap-0.5">
 						<span className="text-xs text-muted-foreground">{item.label}</span>

@@ -12,6 +12,7 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { Textarea } from "@/shared/components/ui/textarea";
+import { isLoanAccountType } from "@/shared/lib/loans/constants";
 import {
 	AccountTypeSelectContent,
 	StatusSelectContent,
@@ -94,7 +95,14 @@ export function AccountFormFields({
 				</Select>
 			</div>
 
-			{showInitialBalance ? (
+			{isLoanAccountType(values.accountType) ? (
+				<div className="flex flex-col gap-2 sm:col-span-2">
+					<p className="text-sm text-muted-foreground">
+						Configure valor, juros e parcelas na próxima etapa, depois de salvar
+						a conta.
+					</p>
+				</div>
+			) : showInitialBalance ? (
 				<div className="flex flex-col gap-2 sm:col-span-2">
 					<Label htmlFor="account-initial-balance">Saldo inicial</Label>
 					<CurrencyInput

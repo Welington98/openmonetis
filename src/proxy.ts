@@ -22,6 +22,20 @@ const PROTECTED_ROUTES = [
 // Rotas públicas (não requerem autenticação)
 const PUBLIC_AUTH_ROUTES = ["/login", "/signup"];
 
+/**
+ * Tela principal ao autenticar: no desktop é o Dashboard (visão geral);
+ * no mobile é o Orçamento diário, que é a tela de uso mais frequente
+ * (quanto posso gastar hoje) e já tem o botão de adicionar lançamento
+ * centralizado — evita o usuário mobile cair sempre no dashboard, mais
+ * denso, antes de chegar no que usa no dia a dia.
+ */
+function resolveHomeRoute(userAgent: string | null): string {
+	const isMobile = userAgent
+		? /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(userAgent)
+		: false;
+	return isMobile ? "/daily-budget" : "/dashboard";
+}
+
 function buildCsp(): string {
 	const isDev = process.env.NODE_ENV === "development";
 
@@ -87,11 +101,12 @@ export default async function proxy(request: NextRequest) {
 
 	const isAuthenticated = !!session?.user;
 	const signupDisabled = isSignupDisabled();
+	const homeRoute = resolveHomeRoute(request.headers.get("user-agent"));
 
 	if (signupDisabled) {
 		if (pathname === "/signup" || pathname.startsWith("/signup/")) {
 			return NextResponse.redirect(
-				new URL(isAuthenticated ? "/dashboard" : "/login", request.url),
+				new URL(isAuthenticated ? homeRoute : "/login", request.url),
 			);
 		}
 
@@ -105,7 +120,7 @@ export default async function proxy(request: NextRequest) {
 
 	// Redirect authenticated users away from login/signup pages
 	if (isAuthenticated && PUBLIC_AUTH_ROUTES.includes(pathname)) {
-		return NextResponse.redirect(new URL("/dashboard", request.url));
+		return NextResponse.redirect(new URL(homeRoute, request.url));
 	}
 
 	// Redirect unauthenticated users trying to access protected routes
