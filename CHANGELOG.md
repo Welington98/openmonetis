@@ -5,6 +5,20 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.20.0](https://github.com/Welington98/openmonetis/compare/v2.19.0...v2.20.0) (2026-09-07)
+
+### Adicionado
+
+* **accounts:** adiciona tipos de conta Empréstimo Contratado e Concedido ([e6ed350](https://github.com/Welington98/openmonetis/commit/e6ed350aad53168514a91a8c141caef4b96f06e2))
+* **daily-budget:** adapta a aba Hoje pro mobile e adiciona atalho de lançamento ([e1782be](https://github.com/Welington98/openmonetis/commit/e1782be377b13d99e7efeeacc990b1becb86d127))
+* **loans:** adiciona controle completo de amortização de empréstimos ([702c34f](https://github.com/Welington98/openmonetis/commit/702c34fc9870f9e89d037334f1e2e7ba5a7d1ea3))
+
+### Corrigido
+
+* **balances:** usa cor sólida por faixa em vez de gradiente pelo pico da janela ([715c04d](https://github.com/Welington98/openmonetis/commit/715c04d2af7029ef35ca387da757169970f2474c))
+* **daily-budget:** aplica as mesmas 4 faixas de cor na aba Hoje ([c2218fb](https://github.com/Welington98/openmonetis/commit/c2218fbf2f6bf56bf7f69767a67d7bf96e8fabf9))
+* **deploy:** make drizzle-kit push non-interactive and fail loudly ([4cda45d](https://github.com/Welington98/openmonetis/commit/4cda45d63c6fd90f12598f64a78bd2ca8efdfde4))
+
 ## [2.19.0](https://github.com/Welington98/openmonetis/compare/v2.18.0...v2.19.0) (2026-09-07)
 
 ### Adicionado
