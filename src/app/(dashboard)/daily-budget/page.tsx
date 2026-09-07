@@ -68,6 +68,7 @@ async function DailyBudgetTodayContent({ userId }: { userId: string }) {
 			<DailyBudgetProjectionTable
 				projection={overview.projection}
 				today={today}
+				dailyBudgetAmount={overview.dailyBudget.dailyBudgetAmount}
 			/>
 		</>
 	);

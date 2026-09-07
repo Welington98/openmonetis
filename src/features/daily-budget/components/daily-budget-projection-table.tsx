@@ -5,6 +5,7 @@ import type { MultiMonthProjectionResult } from "@/features/daily-budget/lib/dai
 import MoneyValues from "@/shared/components/money-values";
 import NavigationButton from "@/shared/components/month-picker/nav-button";
 import { Card } from "@/shared/components/ui/card";
+import { getBalanceCellTone } from "@/shared/lib/balance-tone";
 import { formatDateOnlyLabel } from "@/shared/utils/date";
 import { formatMonthYearLabel } from "@/shared/utils/period";
 import { cn } from "@/shared/utils/ui";
@@ -12,12 +13,18 @@ import { cn } from "@/shared/utils/ui";
 type DailyBudgetProjectionTableProps = {
 	projection: MultiMonthProjectionResult;
 	today: string;
+	/** Cota diária de referência do mês atual — usada só pra achar o limiar de "orçamento ficando baixo" (× 7 dias), igual a `/balances`. */
+	dailyBudgetAmount: number;
 };
 
 export function DailyBudgetProjectionTable({
 	projection,
 	today,
+	dailyBudgetAmount,
 }: DailyBudgetProjectionTableProps) {
+	// Mesma heurística de "uma semana de cota" que a projeção de saldo usa
+	// pra separar verde de amarelo — mantém as duas abas com o mesmo critério.
+	const warningThreshold = dailyBudgetAmount * 7;
 	const [selectedIndex, setSelectedIndex] = useState(0);
 	const month = projection.months[selectedIndex];
 
@@ -67,6 +74,10 @@ export function DailyBudgetProjectionTable({
 					<tbody>
 						{month.days.map((day) => {
 							const isToday = day.date === today;
+							const tone = getBalanceCellTone(
+								day.remainingBudget,
+								warningThreshold,
+							);
 							return (
 								<tr
 									key={day.date}
@@ -93,12 +104,15 @@ export function DailyBudgetProjectionTable({
 									<td className="py-2 pr-3">
 										<MoneyValues amount={day.dailyBudget} />
 									</td>
-									<td className="py-2 pr-3">
+									<td
+										className={cn(
+											"py-2 pr-3 pl-2 transition-colors",
+											tone.background,
+										)}
+									>
 										<MoneyValues
 											amount={day.remainingBudget}
-											className={
-												day.remainingBudget < 0 ? "text-destructive" : undefined
-											}
+											className={cn("font-semibold", tone.text)}
 										/>
 									</td>
 								</tr>

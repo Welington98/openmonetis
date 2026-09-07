@@ -1,76 +1,12 @@
-export type BalanceTone = "success" | "warning" | "attention" | "danger";
-
 /**
- * Verde/amarelo/rosa/vermelho, em 4 faixas em torno de zero e de
- * `warningThreshold` (ex: reserva de segurança, ou cota diária × 7):
- * - `success` (verde): saldo confortável, acima da reserva.
- * - `warning` (amarelo): positivo, mas já abaixo da reserva — atenção.
- * - `attention` (rosa): negativo, mas ainda dentro de uma reserva de
- *   margem — dá pra recuperar sem alarde.
- * - `danger` (vermelho): negativo além da margem — estouro sério.
- *
- * Cor nunca é o único sinal — o valor numérico já traz o sinal.
+ * Virou `src/shared/lib/balance-tone.ts` — deixou de ser específico de
+ * `balances` (também usado em `daily-budget`, pro orçamento restante do
+ * mês). Reexporta aqui pra não quebrar os imports existentes desta feature.
  */
-export function getBalanceTone(
-	balance: number,
-	warningThreshold: number,
-): BalanceTone {
-	if (balance < -warningThreshold) return "danger";
-	if (balance < 0) return "attention";
-	if (balance < warningThreshold) return "warning";
-	return "success";
-}
-
-/**
- * Fundo em tom pastel (opacidade fixa, igual pra qualquer valor da mesma
- * faixa) — mais discreto e alinhado ao resto do design do app do que um
- * preenchimento sólido/vibrante. Não escala com o valor: a faixa é que
- * decide a cor, não o quão extremo o número é.
- */
-const TONE_BG_TOKEN: Record<BalanceTone, string> = {
-	success: "bg-success/15",
-	warning: "bg-warning/15",
-	// Rosa reaproveita o token de gráfico `chart-5` (pink-500) — não é uma
-	// cor semântica própria do design system, mas é o único tom rosa já
-	// registrado (`@theme`), então evita hex solto.
-	attention: "bg-chart-5/15",
-	danger: "bg-destructive/15",
-};
-
-/** Texto colorido — legível tanto sozinho (cards de resumo) quanto sobre o fundo pastel da mesma cor. */
-const TONE_TEXT_TOKEN: Record<BalanceTone, string> = {
-	success: "text-success",
-	warning: "text-warning",
-	attention: "text-chart-5",
-	danger: "text-destructive",
-};
-
-export function getBalanceTextClass(
-	balance: number,
-	warningThreshold: number,
-): string {
-	return TONE_TEXT_TOKEN[getBalanceTone(balance, warningThreshold)];
-}
-
-export type BalanceCellTone = {
-	background: string;
-	text: string;
-};
-
-/**
- * Fundo pastel + texto colorido pra uma célula de saldo, coordenados pela
- * FAIXA em que o saldo cai (verde/amarelo/rosa/vermelho) — igual
- * formatação condicional de planilha: cor fixa por faixa, não um
- * gradiente proporcional ao valor.
- */
-export function getBalanceCellTone(
-	balance: number,
-	warningThreshold: number,
-): BalanceCellTone {
-	const tone = getBalanceTone(balance, warningThreshold);
-
-	return {
-		background: TONE_BG_TOKEN[tone],
-		text: TONE_TEXT_TOKEN[tone],
-	};
-}
+export {
+	type BalanceCellTone,
+	type BalanceTone,
+	getBalanceCellTone,
+	getBalanceTextClass,
+	getBalanceTone,
+} from "@/shared/lib/balance-tone";
