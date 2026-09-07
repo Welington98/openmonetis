@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.19.0](https://github.com/Welington98/openmonetis/compare/v2.18.0...v2.19.0) (2026-09-07)
+
+### Adicionado
+
+* **daily-budget:** adiciona projeção de saldo de 12 meses como aba ([8478226](https://github.com/Welington98/openmonetis/commit/847822616b97e01373534873a284d32fcbb5b0c9))
+
 ## [2.18.0](https://github.com/Welington98/openmonetis/compare/v2.17.1...v2.18.0) (2026-09-06)
 
 ### Adicionado
