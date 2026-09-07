@@ -70,6 +70,7 @@ src/
 │   │   └── signup/page.tsx
 │   ├── (dashboard)/
 │   │   ├── dashboard/
+│   │   ├── daily-budget/
 │   │   ├── transactions/
 │   │   ├── cards/
 │   │   │   └── [cardId]/invoice/
@@ -104,6 +105,8 @@ src/
 │   ├── auth/
 │   ├── landing/
 │   ├── dashboard/
+│   ├── daily-budget/                # rota /daily-budget — abas "Hoje" (cota do dia) e "Projeção" (composta com balances/)
+│   ├── balances/                    # sem rota própria — usada como aba "Projeção" dentro de /daily-budget
 │   ├── transactions/
 │   ├── cards/
 │   ├── invoices/
@@ -242,6 +245,7 @@ Layouts, `loading.tsx` e metadata continuam em `src/app/`.
 
 | Portugues | English |
 |---|---|
+| `orcamento-diario` | `daily-budget` |
 | `lancamentos` | `transactions` |
 | `cartoes` | `cards` |
 | `contas` | `accounts` |
