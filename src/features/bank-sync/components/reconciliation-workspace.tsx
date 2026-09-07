@@ -120,17 +120,10 @@ export function ReconciliationWorkspace({
 		return lines.filter((l) => l.bankConnectionId === selectedConnectionId);
 	}, [lines, selectedConnectionId]);
 
-	const counts = useMemo(
-		() => ({
-			todos: scopedLines.length,
-			pendentes: scopedLines.filter((l) => l.status === "unmatched").length,
-			classificados: scopedLines.filter((l) => l.status === "matched").length,
-			ia: scopedLines.filter((l) => l.categorySource === "ai").length,
-		}),
-		[scopedLines],
-	);
-
-	const filteredLines = useMemo(() => {
+	// Linhas depois de busca + período, mas antes do pill de status — é a base
+	// tanto dos contadores dos pills quanto da lista final, pra "Todos (N)" e
+	// os demais pills refletirem o que a busca/período deixaram visível.
+	const searchAndDateFilteredLines = useMemo(() => {
 		const q = search.trim().toLowerCase();
 		return scopedLines.filter((line) => {
 			if (q && !line.description.toLowerCase().includes(q)) return false;
@@ -140,12 +133,33 @@ export function ReconciliationWorkspace({
 					return false;
 				if (lineDateTo && (!lineDate || lineDate > lineDateTo)) return false;
 			}
+			return true;
+		});
+	}, [scopedLines, search, lineDateFrom, lineDateTo]);
+
+	const counts = useMemo(
+		() => ({
+			todos: searchAndDateFilteredLines.length,
+			pendentes: searchAndDateFilteredLines.filter(
+				(l) => l.status === "unmatched",
+			).length,
+			classificados: searchAndDateFilteredLines.filter(
+				(l) => l.status === "matched",
+			).length,
+			ia: searchAndDateFilteredLines.filter((l) => l.categorySource === "ai")
+				.length,
+		}),
+		[searchAndDateFilteredLines],
+	);
+
+	const filteredLines = useMemo(() => {
+		return searchAndDateFilteredLines.filter((line) => {
 			if (filter === "pendentes") return line.status === "unmatched";
 			if (filter === "classificados") return line.status === "matched";
 			if (filter === "ia") return line.categorySource === "ai";
 			return true;
 		});
-	}, [scopedLines, search, filter, lineDateFrom, lineDateTo]);
+	}, [searchAndDateFilteredLines, filter]);
 
 	const selectedLine =
 		filteredLines.find((l) => l.id === selectedLineId) ??

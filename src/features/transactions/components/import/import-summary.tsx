@@ -2,12 +2,14 @@ import { RiCalendarLine } from "@remixicon/react";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card } from "@/shared/components/ui/card";
 import type { ImportStatement } from "@/shared/lib/import/types";
+import { formatCurrency } from "@/shared/utils/currency";
 import { formatDate } from "@/shared/utils/date";
 
 interface ImportSummaryProps {
 	statement: ImportStatement;
 	total: number;
 	selected: number;
+	selectedTotal: number;
 	duplicates: number;
 	uncategorized: number;
 	withoutPayer: number;
@@ -17,6 +19,7 @@ export function ImportSummary({
 	statement,
 	total,
 	selected,
+	selectedTotal,
 	duplicates,
 	uncategorized,
 	withoutPayer,
@@ -44,6 +47,18 @@ export function ImportSummary({
 				<span>
 					{selected}/{total} selecionadas
 				</span>
+
+				{selected > 0 && (
+					<span
+						className={`font-medium ${
+							selectedTotal < 0
+								? "text-destructive"
+								: "text-emerald-600 dark:text-emerald-400"
+						}`}
+					>
+						Total selecionado: {formatCurrency(selectedTotal)}
+					</span>
+				)}
 
 				{duplicates > 0 && (
 					<span className="text-amber-600 dark:text-amber-400">
