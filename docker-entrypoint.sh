@@ -11,7 +11,13 @@ export DATABASE_URL
 echo "Rodando migrations..."
 MIGRATED=0
 for i in 1 2 3 4 5; do
-  if NODE_PATH=/app/migrate/node_modules /app/migrate/node_modules/.bin/drizzle-kit push; then
+  # --force: sem essa flag, uma mudança "arriscada" (nova coluna NOT NULL,
+  # tabela nova) faz o push pedir confirmação interativa por seleção de
+  # setas — não há terminal pra responder dentro do container, então o
+  # diff fica silenciosamente sem aplicar enquanto o resto do comando
+  # segue normalmente. --force aprova essas mudanças automaticamente,
+  # tornando o push determinístico sem TTY.
+  if NODE_PATH=/app/migrate/node_modules /app/migrate/node_modules/.bin/drizzle-kit push --force; then
     MIGRATED=1
     break
   fi
@@ -19,6 +25,9 @@ for i in 1 2 3 4 5; do
   sleep 5
 done
 
-[ "$MIGRATED" -eq 0 ] && echo "Aviso: migrations não foram aplicadas."
+if [ "$MIGRATED" -eq 0 ]; then
+  echo "ERRO FATAL: migrations não foram aplicadas após 5 tentativas. Abortando para não subir a aplicação com o schema desatualizado."
+  exit 1
+fi
 
 exec "$@"
