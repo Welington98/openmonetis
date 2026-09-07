@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.21.1](https://github.com/Welington98/openmonetis/compare/v2.21.0...v2.21.1) (2026-09-07)
+
+### Corrigido
+
+* **bank-sync,import:** contadores do filtro refletem busca/período e mostra total selecionado no import ([bf06e3e](https://github.com/Welington98/openmonetis/commit/bf06e3ea59b490d6604e4b4328d002f5ba51d082))
+
 ## [2.21.0](https://github.com/Welington98/openmonetis/compare/v2.20.0...v2.21.0) (2026-09-07)
 
 ### Adicionado
