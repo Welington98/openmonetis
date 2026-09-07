@@ -3,6 +3,7 @@
 import { RiDownloadLine, RiUploadCloud2Line } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { parseOfx } from "@/shared/lib/import/ofx-parser";
+import { parseSicrediFatura } from "@/shared/lib/import/pdf-sicredi-fatura-parser";
 import type { ImportStatement } from "@/shared/lib/import/types";
 import { generateXlsTemplate, parseXls } from "@/shared/lib/import/xls-parser";
 
@@ -19,9 +20,23 @@ export function UploadZone({ onParsed }: UploadZoneProps) {
 		setError(null);
 		const isOfx = /\.(ofx|qfx)$/i.test(file.name);
 		const isXls = /\.(xlsx|xls)$/i.test(file.name);
+		const isPdf = /\.pdf$/i.test(file.name);
 
-		if (!isOfx && !isXls) {
-			setError("Formato não suportado. Use .ofx, .qfx, .xlsx ou .xls.");
+		if (!isOfx && !isXls && !isPdf) {
+			setError(
+				"Formato não suportado. Use .ofx, .qfx, .xlsx, .xls ou .pdf (fatura Sicredi).",
+			);
+			return;
+		}
+
+		if (isPdf) {
+			parseSicrediFatura(file)
+				.then(onParsed)
+				.catch((err) => {
+					setError(
+						err instanceof Error ? err.message : "Não foi possível ler o PDF.",
+					);
+				});
 			return;
 		}
 
@@ -103,7 +118,7 @@ export function UploadZone({ onParsed }: UploadZoneProps) {
 						Arraste um arquivo aqui ou clique para selecionar
 					</p>
 					<p className="mt-1 text-muted-foreground text-xs">
-						.ofx · .qfx · .xlsx · .xls
+						.ofx · .qfx · .xlsx · .xls · .pdf (fatura Sicredi)
 					</p>
 				</div>
 			</button>
@@ -111,7 +126,7 @@ export function UploadZone({ onParsed }: UploadZoneProps) {
 			<input
 				ref={inputRef}
 				type="file"
-				accept=".ofx,.qfx,.xlsx,.xls"
+				accept=".ofx,.qfx,.xlsx,.xls,.pdf"
 				className="hidden"
 				onChange={(e) => {
 					const file = e.target.files?.[0];
