@@ -44,6 +44,34 @@ describe("buildCardDueSchedule", () => {
 		expect(schedule.size).toBe(0);
 	});
 
+	it("a partially paid invoice contributes nothing — the remainder already exists as a real carry-over row in the next period", () => {
+		const schedule = buildCardDueSchedule([
+			{
+				cardId: "card-1",
+				dueDay: "10",
+				period: "2026-09",
+				paymentStatus: "parcial",
+				adminTotal: 500,
+			},
+		]);
+
+		expect(schedule.size).toBe(0);
+	});
+
+	it("an installed (parcelada) invoice contributes nothing — the remainder already exists as real installment rows in future periods", () => {
+		const schedule = buildCardDueSchedule([
+			{
+				cardId: "card-1",
+				dueDay: "10",
+				period: "2026-09",
+				paymentStatus: "parcelado",
+				adminTotal: 500,
+			},
+		]);
+
+		expect(schedule.size).toBe(0);
+	});
+
 	it("an invoice with no admin-payer share contributes nothing", () => {
 		const schedule = buildCardDueSchedule([
 			{

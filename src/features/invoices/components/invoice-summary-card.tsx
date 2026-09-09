@@ -10,6 +10,8 @@ import {
 	updateInvoicePaymentStatusAction,
 	updatePaymentDateAction,
 } from "@/features/invoices/actions";
+import { InstallInvoiceDialog } from "@/features/invoices/components/install-invoice-dialog";
+import { PartialPaymentDialog } from "@/features/invoices/components/partial-payment-dialog";
 import { AccountCardSelectContent } from "@/features/transactions/components/select-items";
 import StatusDot from "@/shared/components/feedback/status-dot";
 import MoneyValues from "@/shared/components/money-values";
@@ -68,23 +70,11 @@ type InvoiceSummaryCardProps = {
 	limitAmount: number | null;
 	invoiceStatus: InvoicePaymentStatus;
 	paymentDate: Date | null;
+	amountPaid: number | null;
 	defaultPaymentAccountId: string | null;
 	paymentAccountOptions: PaymentAccountOption[];
 	logo?: string | null;
 	actions?: React.ReactNode;
-};
-
-const actionLabelByStatus: Record<InvoicePaymentStatus, string> = {
-	[INVOICE_PAYMENT_STATUS.PENDING]: "Marcar como paga",
-	[INVOICE_PAYMENT_STATUS.PAID]: "Desfazer pagamento",
-};
-
-const actionVariantByStatus: Record<
-	InvoicePaymentStatus,
-	"default" | "outline"
-> = {
-	[INVOICE_PAYMENT_STATUS.PENDING]: "default",
-	[INVOICE_PAYMENT_STATUS.PAID]: "outline",
 };
 
 const formatDay = (value: string) => value.padStart(2, "0");
@@ -115,13 +105,14 @@ export function InvoiceSummaryCard({
 	limitAmount,
 	invoiceStatus,
 	paymentDate: initialPaymentDate,
+	amountPaid,
 	defaultPaymentAccountId,
 	paymentAccountOptions,
 	logo,
 	actions,
 }: InvoiceSummaryCardProps) {
 	const router = useRouter();
-	const [isPending, startTransition] = useTransition();
+	const [isTransactionPending, startTransition] = useTransition();
 	const [paymentDate, setPaymentDate] = useState<Date>(
 		initialPaymentDate ?? new Date(),
 	);
@@ -142,15 +133,25 @@ export function InvoiceSummaryCard({
 
 	const logoPath = resolveLogoSrc(logo);
 	const brandAsset = resolveCardBrandAsset(cardBrand);
+	const isStatusPending = invoiceStatus === INVOICE_PAYMENT_STATUS.PENDING;
 	const isPaid = invoiceStatus === INVOICE_PAYMENT_STATUS.PAID;
+	const isPartial = invoiceStatus === INVOICE_PAYMENT_STATUS.PARTIAL;
+	const totalAbs = Math.abs(totalAmount);
+	const remainingAmount = isPartial
+		? Math.max(totalAbs - (amountPaid ?? 0), 0)
+		: totalAbs;
 	const paymentDateLabel = isPaid ? formatPaymentDate(paymentDate) : null;
 	const actionDescription = isPaid
 		? `Pagamento registrado em ${paymentDateLabel}.`
-		: INVOICE_STATUS_DESCRIPTION[invoiceStatus];
+		: isPartial
+			? `Pago ${formatCurrency(amountPaid ?? 0)} de ${formatCurrency(totalAbs)}. O restante (${formatCurrency(remainingAmount)}) virou saldo financiado na fatura seguinte.`
+			: INVOICE_STATUS_DESCRIPTION[invoiceStatus];
 
-	const targetStatus = isPaid
-		? INVOICE_PAYMENT_STATUS.PENDING
-		: INVOICE_PAYMENT_STATUS.PAID;
+	// "Desfazer pagamento" é o desfazer universal dos 3 fluxos (pagar tudo,
+	// pagar parcial, parcelar) — sempre volta pra "pendente".
+	const targetStatus = isStatusPending
+		? INVOICE_PAYMENT_STATUS.PAID
+		: INVOICE_PAYMENT_STATUS.PENDING;
 
 	const handleAction = (accountId?: string) => {
 		startTransition(async () => {
@@ -332,45 +333,91 @@ export function InvoiceSummaryCard({
 								{actionDescription}
 							</p>
 						</div>
-						<div className="flex shrink-0 items-center gap-1.5">
-							{isPaid ? (
+						<div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+							{isStatusPending ? (
+								<>
+									<PayInvoiceDialog
+										open={paymentDialogOpen}
+										onOpenChange={setPaymentDialogOpen}
+										isPending={isTransactionPending}
+										paymentDate={paymentDate}
+										onPaymentDateChange={setPaymentDate}
+										accountId={paymentAccountId}
+										onAccountChange={setPaymentAccountId}
+										accountOptions={paymentAccountOptions}
+										onConfirm={handlePaymentConfirm}
+										trigger={
+											<Button
+												type="button"
+												size="sm"
+												disabled={isTransactionPending}
+												className="min-w-32"
+											>
+												{isTransactionPending
+													? "Salvando..."
+													: "Marcar como paga"}
+											</Button>
+										}
+									/>
+									<PartialPaymentDialog
+										cardId={cardId}
+										period={period}
+										totalAmount={totalAmount}
+										defaultPaymentAccountId={defaultPaymentAccountId}
+										paymentAccountOptions={paymentAccountOptions}
+										trigger={
+											<Button type="button" size="sm" variant="outline">
+												Pagar parcialmente
+											</Button>
+										}
+									/>
+									<InstallInvoiceDialog
+										cardId={cardId}
+										period={period}
+										remainingAmount={remainingAmount}
+										trigger={
+											<Button type="button" size="sm" variant="outline">
+												Parcelar fatura
+											</Button>
+										}
+									/>
+								</>
+							) : isPartial ? (
+								<>
+									<InstallInvoiceDialog
+										cardId={cardId}
+										period={period}
+										remainingAmount={remainingAmount}
+										trigger={
+											<Button type="button" size="sm" variant="outline">
+												Parcelar restante
+											</Button>
+										}
+									/>
+									<Button
+										type="button"
+										size="sm"
+										variant="outline"
+										disabled={isTransactionPending}
+										onClick={() => handleAction()}
+										className="min-w-32"
+									>
+										{isTransactionPending
+											? "Salvando..."
+											: "Desfazer pagamento"}
+									</Button>
+								</>
+							) : (
 								<Button
 									type="button"
 									size="sm"
-									variant={actionVariantByStatus[invoiceStatus]}
-									disabled={isPending}
+									variant="outline"
+									disabled={isTransactionPending}
 									onClick={() => handleAction()}
 									className="min-w-32"
 								>
-									{isPending
-										? "Salvando..."
-										: actionLabelByStatus[invoiceStatus]}
+									{isTransactionPending ? "Salvando..." : "Desfazer pagamento"}
 								</Button>
-							) : (
-								<PayInvoiceDialog
-									open={paymentDialogOpen}
-									onOpenChange={setPaymentDialogOpen}
-									isPending={isPending}
-									paymentDate={paymentDate}
-									onPaymentDateChange={setPaymentDate}
-									accountId={paymentAccountId}
-									onAccountChange={setPaymentAccountId}
-									accountOptions={paymentAccountOptions}
-									onConfirm={handlePaymentConfirm}
-									trigger={
-										<Button
-											type="button"
-											size="sm"
-											variant={actionVariantByStatus[invoiceStatus]}
-											disabled={isPending}
-											className="min-w-32"
-										>
-											{isPending
-												? "Salvando..."
-												: actionLabelByStatus[invoiceStatus]}
-										</Button>
-									}
-								/>
 							)}
 							{isPaid ? (
 								<EditPaymentDateDialog

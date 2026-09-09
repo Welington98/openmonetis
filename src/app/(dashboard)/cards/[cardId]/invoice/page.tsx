@@ -150,7 +150,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 		pluggyConnectorName: null,
 	};
 
-	const { totalAmount, invoiceStatus, paymentDate } = invoiceData;
+	const { totalAmount, invoiceStatus, paymentDate, amountPaid } = invoiceData;
 
 	const periodLabel = `${monthName.charAt(0).toUpperCase()}${monthName.slice(
 		1,
@@ -174,6 +174,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 					limitAmount={limitAmount}
 					invoiceStatus={invoiceStatus}
 					paymentDate={paymentDate}
+					amountPaid={amountPaid}
 					defaultPaymentAccountId={card.accountId}
 					paymentAccountOptions={accountOptions.map((option) => ({
 						value: option.value,
