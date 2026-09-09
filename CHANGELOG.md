@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.23.0](https://github.com/Welington98/openmonetis/compare/v2.22.0...v2.23.0) (2026-09-09)
+
+### Adicionado
+
+* **invoices:** pagamento parcial e parcelamento de fatura de cartão ([4a34777](https://github.com/Welington98/openmonetis/commit/4a3477727058731c76a3625ff71fb30981708eb4))
+
 ## [2.22.0](https://github.com/Welington98/openmonetis/compare/v2.21.1...v2.22.0) (2026-09-09)
 
 ### Adicionado
