@@ -3,6 +3,7 @@
 import { RiDownloadLine, RiUploadCloud2Line } from "@remixicon/react";
 import { useRef, useState } from "react";
 import { parseOfx } from "@/shared/lib/import/ofx-parser";
+import { parseItauFatura } from "@/shared/lib/import/pdf-itau-fatura-parser";
 import { parseSicrediFatura } from "@/shared/lib/import/pdf-sicredi-fatura-parser";
 import type { ImportStatement } from "@/shared/lib/import/types";
 import { generateXlsTemplate, parseXls } from "@/shared/lib/import/xls-parser";
@@ -24,13 +25,14 @@ export function UploadZone({ onParsed }: UploadZoneProps) {
 
 		if (!isOfx && !isXls && !isPdf) {
 			setError(
-				"Formato não suportado. Use .ofx, .qfx, .xlsx, .xls ou .pdf (fatura Sicredi).",
+				"Formato não suportado. Use .ofx, .qfx, .xlsx, .xls ou .pdf (fatura Sicredi ou Itaú).",
 			);
 			return;
 		}
 
 		if (isPdf) {
 			parseSicrediFatura(file)
+				.catch(() => parseItauFatura(file))
 				.then(onParsed)
 				.catch((err) => {
 					setError(
@@ -118,7 +120,7 @@ export function UploadZone({ onParsed }: UploadZoneProps) {
 						Arraste um arquivo aqui ou clique para selecionar
 					</p>
 					<p className="mt-1 text-muted-foreground text-xs">
-						.ofx · .qfx · .xlsx · .xls · .pdf (fatura Sicredi)
+						.ofx · .qfx · .xlsx · .xls · .pdf (fatura Sicredi ou Itaú)
 					</p>
 				</div>
 			</button>
