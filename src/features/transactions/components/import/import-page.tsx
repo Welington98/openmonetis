@@ -406,7 +406,8 @@ export function ImportPage({
 						<CardTitle>Importar extrato</CardTitle>
 						<CardDescription>
 							Importe transações a partir de um arquivo .ofx, planilha .xlsx ou
-							fatura de cartão em PDF (Sicredi ou Itaú) exportado pelo seu banco.
+							fatura de cartão em PDF (Sicredi ou Itaú) exportado pelo seu
+							banco.
 						</CardDescription>
 					</div>
 					<div className="flex items-center gap-3">
