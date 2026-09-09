@@ -23,8 +23,13 @@ export type InvoiceDueAggregate = {
  * Mapeia faturas não pagas pra um Map<data de vencimento, soma>. Fatura paga
  * é descartada: o pagamento já virou um lançamento realizado real (nota
  * `AUTO_FATURA:`), que está dentro de `anchorBalance` — contar a fatura de
- * novo aqui dobraria a saída. Duas faturas de cartões diferentes vencendo no
- * mesmo dia somam na mesma célula.
+ * novo aqui dobraria a saída. O mesmo vale para fatura parcialmente paga
+ * (o restante já virou um lançamento de "Saldo financiado" na fatura
+ * seguinte) e para fatura parcelada (o restante já virou as transações de
+ * parcelamento em faturas futuras) — em ambos os casos a dívida remanescente
+ * já existe como transação real em outro período, que entra no cronograma
+ * quando ESSE período for agregado. Duas faturas de cartões diferentes
+ * vencendo no mesmo dia somam na mesma célula.
  */
 export function buildCardDueSchedule(
 	invoices: InvoiceDueAggregate[],
@@ -32,7 +37,11 @@ export function buildCardDueSchedule(
 	const schedule = new Map<string, number>();
 
 	for (const invoice of invoices) {
-		if (invoice.paymentStatus === INVOICE_PAYMENT_STATUS.PAID) {
+		if (
+			invoice.paymentStatus === INVOICE_PAYMENT_STATUS.PAID ||
+			invoice.paymentStatus === INVOICE_PAYMENT_STATUS.PARTIAL ||
+			invoice.paymentStatus === INVOICE_PAYMENT_STATUS.INSTALLED
+		) {
 			continue;
 		}
 		if (invoice.adminTotal <= 0) {

@@ -22,6 +22,31 @@ export const buildInvoicePaymentNote = (cardId: string, period: string) =>
 
 export const INVOICE_ADJUSTMENT_NAME = "Ajuste de fatura";
 
+export const CARRY_OVER_NOTE_PREFIX = "AUTO_SALDO_FINANCIADO:";
+
+export const buildCarryOverNote = (cardId: string, period: string) =>
+	`${CARRY_OVER_NOTE_PREFIX}${cardId}:${period}`;
+
+export const CARRY_OVER_TRANSACTION_NAME = "Saldo financiado";
+
+export const INSTALLMENT_INVOICE_NOTE_PREFIX = "AUTO_PARCELAMENTO_FATURA:";
+
+export const buildInstallmentInvoiceNotePrefix = (
+	cardId: string,
+	period: string,
+) => `${INSTALLMENT_INVOICE_NOTE_PREFIX}${cardId}:${period}:`;
+
+export const buildInstallmentInvoiceNote = (
+	cardId: string,
+	period: string,
+	installmentNumber: number,
+) => `${buildInstallmentInvoiceNotePrefix(cardId, period)}${installmentNumber}`;
+
+export const buildInstallmentInvoiceName = (
+	installmentNumber: number,
+	installmentCount: number,
+) => `Parcelamento de fatura (${installmentNumber}/${installmentCount})`;
+
 export const ACCOUNT_BALANCE_ADJUSTMENT_NAME = "Ajuste de saldo";
 
 export const REFUND_NOTE_PREFIX = "AUTO_REEMBOLSO:";

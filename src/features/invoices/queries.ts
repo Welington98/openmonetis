@@ -5,6 +5,7 @@ import { buildInvoicePaymentNote } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
 import {
 	INVOICE_PAYMENT_STATUS,
+	INVOICE_STATUS_VALUES,
 	type InvoicePaymentStatus,
 } from "@/shared/lib/invoices";
 
@@ -47,6 +48,7 @@ export async function fetchInvoiceData(
 	totalAmount: number;
 	invoiceStatus: InvoicePaymentStatus;
 	paymentDate: Date | null;
+	amountPaid: number | null;
 }> {
 	const [invoiceRow, totalRow] = await Promise.all([
 		db.query.invoices.findFirst({
@@ -77,19 +79,24 @@ export async function fetchInvoiceData(
 	const isInvoiceStatus = (
 		value: string | null | undefined,
 	): value is InvoicePaymentStatus =>
-		!!value && ["pendente", "pago"].includes(value);
+		!!value && (INVOICE_STATUS_VALUES as string[]).includes(value);
 
 	const invoiceStatus = isInvoiceStatus(invoiceRow?.paymentStatus)
 		? invoiceRow?.paymentStatus
 		: INVOICE_PAYMENT_STATUS.PENDING;
 
-	// Buscar data do pagamento se a fatura estiver paga
+	// Buscar data e valor do pagamento se a fatura estiver paga ou parcial
 	let paymentDate: Date | null = null;
-	if (invoiceStatus === INVOICE_PAYMENT_STATUS.PAID) {
+	let amountPaid: number | null = null;
+	if (
+		invoiceStatus === INVOICE_PAYMENT_STATUS.PAID ||
+		invoiceStatus === INVOICE_PAYMENT_STATUS.PARTIAL
+	) {
 		const invoiceNote = buildInvoicePaymentNote(cardId, selectedPeriod);
 		const paymentLancamento = await db.query.transactions.findFirst({
 			columns: {
 				purchaseDate: true,
+				amount: true,
 			},
 			where: and(
 				eq(transactions.userId, userId),
@@ -99,9 +106,13 @@ export async function fetchInvoiceData(
 		paymentDate = paymentLancamento?.purchaseDate
 			? new Date(paymentLancamento.purchaseDate)
 			: null;
+		amountPaid =
+			invoiceStatus === INVOICE_PAYMENT_STATUS.PARTIAL
+				? Math.abs(toNumber(paymentLancamento?.amount))
+				: null;
 	}
 
-	return { totalAmount, invoiceStatus, paymentDate };
+	return { totalAmount, invoiceStatus, paymentDate, amountPaid };
 }
 
 export async function fetchCardTransactions(filters: SQL[]) {
