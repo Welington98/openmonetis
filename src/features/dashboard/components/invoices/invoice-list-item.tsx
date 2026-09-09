@@ -20,6 +20,7 @@ import {
 	AvatarImage,
 } from "@/shared/components/ui/avatar";
 import { Button } from "@/shared/components/ui/button";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
 	HoverCard,
 	HoverCardContent,
@@ -38,9 +39,18 @@ import { InvoiceLogo } from "./invoice-logo";
 type InvoiceListItemProps = {
 	invoice: DashboardInvoice;
 	onPay: (invoiceId: string) => void;
+	selectable?: boolean;
+	selected?: boolean;
+	onToggleSelect?: () => void;
 };
 
-export function InvoiceListItem({ invoice, onPay }: InvoiceListItemProps) {
+export function InvoiceListItem({
+	invoice,
+	onPay,
+	selectable = false,
+	selected = false,
+	onToggleSelect,
+}: InvoiceListItemProps) {
 	const dueInfo = parseInvoiceWidgetDueDate(invoice.period, invoice.dueDay);
 	const absoluteDueInfo = parseInvoiceDueDate(invoice.period, invoice.dueDay);
 	const isPaid = invoice.paymentStatus === INVOICE_PAYMENT_STATUS.PAID;
@@ -71,6 +81,13 @@ export function InvoiceListItem({ invoice, onPay }: InvoiceListItemProps) {
 	return (
 		<li className={styles.row}>
 			<div className={styles.main}>
+				{selectable ? (
+					<Checkbox
+						checked={selected}
+						onCheckedChange={() => onToggleSelect?.()}
+						aria-label={`Selecionar fatura de ${invoice.cardName}`}
+					/>
+				) : null}
 				<InvoiceLogo
 					cardName={invoice.cardName}
 					logo={invoice.logo}

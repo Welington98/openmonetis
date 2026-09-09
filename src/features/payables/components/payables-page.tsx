@@ -21,6 +21,7 @@ import {
 	PayablesFilters,
 	STATUS_FILTER_PARAM,
 } from "./payables-filters";
+import { PayablesSelectionBar } from "./payables-selection-bar";
 import { PayablesSidebar } from "./payables-sidebar";
 import { PayablesTabs } from "./payables-tabs";
 import { usePayablesView } from "./use-payables-view";
@@ -92,6 +93,37 @@ export function PayablesPage({
 		);
 	};
 
+	const [selectedRowIds, setSelectedRowIds] = useState<Set<string>>(
+		() => new Set(),
+	);
+
+	const toggleRowSelection = (id: string) => {
+		setSelectedRowIds((current) => {
+			const next = new Set(current);
+			if (next.has(id)) {
+				next.delete(id);
+			} else {
+				next.add(id);
+			}
+			return next;
+		});
+	};
+
+	const toggleAllRowsSelection = (rows: PayableRow[]) => {
+		setSelectedRowIds((current) => {
+			const allSelected = rows.every((row) => current.has(row.id));
+			const next = new Set(current);
+			for (const row of rows) {
+				if (allSelected) {
+					next.delete(row.id);
+				} else {
+					next.add(row.id);
+				}
+			}
+			return next;
+		});
+	};
+
 	const categoryFilter = searchParams.getAll(CATEGORY_FILTER_PARAM);
 	const paymentFilter = searchParams.getAll(PAYMENT_FILTER_PARAM);
 	const payerFilter = searchParams.getAll(PAYER_FILTER_PARAM);
@@ -160,6 +192,13 @@ export function PayablesPage({
 	const visiblePayables = scopedPayables.filter(matchesSelectedAccount);
 	const visibleReceivables = scopedReceivables.filter(matchesSelectedAccount);
 
+	const selectedPayables = visiblePayables.filter((row) =>
+		selectedRowIds.has(row.id),
+	);
+	const selectedReceivables = visibleReceivables.filter((row) =>
+		selectedRowIds.has(row.id),
+	);
+
 	const activeTabRows =
 		initialTab === "pagar" ? scopedPayables : scopedReceivables;
 	const accountSummaries = paymentAccountOptions.map((account) => ({
@@ -217,6 +256,10 @@ export function PayablesPage({
 					</div>
 
 					<TabsContent value="pagar" className="mt-4">
+						<PayablesSelectionBar
+							selectedCount={selectedPayables.length}
+							selectedTotal={sumAmount(selectedPayables)}
+						/>
 						<PayableList
 							rows={visiblePayables}
 							onPayBill={billController.openPaymentDialog}
@@ -226,10 +269,17 @@ export function PayablesPage({
 							}
 							emptyTitle="Nenhuma conta a pagar"
 							emptyDescription="Tudo em dia para os filtros selecionados."
+							selectedIds={selectedRowIds}
+							onToggleRow={toggleRowSelection}
+							onToggleAllRows={toggleAllRowsSelection}
 						/>
 					</TabsContent>
 
 					<TabsContent value="receber" className="mt-4">
+						<PayablesSelectionBar
+							selectedCount={selectedReceivables.length}
+							selectedTotal={sumAmount(selectedReceivables)}
+						/>
 						<PayableList
 							rows={visibleReceivables}
 							onPayBill={billController.openPaymentDialog}
@@ -239,6 +289,9 @@ export function PayablesPage({
 							}
 							emptyTitle="Nenhuma conta a receber"
 							emptyDescription="Nenhum recebimento pendente para os filtros selecionados."
+							selectedIds={selectedRowIds}
+							onToggleRow={toggleRowSelection}
+							onToggleAllRows={toggleAllRowsSelection}
 						/>
 					</TabsContent>
 

@@ -12,6 +12,7 @@ import { dashboardWidgetListStyles as styles } from "@/features/dashboard/compon
 import { EstablishmentLogo } from "@/shared/components/entity-avatar";
 import MoneyValues from "@/shared/components/money-values";
 import { Button } from "@/shared/components/ui/button";
+import { Checkbox } from "@/shared/components/ui/checkbox";
 import {
 	Tooltip,
 	TooltipContent,
@@ -24,6 +25,9 @@ type BillListItemProps = {
 	bill: DashboardBill;
 	period?: string;
 	onPay: (billId: string) => void;
+	selectable?: boolean;
+	selected?: boolean;
+	onToggleSelect?: () => void;
 };
 
 function buildTransactionsHref(name: string, period?: string): string {
@@ -35,7 +39,14 @@ function buildTransactionsHref(name: string, period?: string): string {
 	return `/transactions?${params.toString()}`;
 }
 
-export function BillListItem({ bill, period, onPay }: BillListItemProps) {
+export function BillListItem({
+	bill,
+	period,
+	onPay,
+	selectable = false,
+	selected = false,
+	onToggleSelect,
+}: BillListItemProps) {
 	const statusLabel = buildBillWidgetStatusLabel(bill);
 	const absoluteStatusLabel = buildBillStatusLabel(bill);
 	const overdue = isBillOverdue(bill);
@@ -50,6 +61,13 @@ export function BillListItem({ bill, period, onPay }: BillListItemProps) {
 	return (
 		<li className={styles.row}>
 			<div className={styles.main}>
+				{selectable ? (
+					<Checkbox
+						checked={selected}
+						onCheckedChange={() => onToggleSelect?.()}
+						aria-label={`Selecionar ${bill.name}`}
+					/>
+				) : null}
 				<EstablishmentLogo name={bill.name} size={37} />
 
 				<div className={styles.textStack}>
