@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.22.0](https://github.com/Welington98/openmonetis/compare/v2.21.1...v2.22.0) (2026-09-09)
+
+### Adicionado
+
+* **payables:** adiciona checkbox de seleção com total somado ([6ed1380](https://github.com/Welington98/openmonetis/commit/6ed1380dd3f934781fb15206bbf7eaeaa74bd108))
+
 ## [2.21.1](https://github.com/Welington98/openmonetis/compare/v2.21.0...v2.21.1) (2026-09-07)
 
 ### Corrigido
