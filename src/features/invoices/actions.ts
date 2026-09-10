@@ -67,6 +67,14 @@ const updateInvoicePaymentStatusSchema = z.object({
 		.uuid("Conta inválida.")
 		.nullable()
 		.optional(),
+	// Valor efetivamente pago, quando diferente do total da fatura (ex.:
+	// desconto obtido ou juros cobrados à parte). Quando informado, é o
+	// valor debitado da conta — a fatura inteira continua sendo marcada
+	// como paga (mesmo padrão simplificado usado em contas avulsas/boletos).
+	paidAmount: z.coerce
+		.number({ message: "Valor pago inválido." })
+		.positive("O valor pago deve ser maior que zero.")
+		.optional(),
 });
 
 type UpdateInvoicePaymentStatusInput = z.infer<
@@ -183,7 +191,7 @@ export async function updateInvoicePaymentStatusAction(
 						? parseLocalDateString(data.paymentDate)
 						: getBusinessTodayDate();
 
-					const amount = `-${formatDecimalForDbRequired(adminPayableAmount)}`;
+					const amount = `-${formatDecimalForDbRequired(data.paidAmount ?? adminPayableAmount)}`;
 					const payload = {
 						condition: "À vista",
 						name: `Pagamento fatura - ${card.name}`,

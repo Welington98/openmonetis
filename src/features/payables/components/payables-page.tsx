@@ -304,6 +304,8 @@ export function PayablesPage({
 						onPaymentAccountChange={billController.setPaymentAccountId}
 						paymentDate={billController.paymentDate}
 						onPaymentDateChange={billController.setPaymentDate}
+						paidAmount={billController.paidAmount}
+						onPaidAmountChange={billController.setPaidAmount}
 						paymentAccountOptions={paymentAccountOptions}
 						onClose={billController.closePaymentDialog}
 						onConfirm={billController.confirmPayment}
@@ -318,6 +320,8 @@ export function PayablesPage({
 						onPaymentAccountChange={invoiceController.setPaymentAccountId}
 						paymentDate={invoiceController.paymentDate}
 						onPaymentDateChange={invoiceController.setPaymentDate}
+						paidAmount={invoiceController.paidAmount}
+						onPaidAmountChange={invoiceController.setPaidAmount}
 						paymentAccountOptions={paymentAccountOptions}
 						onClose={invoiceController.closePaymentDialog}
 						onConfirm={invoiceController.confirmPayment}

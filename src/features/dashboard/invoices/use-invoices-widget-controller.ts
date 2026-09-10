@@ -25,6 +25,8 @@ type InvoicesWidgetController = Omit<
 	setPaymentAccountId: (accountId: string) => void;
 	paymentDate: Date;
 	setPaymentDate: (date: Date) => void;
+	paidAmount: string;
+	setPaidAmount: (amount: string) => void;
 };
 
 export function useInvoicesWidgetController(
@@ -32,11 +34,14 @@ export function useInvoicesWidgetController(
 ): InvoicesWidgetController {
 	const [paymentAccountId, setPaymentAccountId] = useState<string>("");
 	const [paymentDate, setPaymentDate] = useState<Date>(() => new Date());
+	const [paidAmount, setPaidAmount] = useState<string>("");
 
 	const paymentAccountIdRef = useRef(paymentAccountId);
 	const paymentDateRef = useRef(paymentDate);
+	const paidAmountRef = useRef(paidAmount);
 	paymentAccountIdRef.current = paymentAccountId;
 	paymentDateRef.current = paymentDate;
+	paidAmountRef.current = paidAmount;
 
 	const controller = usePaymentDialogController({
 		items: invoices,
@@ -46,6 +51,9 @@ export function useInvoicesWidgetController(
 			const accountId = paymentAccountIdRef.current || undefined;
 			const date = paymentDateRef.current;
 			const isoDate = date.toISOString().split("T")[0];
+			const parsedPaidAmount = paidAmountRef.current
+				? Number(paidAmountRef.current)
+				: undefined;
 
 			return updateInvoicePaymentStatusAction({
 				cardId: invoice.cardId,
@@ -53,15 +61,28 @@ export function useInvoicesWidgetController(
 				status: INVOICE_PAYMENT_STATUS.PAID,
 				paymentAccountId: accountId,
 				paymentDate: isoDate,
+				paidAmount:
+					parsedPaidAmount !== undefined && !Number.isNaN(parsedPaidAmount)
+						? parsedPaidAmount
+						: undefined,
 			});
 		},
-		applyConfirmedState: (invoice) =>
-			markInvoiceAsPaid(invoice, getCurrentDateString()),
+		applyConfirmedState: (invoice) => {
+			const parsedPaidAmount = paidAmountRef.current
+				? Number(paidAmountRef.current)
+				: undefined;
+			const paidInvoice = markInvoiceAsPaid(invoice, getCurrentDateString());
+
+			return parsedPaidAmount !== undefined && !Number.isNaN(parsedPaidAmount)
+				? { ...paidInvoice, totalAmount: -parsedPaidAmount }
+				: paidInvoice;
+		},
 	});
 
 	const selectedInvoiceId = controller.selectedItem?.id ?? null;
 	const selectedDefaultAccountId =
 		controller.selectedItem?.defaultPaymentAccountId ?? "";
+	const selectedInvoiceAmount = controller.selectedItem?.totalAmount ?? null;
 
 	useEffect(() => {
 		if (!selectedInvoiceId) {
@@ -69,7 +90,12 @@ export function useInvoicesWidgetController(
 		}
 		setPaymentAccountId(selectedDefaultAccountId);
 		setPaymentDate(new Date());
-	}, [selectedInvoiceId, selectedDefaultAccountId]);
+		setPaidAmount(
+			selectedInvoiceAmount !== null
+				? Math.abs(selectedInvoiceAmount).toFixed(2)
+				: "",
+		);
+	}, [selectedInvoiceId, selectedDefaultAccountId, selectedInvoiceAmount]);
 
 	return {
 		...controller,
@@ -78,5 +104,7 @@ export function useInvoicesWidgetController(
 		setPaymentAccountId,
 		paymentDate,
 		setPaymentDate,
+		paidAmount,
+		setPaidAmount,
 	};
 }

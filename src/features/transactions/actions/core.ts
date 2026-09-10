@@ -547,6 +547,13 @@ export const toggleSettlementSchema = z.object({
 		.string()
 		.regex(/^\d{4}-\d{2}-\d{2}$/u, "Data de pagamento inválida.")
 		.optional(),
+	// Valor efetivamente pago/recebido, quando diferente do valor original do
+	// lançamento (ex.: boleto pago com desconto/juros). Quando informado,
+	// substitui `amount` no lançamento — não fica rastreado separadamente.
+	paidAmount: z.coerce
+		.number({ message: "Valor pago inválido." })
+		.positive("O valor pago deve ser maior que zero.")
+		.optional(),
 });
 
 export const convertToInstallmentSchema = z.object({
