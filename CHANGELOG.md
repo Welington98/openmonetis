@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.26.0](https://github.com/Welington98/openmonetis/compare/v2.25.0...v2.26.0) (2026-09-10)
+
+### Adicionado
+
+* **payables:** exibir data de lançamento em contas a pagar/receber ([8c55f3d](https://github.com/Welington98/openmonetis/commit/8c55f3df3757f5415d6145a30a53ce443f414a84))
+
 ## [2.25.0](https://github.com/Welington98/openmonetis/compare/v2.24.0...v2.25.0) (2026-09-10)
 
 ### Adicionado
