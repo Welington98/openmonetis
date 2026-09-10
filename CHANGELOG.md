@@ -5,6 +5,16 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.24.0](https://github.com/Welington98/openmonetis/compare/v2.23.0...v2.24.0) (2026-09-10)
+
+### Adicionado
+
+* **import:** adiciona parser de fatura Itaú em PDF ([179db1a](https://github.com/Welington98/openmonetis/commit/179db1accfcb4decfaf358d17b90903356f5907d))
+
+### Corrigido
+
+* **import:** corrige quebra de linha exigida pelo Biome do CI ([a9f2eb3](https://github.com/Welington98/openmonetis/commit/a9f2eb31dac003407579b3e4a667c88a31bb64dc))
+
 ## [2.23.0](https://github.com/Welington98/openmonetis/compare/v2.22.0...v2.23.0) (2026-09-09)
 
 ### Adicionado
