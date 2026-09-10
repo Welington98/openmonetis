@@ -82,18 +82,76 @@ function clusterRows(items: PositionedItem[]): PositionedItem[][] {
 	return rows;
 }
 
+const COLUMN_HEADER_DATE_TEXT = "DATA";
+const COLUMN_HEADER_VALUE_TEXT = "VALOR EM R$";
+const COLUMN_ANCHOR_CLUSTER_GAP = 20;
+
+/** Agrupa valores de X próximos (a até `gap` pt um do outro) e retorna a média de cada grupo. */
+function clusterXPositions(xs: number[], gap: number): number[] {
+	if (xs.length === 0) return [];
+	const sorted = [...xs].sort((a, b) => a - b);
+	const clusters: number[][] = [[sorted[0]]];
+	for (let i = 1; i < sorted.length; i += 1) {
+		const current = clusters[clusters.length - 1];
+		const lastInCurrent = current[current.length - 1];
+		if (lastInCurrent !== undefined && sorted[i] - lastInCurrent > gap) {
+			clusters.push([sorted[i]]);
+		} else {
+			current.push(sorted[i]);
+		}
+	}
+	return clusters.map((c) => c.reduce((a, b) => a + b, 0) / c.length);
+}
+
 /**
- * Divide os itens de uma página em coluna esquerda/direita a partir do
- * ponto médio de X observado na própria página (aproxima a largura real da
- * página sem depender do viewport do pdfjs, o que mantém a função de
- * orquestração pura e testável com fixtures sintéticas).
+ * Determina o ponto de corte entre as duas colunas a partir dos próprios
+ * cabeçalhos "DATA"/"VALOR EM R$" da tabela (esses rótulos se repetem uma
+ * vez por coluna, em cada mini-tabela empilhada verticalmente nela —
+ * Pagamentos, Lançamentos, Compras parceladas). Não dá pra usar o ponto
+ * médio bruto de X de tudo que existe na página: a coluna de valor da
+ * tabela esquerda fica posicionada perto o bastante da coluna da direita
+ * (poucas dezenas de pt) que esse ponto médio — puxado por texto de
+ * parágrafo/rodapé espalhado pela página — corta no meio do próprio valor
+ * real, quebrando a linha ao meio (data de um lado, valor do outro), o que
+ * derruba a transação inteira e quebra a reconciliação do total.
+ *
+ * Se a página não tiver 2 colunas de conteúdo (não há 2 ocorrências
+ * distintas de cabeçalho), retorna null — a página inteira vira uma única
+ * "coluna" em `splitColumns`.
+ */
+function detectColumnBoundary(pageItems: PositionedItem[]): number | null {
+	const dataXs = clusterXPositions(
+		pageItems
+			.filter((item) => item.str === COLUMN_HEADER_DATE_TEXT)
+			.map((item) => item.x),
+		COLUMN_ANCHOR_CLUSTER_GAP,
+	);
+	const valorXs = clusterXPositions(
+		pageItems
+			.filter((item) => item.str === COLUMN_HEADER_VALUE_TEXT)
+			.map((item) => item.x),
+		COLUMN_ANCHOR_CLUSTER_GAP,
+	);
+
+	if (dataXs.length < 2 || valorXs.length < 2) return null;
+
+	const leftValorX = Math.min(...valorXs);
+	const rightDataX = Math.max(...dataXs);
+	if (rightDataX <= leftValorX) return null;
+
+	return (leftValorX + rightDataX) / 2;
+}
+
+/**
+ * Divide os itens de uma página em coluna esquerda/direita. Ver
+ * `detectColumnBoundary` para como o ponto de corte é escolhido.
  */
 function splitColumns(pageItems: PositionedItem[]): PositionedItem[][] {
 	if (pageItems.length === 0) return [[], []];
-	const xs = pageItems.map((item) => item.x);
-	const midX = (Math.min(...xs) + Math.max(...xs)) / 2;
-	const left = pageItems.filter((item) => item.x < midX);
-	const right = pageItems.filter((item) => item.x >= midX);
+	const boundary = detectColumnBoundary(pageItems);
+	if (boundary === null) return [pageItems, []];
+	const left = pageItems.filter((item) => item.x < boundary);
+	const right = pageItems.filter((item) => item.x >= boundary);
 	return [left, right];
 }
 

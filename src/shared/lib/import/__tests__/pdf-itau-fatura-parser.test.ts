@@ -108,6 +108,51 @@ describe("parseItauFaturaFromPages", () => {
 		]);
 	});
 
+	it("separa as colunas corretamente mesmo quando o valor da coluna esquerda fica perto do início da coluna direita (regressão de bug real)", () => {
+		// Reproduz o layout real de uma fatura Itaú onde a coluna de valor da
+		// esquerda (~x=314) fica só ~37pt antes do início da coluna direita
+		// (~x=351) — bem mais perto dela do que do resto do conteúdo da
+		// página. O ponto médio ingênuo de todo o X da página (puxado pra
+		// baixo por texto de preâmbulo/rodapé com X pequeno) cai nesse
+		// intervalo e corta a linha da esquerda ao meio (data de um lado,
+		// valor do outro), derrubando a transação e quebrando a
+		// reconciliação do total — daí a necessidade de ancorar o corte nos
+		// próprios cabeçalhos "DATA"/"VALOR EM R$" de cada coluna.
+		const pages: Item[][] = [
+			[
+				...preamble("03/09/2026"),
+				{ str: "Lançamentos:", x: 133, y: 910 },
+				{ str: "compras e saques", x: 160, y: 910 },
+				{ str: "DATA", x: 133, y: 880 },
+				{ str: "ESTABELECIMENTO", x: 160, y: 880 },
+				{ str: "VALOR EM R$", x: 289, y: 880 },
+				{ str: "12/05", x: 133, y: 860 },
+				{ str: "FOZ DO IGUACU", x: 160, y: 860 },
+				{ str: "32,08", x: 314, y: 860 },
+				{ str: "saúde", x: 160, y: 845 },
+				{ str: "DATA", x: 351, y: 880 },
+				{ str: "ESTABELECIMENTO", x: 379, y: 880 },
+				{ str: "VALOR EM R$", x: 507, y: 880 },
+				{ str: "13/08", x: 351, y: 860 },
+				{ str: "Google YouTubePremiumSA", x: 379, y: 860 },
+				{ str: "26,90", x: 532, y: 860 },
+				{ str: "outros", x: 379, y: 845 },
+				{ str: "Total dos lançamentos atuais", x: 351, y: 800 },
+				{ str: "58,98", x: 532, y: 800 },
+			],
+		];
+
+		const result = parseItauFaturaFromPages(pages);
+
+		expect(result.transactions).toEqual([
+			expect.objectContaining({ amount: 32.08, description: "FOZ DO IGUACU" }),
+			expect.objectContaining({
+				amount: 26.9,
+				description: "Google YouTubePremiumSA",
+			}),
+		]);
+	});
+
 	it("infere o ano anterior quando o mês da transação é posterior ao mês de emissão", () => {
 		const pages: Item[][] = [
 			[
