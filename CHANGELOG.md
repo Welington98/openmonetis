@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.26.1](https://github.com/Welington98/openmonetis/compare/v2.26.0...v2.26.1) (2026-09-10)
+
+### Corrigido
+
+* **import:** corrige separação de colunas do parser de fatura Itaú ([9e289d0](https://github.com/Welington98/openmonetis/commit/9e289d0061b7e59ecbfefed24f3f5c1949b2a165))
+
 ## [2.26.0](https://github.com/Welington98/openmonetis/compare/v2.25.0...v2.26.0) (2026-09-10)
 
 ### Adicionado
