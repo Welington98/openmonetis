@@ -1027,6 +1027,7 @@ export async function toggleTransactionSettlementAction(
 			isSettled: boolean;
 			boletoPaymentDate: Date | null;
 			accountId?: string | null;
+			amount?: string;
 		} = {
 			isSettled: data.value,
 			boletoPaymentDate,
@@ -1034,6 +1035,13 @@ export async function toggleTransactionSettlementAction(
 
 		if (shouldUpdateAccount) {
 			updatePayload.accountId = data.paymentAccountId ?? null;
+		}
+
+		// Valor pago informado ao confirmar: substitui o valor do lançamento
+		// (mantém o sinal — despesa negativa, receita positiva).
+		if (data.value && data.paidAmount !== undefined) {
+			const signedAmount = isIncome ? data.paidAmount : -data.paidAmount;
+			updatePayload.amount = formatDecimalForDbRequired(signedAmount);
 		}
 
 		await db

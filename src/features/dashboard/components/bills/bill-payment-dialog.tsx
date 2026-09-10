@@ -21,6 +21,7 @@ import MoneyValues from "@/shared/components/money-values";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
+import { CurrencyInput } from "@/shared/components/ui/currency-input";
 import { DatePicker } from "@/shared/components/ui/date-picker";
 import {
 	Dialog,
@@ -49,6 +50,8 @@ type BillPaymentDialogProps = {
 	onPaymentAccountChange: (accountId: string) => void;
 	paymentDate: Date;
 	onPaymentDateChange: (date: Date) => void;
+	paidAmount: string;
+	onPaidAmountChange: (amount: string) => void;
 	paymentAccountOptions: BillPaymentAccountOption[];
 	onClose: () => void;
 	onConfirm: () => void;
@@ -63,6 +66,8 @@ export function BillPaymentDialog({
 	onPaymentAccountChange,
 	paymentDate,
 	onPaymentDateChange,
+	paidAmount,
+	onPaidAmountChange,
 	paymentAccountOptions,
 	onClose,
 	onConfirm,
@@ -248,6 +253,18 @@ export function BillPaymentDialog({
 														onPaymentDateChange(new Date(`${value}T00:00:00`));
 													}
 												}}
+												disabled={isProcessing}
+											/>
+										</div>
+
+										<div className="space-y-2">
+											<Label htmlFor="bill-widget-paid-amount">
+												Valor {income ? "recebido" : "pago"}
+											</Label>
+											<CurrencyInput
+												id="bill-widget-paid-amount"
+												value={paidAmount}
+												onValueChange={onPaidAmountChange}
 												disabled={isProcessing}
 											/>
 										</div>

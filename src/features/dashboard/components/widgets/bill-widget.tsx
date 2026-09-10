@@ -30,6 +30,8 @@ export function BillWidget({
 		setPaymentAccountId,
 		paymentDate,
 		setPaymentDate,
+		paidAmount,
+		setPaidAmount,
 		openPaymentDialog,
 		closePaymentDialog,
 		confirmPayment,
@@ -47,6 +49,8 @@ export function BillWidget({
 			onPaymentAccountChange={setPaymentAccountId}
 			paymentDate={paymentDate}
 			onPaymentDateChange={setPaymentDate}
+			paidAmount={paidAmount}
+			onPaidAmountChange={setPaidAmount}
 			paymentAccountOptions={paymentAccountOptions}
 			onOpenPaymentDialog={openPaymentDialog}
 			onClosePaymentDialog={closePaymentDialog}

@@ -25,6 +25,8 @@ type BillWidgetController = Omit<
 	setPaymentAccountId: (accountId: string) => void;
 	paymentDate: Date;
 	setPaymentDate: (date: Date) => void;
+	paidAmount: string;
+	setPaidAmount: (amount: string) => void;
 };
 
 const toIsoDate = (date: Date) => date.toISOString().split("T")[0] ?? "";
@@ -35,35 +37,57 @@ export function useBillWidgetController(
 	const safeBills = bills ?? EMPTY_BILLS;
 	const [paymentAccountId, setPaymentAccountId] = useState<string>("");
 	const [paymentDate, setPaymentDate] = useState<Date>(() => new Date());
+	const [paidAmount, setPaidAmount] = useState<string>("");
 
 	const paymentAccountIdRef = useRef(paymentAccountId);
 	const paymentDateRef = useRef(paymentDate);
+	const paidAmountRef = useRef(paidAmount);
 	paymentAccountIdRef.current = paymentAccountId;
 	paymentDateRef.current = paymentDate;
+	paidAmountRef.current = paidAmount;
 
 	const controller = usePaymentDialogController({
 		items: safeBills,
 		getItemId: (bill) => bill.id,
 		isItemConfirmed: (bill) => bill.isSettled,
-		executeConfirm: (bill) =>
-			toggleTransactionSettlementAction({
+		executeConfirm: (bill) => {
+			const parsedPaidAmount = paidAmountRef.current
+				? Number(paidAmountRef.current)
+				: undefined;
+
+			return toggleTransactionSettlementAction({
 				id: bill.id,
 				value: true,
 				paymentAccountId: paymentAccountIdRef.current || null,
 				paymentDate: toIsoDate(paymentDateRef.current),
-			}),
-		applyConfirmedState: (bill) =>
-			markBillAsSettled(
+				paidAmount:
+					parsedPaidAmount !== undefined && !Number.isNaN(parsedPaidAmount)
+						? parsedPaidAmount
+						: undefined,
+			});
+		},
+		applyConfirmedState: (bill) => {
+			const parsedPaidAmount = paidAmountRef.current
+				? Number(paidAmountRef.current)
+				: undefined;
+
+			return markBillAsSettled(
 				{
 					...bill,
 					accountId: paymentAccountIdRef.current || bill.accountId,
+					amount:
+						parsedPaidAmount !== undefined && !Number.isNaN(parsedPaidAmount)
+							? parsedPaidAmount
+							: bill.amount,
 				},
 				toIsoDate(paymentDateRef.current) || getCurrentBillDateString(),
-			),
+			);
+		},
 	});
 
 	const selectedBillId = controller.selectedItem?.id ?? null;
 	const selectedBillAccountId = controller.selectedItem?.accountId ?? "";
+	const selectedBillAmount = controller.selectedItem?.amount ?? null;
 
 	useEffect(() => {
 		if (!selectedBillId) {
@@ -71,7 +95,10 @@ export function useBillWidgetController(
 		}
 		setPaymentAccountId(selectedBillAccountId ?? "");
 		setPaymentDate(new Date());
-	}, [selectedBillId, selectedBillAccountId]);
+		setPaidAmount(
+			selectedBillAmount !== null ? selectedBillAmount.toFixed(2) : "",
+		);
+	}, [selectedBillId, selectedBillAccountId, selectedBillAmount]);
 
 	return {
 		...controller,
@@ -80,5 +107,7 @@ export function useBillWidgetController(
 		setPaymentAccountId,
 		paymentDate,
 		setPaymentDate,
+		paidAmount,
+		setPaidAmount,
 	};
 }
