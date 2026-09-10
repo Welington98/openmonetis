@@ -8,7 +8,10 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
 	test: {
-		include: ["src/features/**/lib/**/*.test.ts"],
+		include: [
+			"src/features/**/lib/**/*.test.ts",
+			"src/shared/lib/**/*.test.ts",
+		],
 		environment: "node",
 	},
 	resolve: {
