@@ -156,6 +156,9 @@ const buildBillsSnapshot = (
 			id: row.id,
 			name: row.name,
 			amount: Math.abs(toNumber(row.amount)),
+			purchaseDate: row.purchaseDate
+				? row.purchaseDate.toISOString().slice(0, 10)
+				: null,
 			dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : null,
 			boletoPaymentDate: row.boletoPaymentDate
 				? row.boletoPaymentDate.toISOString().slice(0, 10)

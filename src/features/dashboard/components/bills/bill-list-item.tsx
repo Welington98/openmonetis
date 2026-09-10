@@ -18,6 +18,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
+import { formatDateOnly } from "@/shared/utils/date";
 import { formatPeriodForUrl, getCurrentPeriod } from "@/shared/utils/period";
 import { cn } from "@/shared/utils/ui";
 
@@ -57,6 +58,9 @@ export function BillListItem({
 			? absoluteStatusLabel
 			: null;
 	const href = buildTransactionsHref(bill.name, period);
+	const purchaseDateLabel = formatDateOnly(bill.purchaseDate, {
+		year: undefined,
+	});
 
 	return (
 		<li className={styles.row}>
@@ -75,6 +79,7 @@ export function BillListItem({
 						<span className="truncate">{bill.name}</span>
 					</Link>
 					<div className={styles.meta}>
+						{purchaseDateLabel ? <span>{purchaseDateLabel}</span> : null}
 						{statusLabel ? (
 							statusTooltipLabel ? (
 								<Tooltip>
