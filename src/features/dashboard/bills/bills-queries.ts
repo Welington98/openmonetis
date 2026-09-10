@@ -2,6 +2,7 @@ export type DashboardBill = {
 	id: string;
 	name: string;
 	amount: number;
+	purchaseDate: string | null;
 	dueDate: string | null;
 	boletoPaymentDate: string | null;
 	isSettled: boolean;
