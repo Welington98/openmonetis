@@ -926,6 +926,10 @@ export const loans = pgTable(
 			scale: 4,
 		}).notNull(),
 		installmentCount: smallint("qtde_parcelas").notNull(),
+		// Número da primeira parcela rastreada pelo app — só rótulo de exibição,
+		// não afeta o cálculo. >1 indica empréstimo já em andamento (nenhum
+		// lançamento de desembolso é criado nesse caso).
+		startingInstallmentNumber: smallint("parcela_inicial").notNull().default(1),
 		// "price" | "sac"
 		amortizationSystem: text("sistema_amortizacao").notNull(),
 		firstDueDate: date("primeiro_vencimento", { mode: "date" }).notNull(),

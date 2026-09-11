@@ -13,6 +13,7 @@ export type LoanSummary = {
 	principalAmount: number;
 	interestRateMonthly: number;
 	installmentCount: number;
+	startingInstallmentNumber: number;
 	amortizationSystem: AmortizationSystem;
 	firstDueDate: string;
 	paymentAccountId: string;
@@ -39,6 +40,7 @@ export async function fetchLoanByAccountId(
 		principalAmount: toNumber(loan.principalAmount),
 		interestRateMonthly: toNumber(loan.interestRateMonthly),
 		installmentCount: loan.installmentCount,
+		startingInstallmentNumber: loan.startingInstallmentNumber,
 		amortizationSystem: loan.amortizationSystem as AmortizationSystem,
 		firstDueDate: toDateOnlyString(loan.firstDueDate) ?? "",
 		paymentAccountId: loan.paymentAccountId,

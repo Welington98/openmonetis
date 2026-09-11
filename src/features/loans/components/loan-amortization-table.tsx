@@ -1,6 +1,7 @@
 import type { LoanInstallmentRow, LoanSummary } from "@/features/loans/queries";
 import MoneyValues from "@/shared/components/money-values";
 import { Badge } from "@/shared/components/ui/badge";
+import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { formatDateOnlyLabel } from "@/shared/utils/date";
 import { formatPercentage } from "@/shared/utils/percentage";
@@ -8,11 +9,13 @@ import { formatPercentage } from "@/shared/utils/percentage";
 type LoanAmortizationTableProps = {
 	loan: LoanSummary;
 	schedule: LoanInstallmentRow[];
+	onEdit: () => void;
 };
 
 export function LoanAmortizationTable({
 	loan,
 	schedule,
+	onEdit,
 }: LoanAmortizationTableProps) {
 	const paidCount = schedule.filter((row) => row.isSettled).length;
 	const outstanding = schedule
@@ -33,9 +36,17 @@ export function LoanAmortizationTable({
 						a.m. · {paidCount}/{loan.installmentCount} parcelas pagas
 					</p>
 				</div>
-				<div className="text-right">
-					<p className="text-xs text-muted-foreground">Saldo devedor</p>
-					<MoneyValues amount={outstanding} className="text-lg font-semibold" />
+				<div className="flex items-center gap-4">
+					<div className="text-right">
+						<p className="text-xs text-muted-foreground">Saldo devedor</p>
+						<MoneyValues
+							amount={outstanding}
+							className="text-lg font-semibold"
+						/>
+					</div>
+					<Button type="button" variant="outline" size="sm" onClick={onEdit}>
+						Editar configuração
+					</Button>
 				</div>
 			</div>
 
