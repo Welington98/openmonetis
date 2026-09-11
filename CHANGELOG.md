@@ -5,6 +5,13 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.29.0](https://github.com/Welington98/openmonetis/compare/v2.28.1...v2.29.0) (2026-09-11)
+
+### Adicionado
+
+* **loans:** edição flexível mesmo com parcelas já pagas ([d3a114f](https://github.com/Welington98/openmonetis/commit/d3a114f248b4b6f41bde37955e81ad3bf4fd4473))
+* **loans:** parcela inicial e edição de configuração antes de pagar ([8903b4a](https://github.com/Welington98/openmonetis/commit/8903b4a5fe8d158740e7f1005e9dc87efd1e370c))
+
 ## [2.28.1](https://github.com/Welington98/openmonetis/compare/v2.28.0...v2.28.1) (2026-09-11)
 
 ### Corrigido
