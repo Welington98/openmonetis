@@ -84,6 +84,9 @@ export type TransactionFormState = {
 	installmentCount: string;
 	startInstallment: string;
 	recurrenceCount: string;
+	installmentInterval: string;
+	useManualInstallmentAmount: boolean;
+	manualInstallmentAmount: string;
 	dueDate: string;
 	boletoPaymentDate: string;
 	note: string;
@@ -210,6 +213,9 @@ export function buildTransactionInitialState(
 		recurrenceCount: transaction?.recurrenceCount
 			? String(transaction.recurrenceCount)
 			: "",
+		installmentInterval: "1",
+		useManualInstallmentAmount: false,
+		manualInstallmentAmount: "",
 		dueDate: transaction?.dueDate ?? "",
 		boletoPaymentDate,
 		note: transaction?.note ?? "",
@@ -269,9 +275,14 @@ export function applyFieldDependencies(
 		if (value !== "Parcelado") {
 			updates.installmentCount = "";
 			updates.startInstallment = "1";
+			updates.useManualInstallmentAmount = false;
+			updates.manualInstallmentAmount = "";
 		}
-		if (value !== "Recorrente") {
+		if (value !== "Fixa") {
 			updates.recurrenceCount = "";
+		}
+		if (value !== "Parcelado" && value !== "Fixa") {
+			updates.installmentInterval = "1";
 		}
 	}
 
@@ -284,6 +295,42 @@ export function applyFieldDependencies(
 			currentStart > nextCount
 		) {
 			updates.startInstallment = String(nextCount);
+		}
+	}
+
+	// Quando o valor manual da parcela está ativo, o total do lançamento é
+	// derivado (valor da parcela × quantidade) em vez de ser digitado direto —
+	// mantém a divisão automática (splitAmount) consistente com o valor digitado.
+	if (
+		(key === "useManualInstallmentAmount" ||
+			key === "manualInstallmentAmount" ||
+			key === "installmentCount") &&
+		currentState.condition === "Parcelado"
+	) {
+		const useManual =
+			key === "useManualInstallmentAmount"
+				? (value as boolean)
+				: currentState.useManualInstallmentAmount;
+		const manualValueStr =
+			key === "manualInstallmentAmount"
+				? (value as string)
+				: currentState.manualInstallmentAmount;
+		const countStr =
+			key === "installmentCount"
+				? (value as string)
+				: currentState.installmentCount;
+
+		if (useManual) {
+			const manualValue = Number.parseFloat(manualValueStr);
+			const count = Number.parseInt(countStr, 10);
+			if (
+				!Number.isNaN(manualValue) &&
+				manualValue > 0 &&
+				!Number.isNaN(count) &&
+				count > 0
+			) {
+				updates.amount = (manualValue * count).toFixed(2);
+			}
 		}
 	}
 

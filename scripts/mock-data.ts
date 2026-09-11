@@ -342,7 +342,7 @@ function createTransactionRecords(
 	const shares = buildShares(input);
 	const amountSign: 1 | -1 = input.transactionType === "Despesa" ? -1 : 1;
 	const isSeries =
-		input.condition === "Parcelado" || input.condition === "Recorrente";
+		input.condition === "Parcelado" || input.condition === "Fixa";
 	const seriesId = isSeries ? randomUUID() : null;
 	const initialPeriod =
 		input.cardId && input.cardMeta
@@ -417,7 +417,7 @@ function createTransactionRecords(
 		return records;
 	}
 
-	if (input.condition === "Recorrente") {
+	if (input.condition === "Fixa") {
 		const recurrenceTotal = input.recurrenceCount ?? 0;
 
 		for (let index = 0; index < recurrenceTotal; index += 1) {
@@ -1167,7 +1167,7 @@ async function main() {
 		amount: 9500,
 		purchaseDate: dateForPeriodDay(firstPeriod, 5),
 		transactionType: "Receita",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Transferência bancária",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Salário"),
@@ -1182,7 +1182,7 @@ async function main() {
 		amount: 3200,
 		purchaseDate: dateForPeriodDay(firstPeriod, 5),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Pix",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Moradia"),
@@ -1201,7 +1201,7 @@ async function main() {
 		amount: 139.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 2),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Boleto",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Internet"),
@@ -1216,7 +1216,7 @@ async function main() {
 		amount: 79.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 9),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1231,7 +1231,7 @@ async function main() {
 		amount: 195.4,
 		purchaseDate: dateForPeriodDay(firstPeriod, 3),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Boleto",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Energia e água"),
@@ -1246,7 +1246,7 @@ async function main() {
 		amount: 95.6,
 		purchaseDate: dateForPeriodDay(firstPeriod, 4),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Boleto",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Energia e água"),
@@ -1261,7 +1261,7 @@ async function main() {
 		amount: 55.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 9),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1276,7 +1276,7 @@ async function main() {
 		amount: 34.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 8),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1291,7 +1291,7 @@ async function main() {
 		amount: 33.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 12),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1306,7 +1306,7 @@ async function main() {
 		amount: 39.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 14),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1321,7 +1321,7 @@ async function main() {
 		amount: 28.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 7),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1336,7 +1336,7 @@ async function main() {
 		amount: 14.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 10),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1351,7 +1351,7 @@ async function main() {
 		amount: 109.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 13),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1366,7 +1366,7 @@ async function main() {
 		amount: 14.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 17),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1381,7 +1381,7 @@ async function main() {
 		amount: 49.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 19),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Assinaturas"),
@@ -1396,7 +1396,7 @@ async function main() {
 		amount: 129.9,
 		purchaseDate: dateForPeriodDay(firstPeriod, 11),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Cartão de crédito",
 		cardId: createdCards.ultravioleta.id,
 		categoryId: getCategoryId("Saúde"),
@@ -1411,7 +1411,7 @@ async function main() {
 		amount: 489,
 		purchaseDate: dateForPeriodDay(firstPeriod, 4),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Boleto",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Saúde"),
@@ -1426,7 +1426,7 @@ async function main() {
 		amount: 285,
 		purchaseDate: dateForPeriodDay(firstPeriod, 6),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Boleto",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Transporte"),
@@ -1441,7 +1441,7 @@ async function main() {
 		amount: 720,
 		purchaseDate: dateForPeriodDay(firstPeriod, 1),
 		transactionType: "Despesa",
-		condition: "Recorrente",
+		condition: "Fixa",
 		paymentMethod: "Pix",
 		accountId: createdAccounts.itau,
 		categoryId: getCategoryId("Moradia"),

@@ -1010,6 +1010,10 @@ export const transactions = pgTable(
 		period: text("periodo").notNull(),
 		currentInstallment: smallint("parcela_atual"),
 		recurrenceCount: integer("qtde_recorrencia"),
+		// Intervalo em meses entre parcelas/ocorrências (ex.: 2 = a cada 2 meses).
+		// Usado só na criação da série (as datas de cada linha já saem calculadas);
+		// gravado para referência futura.
+		installmentIntervalMonths: smallint("intervalo_meses").default(1),
 		dueDate: date("data_vencimento", { mode: "date" }),
 		boletoPaymentDate: date("dt_pagamento_boleto", { mode: "date" }),
 		isSettled: boolean("realizado").default(false),

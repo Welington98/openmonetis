@@ -256,7 +256,7 @@ export async function validateCardLimit({
 		eq(transactions.cardId, cardId),
 		or(isNull(transactions.isSettled), eq(transactions.isSettled, false)),
 		or(
-			ne(transactions.condition, "Recorrente"),
+			ne(transactions.condition, "Fixa"),
 			sql`${transactions.purchaseDate} <= current_date`,
 		),
 	];
@@ -378,6 +378,12 @@ const baseFields = z.object({
 		.min(1, "Selecione uma recorrência válida.")
 		.max(60, "Selecione uma recorrência válida.")
 		.optional(),
+	installmentInterval: z.coerce
+		.number()
+		.int()
+		.min(1, "Selecione um intervalo válido.")
+		.max(12, "Selecione um intervalo de até 12 meses.")
+		.optional(),
 	dueDate: z
 		.string()
 		.trim()
@@ -431,7 +437,7 @@ const refineLancamento = (
 		});
 	}
 
-	if (data.condition === "Recorrente") {
+	if (data.condition === "Fixa") {
 		if (!data.recurrenceCount) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
@@ -763,6 +769,7 @@ export const buildTransactionRecords = ({
 		recurrenceCount: null as number | null,
 		installmentCount: null as number | null,
 		currentInstallment: null as number | null,
+		installmentIntervalMonths: data.installmentInterval ?? 1,
 		isDivided: data.isSplit ?? false,
 		userId,
 		seriesId,
@@ -775,7 +782,7 @@ export const buildTransactionRecords = ({
 			return null;
 		}
 		const initialSettled = data.isSettled ?? false;
-		if (data.condition === "Parcelado" || data.condition === "Recorrente") {
+		if (data.condition === "Parcelado" || data.condition === "Fixa") {
 			return cycleIndex === 0 ? initialSettled : false;
 		}
 		return initialSettled;
@@ -784,6 +791,7 @@ export const buildTransactionRecords = ({
 	if (data.condition === "Parcelado") {
 		const installmentTotal = data.installmentCount ?? 0;
 		const startInstallment = data.startInstallment ?? 1;
+		const interval = data.installmentInterval ?? 1;
 		const amountsByShare = shares.map((share) =>
 			splitAmount(share.amountCents, installmentTotal),
 		);
@@ -794,9 +802,9 @@ export const buildTransactionRecords = ({
 			index += 1
 		) {
 			const currentInstallment = startInstallment + index;
-			const installmentPeriod = addMonthsToPeriod(period, index);
+			const installmentPeriod = addMonthsToPeriod(period, index * interval);
 			const installmentDueDate = dueDate
-				? addMonthsToDate(dueDate, index)
+				? addMonthsToDate(dueDate, index * interval)
 				: null;
 			const splitGroupId = cycleSplitGroupId();
 
@@ -827,14 +835,18 @@ export const buildTransactionRecords = ({
 		return records;
 	}
 
-	if (data.condition === "Recorrente") {
+	if (data.condition === "Fixa") {
 		const recurrenceTotal = data.recurrenceCount ?? 0;
+		const interval = data.installmentInterval ?? 1;
 
 		for (let index = 0; index < recurrenceTotal; index += 1) {
-			const recurrencePeriod = addMonthsToPeriod(period, index);
-			const recurrencePurchaseDate = addMonthsToDate(purchaseDate, index);
+			const recurrencePeriod = addMonthsToPeriod(period, index * interval);
+			const recurrencePurchaseDate = addMonthsToDate(
+				purchaseDate,
+				index * interval,
+			);
 			const recurrenceDueDate = dueDate
-				? addMonthsToDate(dueDate, index)
+				? addMonthsToDate(dueDate, index * interval)
 				: null;
 			const splitGroupId = cycleSplitGroupId();
 

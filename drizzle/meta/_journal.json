@@ -344,6 +344,13 @@
       "when": 1788785311714,
       "tag": "0049_lovely_talkback",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1789086137888,
+      "tag": "0050_freezing_spiral",
+      "breakpoints": true
     }
   ]
 }

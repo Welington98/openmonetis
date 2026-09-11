@@ -32,7 +32,7 @@ import { safeToNumber as toNumber } from "@/shared/utils/number";
 const PAYMENT_METHOD_BOLETO = "Boleto";
 const TRANSACTION_TYPE_EXPENSE = "Despesa";
 const TRANSACTION_TYPE_INCOME = "Receita";
-const CONDITION_RECURRING = "Recorrente";
+const CONDITION_RECURRING = "Fixa";
 const CONDITION_INSTALLMENT = "Parcelado";
 
 type CurrentPeriodTransactionRow = {

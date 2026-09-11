@@ -167,7 +167,7 @@ export async function fetchCartoesReportData(
 						eq(transactions.transactionType, DESPESA),
 						inArray(transactions.cardId, cardIds),
 						or(
-							ne(transactions.condition, "Recorrente"),
+							ne(transactions.condition, "Fixa"),
 							lte(transactions.purchaseDate, new Date()),
 						),
 					),

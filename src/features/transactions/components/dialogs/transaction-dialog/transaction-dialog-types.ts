@@ -120,6 +120,7 @@ export interface BoletoFieldsSectionProps extends BaseFieldSectionProps {
 export interface ConditionSectionProps extends BaseFieldSectionProps {
 	showInstallments: boolean;
 	showRecurrence: boolean;
+	isCreateMode: boolean;
 }
 
 export type NoteSectionProps = BaseFieldSectionProps;

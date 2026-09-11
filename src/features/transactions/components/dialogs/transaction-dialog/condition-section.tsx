@@ -1,16 +1,13 @@
 "use client";
 
-import { useState } from "react";
 import {
 	INDEFINITE_RECURRENCE_MONTHS,
 	TRANSACTION_CONDITIONS,
 } from "@/features/transactions/lib/constants";
+import { Checkbox } from "@/shared/components/ui/checkbox";
+import { CurrencyInput } from "@/shared/components/ui/currency-input";
+import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
-import {
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-} from "@/shared/components/ui/popover";
 import {
 	Select,
 	SelectContent,
@@ -23,66 +20,12 @@ import { cn } from "@/shared/utils/ui";
 import { ConditionSelectContent } from "../../select-items";
 import type { ConditionSectionProps } from "./transaction-dialog-types";
 
-function InlineStartInstallmentPicker({
-	value,
-	options,
-	onChange,
-}: {
-	value: string;
-	options: number[];
-	onChange: (value: string) => void;
-}) {
-	const [open, setOpen] = useState(false);
-	const selected = Number(value || "1");
-	const selectedLabel =
-		!Number.isNaN(selected) && selected > 0
-			? `${selected}ª parcela`
-			: "1ª parcela";
-	const disabled = options.length === 0;
-
-	return (
-		<div className="ml-1">
-			<span className="text-xs text-muted-foreground">Começar em </span>
-			<Popover modal open={open} onOpenChange={setOpen}>
-				<PopoverTrigger asChild>
-					<button
-						type="button"
-						className="cursor-pointer text-xs text-primary underline-offset-2 hover:underline disabled:cursor-not-allowed disabled:text-muted-foreground disabled:hover:no-underline"
-						disabled={disabled}
-					>
-						{selectedLabel}
-					</button>
-				</PopoverTrigger>
-				<PopoverContent className="w-40 p-1" align="start">
-					<div className="max-h-56 overflow-y-auto">
-						{options.map((option) => (
-							<button
-								key={option}
-								type="button"
-								className={cn(
-									"flex w-full items-center rounded-sm px-2 py-1.5 text-left text-sm hover:bg-accent hover:text-accent-foreground",
-									option === selected && "font-medium text-primary",
-								)}
-								onClick={() => {
-									onChange(String(option));
-									setOpen(false);
-								}}
-							>
-								{option}ª parcela
-							</button>
-						))}
-					</div>
-				</PopoverContent>
-			</Popover>
-		</div>
-	);
-}
-
 export function ConditionSection({
 	formState,
 	onFieldChange,
 	showInstallments,
 	showRecurrence,
+	isCreateMode,
 }: ConditionSectionProps) {
 	const parsedAmount = Number(formState.amount);
 	const amount =
@@ -98,117 +41,200 @@ export function ConditionSection({
 	};
 
 	const installmentCount = Number(formState.installmentCount);
-	const installmentSummary =
+	const hasInstallmentCount =
 		showInstallments &&
 		formState.installmentCount &&
 		!Number.isNaN(installmentCount) &&
-		installmentCount > 0
-			? getInstallmentLabel(installmentCount)
-			: null;
-	const startInstallmentOptions =
-		showInstallments &&
-		formState.installmentCount &&
-		!Number.isNaN(installmentCount) &&
-		installmentCount > 0
-			? Array.from({ length: installmentCount }, (_, index) => index + 1)
-			: [];
+		installmentCount > 0;
+	const installmentSummary = hasInstallmentCount
+		? getInstallmentLabel(installmentCount)
+		: null;
 
 	return (
-		<div className="flex w-full flex-col gap-2 md:flex-row">
-			<div
-				className={cn(
-					"space-y-1 w-full",
-					showInstallments || showRecurrence ? "md:w-1/2" : "md:w-full",
-				)}
-			>
-				<Label htmlFor="condition">Condição</Label>
-				<Select
-					value={formState.condition}
-					onValueChange={(value) => onFieldChange("condition", value)}
+		<div className="flex w-full flex-col gap-2">
+			<div className="flex w-full flex-col gap-2 md:flex-row">
+				<div
+					className={cn(
+						"space-y-1 w-full",
+						showInstallments || showRecurrence ? "md:w-1/2" : "md:w-full",
+					)}
 				>
-					<SelectTrigger id="condition" className="w-full">
-						<SelectValue placeholder="Selecione">
-							{formState.condition && (
-								<ConditionSelectContent label={formState.condition} />
-							)}
-						</SelectValue>
-					</SelectTrigger>
-					<SelectContent>
-						{TRANSACTION_CONDITIONS.map((condition) => (
-							<SelectItem key={condition} value={condition}>
-								<ConditionSelectContent label={condition} />
-							</SelectItem>
-						))}
-					</SelectContent>
-				</Select>
-			</div>
-
-			{showInstallments ? (
-				<div className="space-y-1 w-full md:w-1/2">
-					<Label htmlFor="installmentCount">Parcelado em</Label>
+					<Label htmlFor="condition">Condição</Label>
 					<Select
-						value={formState.installmentCount}
-						onValueChange={(value) => onFieldChange("installmentCount", value)}
+						value={formState.condition}
+						onValueChange={(value) => onFieldChange("condition", value)}
 					>
-						<SelectTrigger id="installmentCount" className="w-full">
+						<SelectTrigger id="condition" className="w-full">
 							<SelectValue placeholder="Selecione">
-								{installmentSummary}
+								{formState.condition && (
+									<ConditionSelectContent label={formState.condition} />
+								)}
 							</SelectValue>
 						</SelectTrigger>
 						<SelectContent>
-							{[...Array(24)].map((_, index) => {
-								const count = index + 2;
-								return (
-									<SelectItem key={count} value={String(count)}>
-										{getInstallmentLabel(count)}
-									</SelectItem>
-								);
-							})}
-						</SelectContent>
-					</Select>
-					<InlineStartInstallmentPicker
-						value={formState.startInstallment}
-						options={startInstallmentOptions}
-						onChange={(value) => onFieldChange("startInstallment", value)}
-					/>
-				</div>
-			) : null}
-
-			{showRecurrence ? (
-				<div className="space-y-1 w-full md:w-1/2">
-					<Label htmlFor="recurrenceCount">Repetirá por</Label>
-					<Select
-						value={formState.recurrenceCount}
-						onValueChange={(value) => onFieldChange("recurrenceCount", value)}
-					>
-						<SelectTrigger id="recurrenceCount" className="w-full">
-							<SelectValue placeholder="Selecione">
-								{formState.recurrenceCount ===
-								String(INDEFINITE_RECURRENCE_MONTHS)
-									? "Sem prazo definido (fixo)"
-									: formState.recurrenceCount
-										? `${formState.recurrenceCount} meses`
-										: null}
-							</SelectValue>
-						</SelectTrigger>
-						<SelectContent>
-							<SelectItem value={String(INDEFINITE_RECURRENCE_MONTHS)}>
-								Sem prazo definido (fixo)
-							</SelectItem>
-							{[...Array(INDEFINITE_RECURRENCE_MONTHS - 2)].map((_, index) => (
-								<SelectItem key={index + 2} value={String(index + 2)}>
-									{index + 2} meses
+							{TRANSACTION_CONDITIONS.map((condition) => (
+								<SelectItem key={condition} value={condition}>
+									<ConditionSelectContent label={condition} />
 								</SelectItem>
 							))}
 						</SelectContent>
 					</Select>
-					{formState.recurrenceCount ===
-					String(INDEFINITE_RECURRENCE_MONTHS) ? (
-						<p className="text-muted-foreground text-xs">
-							Repete todo mês por {INDEFINITE_RECURRENCE_MONTHS / 12} anos. Pra
-							encerrar antes, apague as próximas ocorrências.
-						</p>
+				</div>
+
+				{showInstallments ? (
+					<div className="space-y-1 w-full md:w-1/2">
+						<Label htmlFor="installmentCount">Parcelado em</Label>
+						<Select
+							value={formState.installmentCount}
+							onValueChange={(value) =>
+								onFieldChange("installmentCount", value)
+							}
+						>
+							<SelectTrigger id="installmentCount" className="w-full">
+								<SelectValue placeholder="Selecione">
+									{installmentSummary}
+								</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								{[...Array(24)].map((_, index) => {
+									const count = index + 2;
+									return (
+										<SelectItem key={count} value={String(count)}>
+											{getInstallmentLabel(count)}
+										</SelectItem>
+									);
+								})}
+							</SelectContent>
+						</Select>
+					</div>
+				) : null}
+
+				{showRecurrence ? (
+					<div className="space-y-1 w-full md:w-1/2">
+						<Label htmlFor="recurrenceCount">Repetirá por</Label>
+						<Select
+							value={formState.recurrenceCount}
+							onValueChange={(value) => onFieldChange("recurrenceCount", value)}
+						>
+							<SelectTrigger id="recurrenceCount" className="w-full">
+								<SelectValue placeholder="Selecione">
+									{formState.recurrenceCount ===
+									String(INDEFINITE_RECURRENCE_MONTHS)
+										? "Sem prazo definido (fixo)"
+										: formState.recurrenceCount
+											? `${formState.recurrenceCount} meses`
+											: null}
+								</SelectValue>
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value={String(INDEFINITE_RECURRENCE_MONTHS)}>
+									Sem prazo definido (fixo)
+								</SelectItem>
+								{[...Array(INDEFINITE_RECURRENCE_MONTHS - 2)].map(
+									(_, index) => (
+										<SelectItem key={index + 2} value={String(index + 2)}>
+											{index + 2} meses
+										</SelectItem>
+									),
+								)}
+							</SelectContent>
+						</Select>
+						{formState.recurrenceCount ===
+						String(INDEFINITE_RECURRENCE_MONTHS) ? (
+							<p className="text-muted-foreground text-xs">
+								Repete todo mês por {INDEFINITE_RECURRENCE_MONTHS / 12} anos.
+								Pra encerrar antes, apague as próximas ocorrências.
+							</p>
+						) : null}
+					</div>
+				) : null}
+			</div>
+
+			{showInstallments ? (
+				<div className="flex w-full flex-col gap-2 md:flex-row">
+					<div className="space-y-1 w-full md:w-1/3">
+						<Label htmlFor="startInstallment">Parcela inicial</Label>
+						<Input
+							id="startInstallment"
+							type="number"
+							inputMode="numeric"
+							min={1}
+							max={hasInstallmentCount ? installmentCount : undefined}
+							disabled={!hasInstallmentCount}
+							value={formState.startInstallment}
+							onChange={(event) =>
+								onFieldChange("startInstallment", event.target.value)
+							}
+						/>
+					</div>
+
+					{isCreateMode ? (
+						<div className="space-y-1 w-full md:w-1/3">
+							<Label htmlFor="installmentInterval">Repete a cada (meses)</Label>
+							<Input
+								id="installmentInterval"
+								type="number"
+								inputMode="numeric"
+								min={1}
+								max={12}
+								value={formState.installmentInterval}
+								onChange={(event) =>
+									onFieldChange("installmentInterval", event.target.value)
+								}
+							/>
+						</div>
 					) : null}
+
+					{isCreateMode ? (
+						<div className="space-y-1 w-full md:w-1/3">
+							<div className="flex items-center gap-2">
+								<Checkbox
+									id="useManualInstallmentAmount"
+									checked={formState.useManualInstallmentAmount}
+									onCheckedChange={(checked) =>
+										onFieldChange(
+											"useManualInstallmentAmount",
+											checked === true,
+										)
+									}
+								/>
+								<Label
+									htmlFor="useManualInstallmentAmount"
+									className="cursor-pointer font-normal"
+								>
+									Valor da parcela
+								</Label>
+							</div>
+							<CurrencyInput
+								id="manualInstallmentAmount"
+								value={formState.manualInstallmentAmount}
+								onValueChange={(value) =>
+									onFieldChange("manualInstallmentAmount", value)
+								}
+								placeholder="R$ 0,00"
+								disabled={!formState.useManualInstallmentAmount}
+							/>
+						</div>
+					) : null}
+				</div>
+			) : null}
+
+			{showRecurrence && isCreateMode ? (
+				<div className="flex w-full flex-col gap-2 md:flex-row">
+					<div className="space-y-1 w-full md:w-1/2">
+						<Label htmlFor="recurrenceInterval">Repete a cada (meses)</Label>
+						<Input
+							id="recurrenceInterval"
+							type="number"
+							inputMode="numeric"
+							min={1}
+							max={12}
+							value={formState.installmentInterval}
+							onChange={(event) =>
+								onFieldChange("installmentInterval", event.target.value)
+							}
+						/>
+					</div>
 				</div>
 			) : null}
 		</div>

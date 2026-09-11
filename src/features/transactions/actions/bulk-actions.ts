@@ -298,7 +298,7 @@ export async function updateTransactionBulkAction(
 				return undefined;
 			}
 
-			if (existing.condition === "Recorrente" && existing.period) {
+			if (existing.condition === "Fixa" && existing.period) {
 				const offset = getPeriodOffset(existing.period, record.period);
 				return addMonthsToDate(basePurchaseDate, offset);
 			}

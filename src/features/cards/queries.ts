@@ -136,7 +136,7 @@ async function fetchCardsByStatus(
 					),
 					// Recorrente no cartão: só consome limite quando a data da ocorrência já passou
 					or(
-						ne(transactions.condition, "Recorrente"),
+						ne(transactions.condition, "Fixa"),
 						sql`${transactions.purchaseDate} <= current_date`,
 					),
 				),
