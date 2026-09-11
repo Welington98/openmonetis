@@ -142,4 +142,30 @@ describe("generateAmortizationSchedule", () => {
 			expect(sumPrincipal(rows)).toBe(100001);
 		});
 	});
+
+	describe("startingInstallmentNumber", () => {
+		it("only relabels installmentNumber, leaving every other figure identical", () => {
+			const base = generateAmortizationSchedule({
+				principalCents: 100000,
+				monthlyRatePercent: 2,
+				installmentCount: 6,
+				system: "price",
+			});
+
+			const relabeled = generateAmortizationSchedule({
+				principalCents: 100000,
+				monthlyRatePercent: 2,
+				installmentCount: 6,
+				system: "price",
+				startingInstallmentNumber: 5,
+			});
+
+			expect(relabeled.map((row) => row.installmentNumber)).toEqual([
+				5, 6, 7, 8, 9, 10,
+			]);
+			expect(
+				relabeled.map((row) => ({ ...row, installmentNumber: 0 })),
+			).toEqual(base.map((row) => ({ ...row, installmentNumber: 0 })));
+		});
+	});
 });

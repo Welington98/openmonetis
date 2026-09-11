@@ -3,8 +3,12 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { createLoanAction } from "@/features/loans/actions";
+import {
+	createLoanAction,
+	updateLoanConfigAction,
+} from "@/features/loans/actions";
 import type { AmortizationSystem } from "@/features/loans/lib/amortization";
+import type { LoanSummary } from "@/features/loans/queries";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
 import { CurrencyInput } from "@/shared/components/ui/currency-input";
@@ -28,6 +32,9 @@ type LoanSetupFormProps = {
 	accountName: string;
 	direction: LoanDirection;
 	paymentAccountOptions: PaymentAccountOption[];
+	/** Presente = formulário em modo edição, prefilled com os valores atuais. */
+	loan?: LoanSummary;
+	onCancel?: () => void;
 };
 
 export function LoanSetupForm({
@@ -35,17 +42,31 @@ export function LoanSetupForm({
 	accountName,
 	direction,
 	paymentAccountOptions,
+	loan,
+	onCancel,
 }: LoanSetupFormProps) {
 	const router = useRouter();
+	const isEditMode = Boolean(loan);
 	const [isPending, startTransition] = useTransition();
-	const [principalAmount, setPrincipalAmount] = useState("");
-	const [interestRateMonthly, setInterestRateMonthly] = useState("");
-	const [installmentCount, setInstallmentCount] = useState("12");
+	const [principalAmount, setPrincipalAmount] = useState(
+		loan ? loan.principalAmount.toFixed(2) : "",
+	);
+	const [interestRateMonthly, setInterestRateMonthly] = useState(
+		loan ? loan.interestRateMonthly.toString() : "",
+	);
+	const [installmentCount, setInstallmentCount] = useState(
+		loan ? String(loan.installmentCount) : "12",
+	);
+	const [startingInstallmentNumber, setStartingInstallmentNumber] = useState(
+		loan ? String(loan.startingInstallmentNumber) : "1",
+	);
 	const [amortizationSystem, setAmortizationSystem] =
-		useState<AmortizationSystem>("price");
-	const [firstDueDate, setFirstDueDate] = useState(getTodayDateString());
+		useState<AmortizationSystem>(loan?.amortizationSystem ?? "price");
+	const [firstDueDate, setFirstDueDate] = useState(
+		loan?.firstDueDate || getTodayDateString(),
+	);
 	const [paymentAccountId, setPaymentAccountId] = useState(
-		paymentAccountOptions[0]?.id ?? "",
+		loan?.paymentAccountId || (paymentAccountOptions[0]?.id ?? ""),
 	);
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -68,7 +89,7 @@ export function LoanSetupForm({
 		}
 
 		startTransition(async () => {
-			const result = await createLoanAction({
+			const payload = {
 				accountId,
 				paymentAccountId,
 				principalAmount: normalizeDecimalInput(principalAmount),
@@ -76,11 +97,18 @@ export function LoanSetupForm({
 				installmentCount,
 				amortizationSystem,
 				firstDueDate,
-			});
+				startingInstallmentNumber,
+			};
+
+			const result =
+				isEditMode && loan
+					? await updateLoanConfigAction({ ...payload, loanId: loan.id })
+					: await createLoanAction(payload);
 
 			if (result.success) {
 				toast.success(result.message);
 				router.refresh();
+				onCancel?.();
 				return;
 			}
 
@@ -92,7 +120,11 @@ export function LoanSetupForm({
 	return (
 		<Card className="p-6">
 			<div className="mb-4 flex flex-col gap-1">
-				<h2 className="text-lg font-semibold">Configurar empréstimo</h2>
+				<h2 className="text-lg font-semibold">
+					{isEditMode
+						? "Editar configuração do empréstimo"
+						: "Configurar empréstimo"}
+				</h2>
 				<p className="text-sm text-muted-foreground">{helperText}</p>
 			</div>
 
@@ -136,6 +168,27 @@ export function LoanSetupForm({
 					</div>
 
 					<div className="flex flex-col gap-2">
+						<Label htmlFor="loan-starting-installment">Parcela inicial</Label>
+						<Input
+							id="loan-starting-installment"
+							type="number"
+							min={1}
+							max={installmentCount || 420}
+							value={startingInstallmentNumber}
+							onChange={(event) =>
+								setStartingInstallmentNumber(event.target.value)
+							}
+							required
+						/>
+						<p className="text-xs text-muted-foreground">
+							Deixe 1 se o empréstimo está começando agora. Se já está em
+							andamento, informe a partir de qual parcela você vai passar a
+							registrar aqui — nesse caso nenhum lançamento de desembolso é
+							criado.
+						</p>
+					</div>
+
+					<div className="flex flex-col gap-2">
 						<Label htmlFor="loan-system">Sistema de amortização</Label>
 						<Select
 							value={amortizationSystem}
@@ -154,7 +207,11 @@ export function LoanSetupForm({
 					</div>
 
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="loan-first-due-date">Primeiro vencimento</Label>
+						<Label htmlFor="loan-first-due-date">
+							{Number(startingInstallmentNumber) > 1
+								? "Vencimento da parcela inicial"
+								: "Primeiro vencimento"}
+						</Label>
 						<Input
 							id="loan-first-due-date"
 							type="date"
@@ -192,11 +249,23 @@ export function LoanSetupForm({
 					<p className="text-sm text-destructive">{errorMessage}</p>
 				)}
 
-				<div className="flex justify-end">
+				<div className="flex justify-end gap-2">
+					{onCancel ? (
+						<Button
+							type="button"
+							variant="outline"
+							onClick={onCancel}
+							disabled={isPending}
+						>
+							Cancelar
+						</Button>
+					) : null}
 					<Button type="submit" disabled={isPending}>
 						{isPending
 							? "Salvando..."
-							: `Configurar empréstimo de ${accountName}`}
+							: isEditMode
+								? "Salvar alterações"
+								: `Configurar empréstimo de ${accountName}`}
 					</Button>
 				</div>
 			</form>

@@ -1,0 +1,1 @@
+ALTER TABLE "emprestimos" ADD COLUMN "parcela_inicial" smallint DEFAULT 1 NOT NULL;

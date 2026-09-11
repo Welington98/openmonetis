@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { fetchAccountData } from "@/features/accounts/statement-queries";
-import { LoanAmortizationTable } from "@/features/loans/components/loan-amortization-table";
+import { LoanManagement } from "@/features/loans/components/loan-management";
 import { LoanSetupForm } from "@/features/loans/components/loan-setup-form";
 import {
 	fetchLoanAmortizationSchedule,
@@ -41,9 +41,13 @@ export default async function LoanPage({ params }: PageProps) {
 			</div>
 
 			{loan ? (
-				<LoanAmortizationTable
+				<LoanManagement
+					accountId={accountId}
+					accountName={account.name}
+					direction={direction}
 					loan={loan}
 					schedule={await fetchLoanAmortizationSchedule(loan.id)}
+					paymentAccountOptions={await fetchPaymentAccountOptions(userId)}
 				/>
 			) : (
 				<LoanSetupForm

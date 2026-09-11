@@ -13,6 +13,13 @@ type GenerateAmortizationScheduleParams = {
 	monthlyRatePercent: number;
 	installmentCount: number;
 	system: AmortizationSystem;
+	/**
+	 * Número a partir do qual as parcelas geradas são rotuladas — só afeta o
+	 * `installmentNumber` de cada linha retornada, nunca a matemática (que
+	 * sempre trata `principalCents` como "quanto falta amortizar a partir de
+	 * agora", rodando `installmentCount` parcelas normalmente).
+	 */
+	startingInstallmentNumber?: number;
 };
 
 /**
@@ -27,6 +34,7 @@ export function generateAmortizationSchedule({
 	monthlyRatePercent,
 	installmentCount,
 	system,
+	startingInstallmentNumber = 1,
 }: GenerateAmortizationScheduleParams): AmortizationInstallment[] {
 	if (installmentCount <= 0 || principalCents <= 0) {
 		return [];
@@ -34,9 +42,19 @@ export function generateAmortizationSchedule({
 
 	const monthlyRate = monthlyRatePercent / 100;
 
-	return system === "sac"
-		? generateSac(principalCents, monthlyRate, installmentCount)
-		: generatePrice(principalCents, monthlyRate, installmentCount);
+	const rows =
+		system === "sac"
+			? generateSac(principalCents, monthlyRate, installmentCount)
+			: generatePrice(principalCents, monthlyRate, installmentCount);
+
+	if (startingInstallmentNumber === 1) {
+		return rows;
+	}
+
+	return rows.map((row) => ({
+		...row,
+		installmentNumber: startingInstallmentNumber + row.installmentNumber - 1,
+	}));
 }
 
 /** Tabela Price (parcela fixa, exceto a última). */
