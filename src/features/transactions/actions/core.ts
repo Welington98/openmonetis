@@ -19,7 +19,7 @@ import {
 	INITIAL_BALANCE_CONDITION,
 	INITIAL_BALANCE_NOTE,
 	INITIAL_BALANCE_PAYMENT_METHOD,
-	INITIAL_BALANCE_TRANSACTION_TYPE,
+	INITIAL_BALANCE_TRANSACTION_TYPES,
 } from "@/shared/lib/accounts/constants";
 import { revalidateForEntity } from "@/shared/lib/actions/helpers";
 import { db } from "@/shared/lib/db";
@@ -610,7 +610,8 @@ type InitialCandidate = {
 export const isInitialBalanceTransaction = (record?: InitialCandidate | null) =>
 	!!record &&
 	record.note === INITIAL_BALANCE_NOTE &&
-	record.transactionType === INITIAL_BALANCE_TRANSACTION_TYPE &&
+	record.transactionType != null &&
+	INITIAL_BALANCE_TRANSACTION_TYPES.includes(record.transactionType) &&
 	record.condition === INITIAL_BALANCE_CONDITION &&
 	record.paymentMethod === INITIAL_BALANCE_PAYMENT_METHOD;
 

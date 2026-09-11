@@ -14,6 +14,16 @@ export const INITIAL_BALANCE_PAYMENT_METHOD =
 	PAYMENT_METHODS.find((method) => method === "Pix") ?? "Pix";
 export const INITIAL_BALANCE_TRANSACTION_TYPE =
 	TRANSACTION_TYPES.find((type) => type === "Receita") ?? "Receita";
+/**
+ * Um saldo inicial "Devedor" (negativo) é registrado como Despesa em vez de
+ * Receita, pra manter o sinal do valor consistente com o resto do app
+ * (Despesa = valor negativo). As duas contam como o mesmo lançamento
+ * protegido de saldo inicial.
+ */
+export const INITIAL_BALANCE_TRANSACTION_TYPES: readonly string[] = [
+	"Receita",
+	"Despesa",
+];
 
 export const ACCOUNT_AUTO_INVOICE_NOTE_PREFIX = "AUTO_FATURA:";
 

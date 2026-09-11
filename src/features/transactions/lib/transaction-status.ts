@@ -4,6 +4,9 @@ export const TRANSACTION_STATUS_VALUES = {
 	SCHEDULED: "agendado",
 	PENDING: "pendente",
 	CONFIRMED: "confirmado",
+	// Confirmado E já casado com uma linha do extrato bancário importado (ver
+	// `statementLines.matchedTransactionId`) — usado no extrato de contas.
+	RECONCILED: "conciliado",
 } as const;
 
 export type TransactionStatus =
@@ -31,6 +34,7 @@ export const TRANSACTION_STATUS_LABELS: Record<TransactionStatus, string> = {
 	[TRANSACTION_STATUS_VALUES.SCHEDULED]: "Agendado",
 	[TRANSACTION_STATUS_VALUES.PENDING]: "Pendente",
 	[TRANSACTION_STATUS_VALUES.CONFIRMED]: "Confirmado",
+	[TRANSACTION_STATUS_VALUES.RECONCILED]: "Conciliado",
 };
 
 export const TRANSACTION_STATUS_BADGE_CLASSNAMES: Record<
@@ -43,4 +47,6 @@ export const TRANSACTION_STATUS_BADGE_CLASSNAMES: Record<
 		"border-info/30 bg-info/5 text-info dark:saturate-90 dark:border-info/50 dark:bg-transparent",
 	[TRANSACTION_STATUS_VALUES.CONFIRMED]:
 		"border-success/30 bg-success/5 text-success dark:saturate-90 dark:border-success/50 dark:bg-transparent",
+	[TRANSACTION_STATUS_VALUES.RECONCILED]:
+		"border-primary/30 bg-primary/5 text-primary dark:saturate-90 dark:border-primary/50 dark:bg-transparent",
 };

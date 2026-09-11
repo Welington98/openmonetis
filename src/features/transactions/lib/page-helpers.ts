@@ -18,6 +18,7 @@ import {
 	type costCenters,
 	financialAccounts,
 	type payers,
+	statementLines,
 	transactionAttachments,
 	transactions,
 } from "@/db/schema";
@@ -38,7 +39,7 @@ import {
 	INITIAL_BALANCE_CONDITION,
 	INITIAL_BALANCE_NOTE,
 	INITIAL_BALANCE_PAYMENT_METHOD,
-	INITIAL_BALANCE_TRANSACTION_TYPE,
+	INITIAL_BALANCE_TRANSACTION_TYPES,
 } from "@/shared/lib/accounts/constants";
 import {
 	PAYER_ROLE_ADMIN,
@@ -544,6 +545,13 @@ export const buildTransactionWhere = ({
 				),
 			) as SQL,
 		);
+	} else if (filters.statusFilter === TRANSACTION_STATUS_VALUES.RECONCILED) {
+		where.push(
+			and(
+				eq(transactions.isSettled, true),
+				sql`EXISTS (SELECT 1 FROM ${statementLines} WHERE ${statementLines.matchedTransactionId} = ${transactions.id})`,
+			) as SQL,
+		);
 	}
 
 	if (filters.attachmentFilter === "true") {
@@ -644,7 +652,9 @@ export const mapTransactionsData = (rows: TransactionRowWithRelations[]) =>
 		readonly:
 			Boolean(item.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) ||
 			(item.note === INITIAL_BALANCE_NOTE &&
-				item.transactionType === INITIAL_BALANCE_TRANSACTION_TYPE &&
+				INITIAL_BALANCE_TRANSACTION_TYPES.includes(
+					item.transactionType ?? "",
+				) &&
 				item.condition === INITIAL_BALANCE_CONDITION &&
 				item.paymentMethod === INITIAL_BALANCE_PAYMENT_METHOD),
 	}));

@@ -1157,7 +1157,7 @@ export function TransactionsFilters({
 											}}
 											variant="outline"
 											size="sm"
-											className="grid w-full grid-cols-4 rounded-md bg-muted/30 p-0.5"
+											className="grid w-full grid-cols-5 rounded-md bg-muted/30 p-0.5"
 											aria-label="Status do lançamento"
 										>
 											<ToggleGroupItem
@@ -1183,6 +1183,12 @@ export function TransactionsFilters({
 												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
 											>
 												Confirmado
+											</ToggleGroupItem>
+											<ToggleGroupItem
+												value={TRANSACTION_STATUS_VALUES.RECONCILED}
+												className="text-xs font-medium transition-all data-[state=on]:border-foreground data-[state=on]:bg-foreground data-[state=on]:text-background data-[state=on]:shadow-sm"
+											>
+												Conciliado
 											</ToggleGroupItem>
 										</ToggleGroup>
 									</div>
