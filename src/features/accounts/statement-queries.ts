@@ -56,6 +56,7 @@ export async function fetchAccountSummary(
 	userId: string,
 	accountId: string,
 	selectedPeriod: string,
+	{ settledOnly = true }: { settledOnly?: boolean } = {},
 ): Promise<AccountSummaryData> {
 	const account = await fetchAccountData(userId, accountId);
 	if (!account) {
@@ -72,6 +73,10 @@ export async function fetchAccountSummary(
 			totalExpenses: 0,
 		};
 	}
+
+	const settledCondition = settledOnly
+		? [eq(transactions.isSettled, true)]
+		: [];
 
 	const [periodSummary] = await db
 		.select({
@@ -121,8 +126,8 @@ export async function fetchAccountSummary(
 				eq(transactions.userId, userId),
 				eq(transactions.accountId, accountId),
 				eq(transactions.period, selectedPeriod),
-				eq(transactions.isSettled, true),
 				eq(transactions.payerId, adminPayerId),
+				...settledCondition,
 			),
 		);
 
@@ -146,8 +151,8 @@ export async function fetchAccountSummary(
 				eq(transactions.userId, userId),
 				eq(transactions.accountId, accountId),
 				lt(transactions.period, selectedPeriod),
-				eq(transactions.isSettled, true),
 				eq(transactions.payerId, adminPayerId),
+				...settledCondition,
 			),
 		);
 

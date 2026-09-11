@@ -28,6 +28,7 @@ import {
 	formatInitialBalanceInput,
 	normalizeDecimalInput,
 } from "@/shared/utils/currency";
+import { getTodayDateString } from "@/shared/utils/date";
 
 import { AccountFormFields } from "./account-form-fields";
 import type { Account, AccountFormValues } from "./types";
@@ -76,7 +77,12 @@ const buildInitialValues = ({
 		status: account?.status ?? accountStatuses[0] ?? "",
 		note: account?.note ?? "",
 		logo: selectedLogo,
-		initialBalance: formatInitialBalanceInput(account?.initialBalance ?? 0),
+		initialBalance: formatInitialBalanceInput(
+			Math.abs(account?.initialBalance ?? 0),
+		),
+		initialBalanceKind:
+			(account?.initialBalance ?? 0) < 0 ? "devedor" : "credor",
+		initialBalanceDate: getTodayDateString(),
 		excludeFromBalance: account?.excludeFromBalance ?? false,
 		excludeInitialBalanceFromIncome:
 			account?.excludeInitialBalanceFromIncome ?? false,
@@ -177,13 +183,22 @@ export function AccountDialog({
 			return;
 		}
 
+		const initialBalanceMagnitude = Number(
+			normalizeDecimalInput(formState.initialBalance),
+		);
+		const signedInitialBalance =
+			formState.initialBalanceKind === "devedor"
+				? -Math.abs(initialBalanceMagnitude)
+				: Math.abs(initialBalanceMagnitude);
+
 		const payload: AccountCreatePayload = {
 			name: formState.name.trim(),
 			accountType: formState.accountType,
 			status: formState.status,
 			note: formState.note.trim() || null,
 			logo: formState.logo,
-			initialBalance: Number(normalizeDecimalInput(formState.initialBalance)),
+			initialBalance: signedInitialBalance,
+			initialBalanceDate: formState.initialBalanceDate || undefined,
 			excludeFromBalance: formState.excludeFromBalance,
 			excludeInitialBalanceFromIncome:
 				formState.excludeInitialBalanceFromIncome,

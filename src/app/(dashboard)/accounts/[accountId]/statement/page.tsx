@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { AccountDialog } from "@/features/accounts/components/account-dialog";
 import { AccountStatementCard } from "@/features/accounts/components/account-statement-card";
+import { AccountStatementTabs } from "@/features/accounts/components/account-statement-tabs";
 import { AddYieldDialog } from "@/features/accounts/components/add-yield-dialog";
 import { AdjustBalanceDialog } from "@/features/accounts/components/adjust-balance-dialog";
 import type { Account } from "@/features/accounts/components/types";
@@ -26,6 +27,7 @@ import {
 	type ResolvedSearchParams,
 	resolveTransactionPagination,
 } from "@/features/transactions/lib/page-helpers";
+import { TRANSACTION_STATUS_VALUES } from "@/features/transactions/lib/transaction-status";
 import {
 	fetchRecentEstablishments,
 	fetchTransactionFilterSources,
@@ -84,7 +86,14 @@ export default async function Page({ params, searchParams }: PageProps) {
 		year,
 	} = parsePeriodParam(periodoParamRaw);
 
-	const searchFilters = extractTransactionSearchFilters(resolvedSearchParams);
+	const rawSearchFilters =
+		extractTransactionSearchFilters(resolvedSearchParams);
+	// Extrato de contas sempre tem uma aba ativa (Pendentes/Agendados/
+	// Confirmados/Conciliados) — sem escolha explícita, cai em "Confirmados"
+	// (mesmo comportamento de antes dessa aba existir).
+	const activeStatus =
+		rawSearchFilters.statusFilter ?? TRANSACTION_STATUS_VALUES.CONFIRMED;
+	const searchFilters = { ...rawSearchFilters, statusFilter: activeStatus };
 	const pagination = resolveTransactionPagination(resolvedSearchParams);
 
 	const account = await fetchAccountData(userId, accountId);
@@ -97,6 +106,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 		filterSources,
 		logoOptions,
 		accountSummary,
+		projectedSummary,
 		estabelecimentos,
 		userPreferences,
 		bankConnections,
@@ -105,6 +115,9 @@ export default async function Page({ params, searchParams }: PageProps) {
 		fetchTransactionFilterSources(userId),
 		loadLogoOptions(),
 		fetchAccountSummary(userId, accountId, selectedPeriod),
+		fetchAccountSummary(userId, accountId, selectedPeriod, {
+			settledOnly: false,
+		}),
 		fetchRecentEstablishments(userId),
 		fetchUserPreferences(userId),
 		fetchBankConnections(userId),
@@ -124,9 +137,12 @@ export default async function Page({ params, searchParams }: PageProps) {
 			userPreferences?.hideAnticipatedInstallments ?? false,
 	});
 
+	// `filters` já carrega a condição de isSettled certa pra aba ativa (ver
+	// `buildTransactionWhere`), então não força mais "só confirmado" aqui.
 	const transactionsPage = await fetchAccountTransactionsPage(
 		filters,
 		pagination,
+		false,
 	);
 
 	const transactionData = mapTransactionsData(transactionsPage.rows);
@@ -177,6 +193,7 @@ export default async function Page({ params, searchParams }: PageProps) {
 				currentBalance={currentBalance}
 				totalIncomes={totalIncomes}
 				totalExpenses={totalExpenses}
+				projected={projectedSummary}
 				logo={account.logo}
 				balanceAdjustment={
 					<>
@@ -219,6 +236,8 @@ export default async function Page({ params, searchParams }: PageProps) {
 					/>
 				}
 			/>
+
+			<AccountStatementTabs activeStatus={activeStatus} />
 
 			<section className="flex flex-col gap-4">
 				<LancamentosSection

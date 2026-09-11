@@ -9,7 +9,6 @@ import {
 	INITIAL_BALANCE_CONDITION,
 	INITIAL_BALANCE_NOTE,
 	INITIAL_BALANCE_PAYMENT_METHOD,
-	INITIAL_BALANCE_TRANSACTION_TYPE,
 } from "@/shared/lib/accounts/constants";
 import {
 	type ActionResult,
@@ -91,7 +90,16 @@ const accountBaseSchema = z.object({
 		.transform((value) => value === true || value === "true"),
 });
 
-const createAccountSchema = accountBaseSchema;
+const createAccountSchema = accountBaseSchema.extend({
+	// Data em que o saldo inicial passou a valer — usada só pra datar o
+	// lançamento "Saldo inicial" gerado na criação da conta. Sem isso, cai no
+	// dia de hoje (comportamento anterior).
+	initialBalanceDate: z
+		.string()
+		.trim()
+		.regex(/^\d{4}-\d{2}-\d{2}$/, "Informe uma data de saldo inicial válida.")
+		.optional(),
+});
 const updateAccountSchema = accountBaseSchema.extend({
 	id: uuidSchema("FinancialAccount"),
 });
@@ -117,10 +125,12 @@ export async function createAccountAction(
 		// `shared/lib/loans/outstanding-balance.ts`), igual à dívida de cartão
 		// de crédito. Forçado aqui como defesa mesmo que o cliente mande outro
 		// valor.
+		// O sinal é preservado (positivo = credor, negativo = devedor) — vira
+		// Receita ou Despesa no lançamento de saldo inicial abaixo.
 		const normalizedInitialBalance = isLoanAccountType(data.accountType)
 			? 0
-			: Math.abs(data.initialBalance);
-		const hasInitialBalance = normalizedInitialBalance > 0;
+			: data.initialBalance;
+		const hasInitialBalance = normalizedInitialBalance !== 0;
 		const adminPayerId = hasInitialBalance
 			? await getAdminPayerId(user.id)
 			: null;
@@ -140,9 +150,7 @@ export async function createAccountAction(
 					status: data.status,
 					note: data.note ?? null,
 					logo: logoFile,
-					initialBalance: formatDecimalForDbRequired(
-						isLoanAccountType(data.accountType) ? 0 : data.initialBalance,
-					),
+					initialBalance: formatDecimalForDbRequired(normalizedInitialBalance),
 					excludeFromBalance: data.excludeFromBalance,
 					excludeInitialBalanceFromIncome: data.excludeInitialBalanceFromIncome,
 					userId: user.id,
@@ -173,7 +181,15 @@ export async function createAccountAction(
 				);
 			}
 
-			const { date, period } = getTodayInfo();
+			const { date: todayDate, period: todayPeriod } = getTodayInfo();
+			const purchaseDate = data.initialBalanceDate
+				? parseLocalDateString(data.initialBalanceDate)
+				: todayDate;
+			const period = data.initialBalanceDate
+				? derivePeriodFromDate(data.initialBalanceDate)
+				: todayPeriod;
+			const transactionType =
+				normalizedInitialBalance < 0 ? "Despesa" : "Receita";
 
 			await tx.insert(transactions).values({
 				condition: INITIAL_BALANCE_CONDITION,
@@ -181,8 +197,8 @@ export async function createAccountAction(
 				paymentMethod: INITIAL_BALANCE_PAYMENT_METHOD,
 				note: INITIAL_BALANCE_NOTE,
 				amount: formatDecimalForDbRequired(normalizedInitialBalance),
-				purchaseDate: date,
-				transactionType: INITIAL_BALANCE_TRANSACTION_TYPE,
+				purchaseDate,
+				transactionType,
 				period,
 				isSettled: true,
 				userId: user.id,

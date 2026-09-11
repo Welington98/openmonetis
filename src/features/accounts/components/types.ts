@@ -20,6 +20,8 @@ export type AccountFormValues = {
 	note: string;
 	logo: string;
 	initialBalance: string;
+	initialBalanceKind: "credor" | "devedor";
+	initialBalanceDate: string;
 	excludeFromBalance: boolean;
 	excludeInitialBalanceFromIncome: boolean;
 };

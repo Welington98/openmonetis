@@ -15,6 +15,13 @@ import { resolveLogoSrc } from "@/shared/lib/logo";
 import { formatCurrency } from "@/shared/utils/currency";
 import { cn } from "@/shared/utils/ui";
 
+type AccountSituation = {
+	openingBalance: number;
+	currentBalance: number;
+	totalIncomes: number;
+	totalExpenses: number;
+};
+
 type AccountStatementCardProps = {
 	accountName: string;
 	accountType: string;
@@ -24,6 +31,8 @@ type AccountStatementCardProps = {
 	openingBalance: number;
 	totalIncomes: number;
 	totalExpenses: number;
+	/** Mesmos números, mas incluindo lançamentos pendentes/agendados do período. */
+	projected?: AccountSituation;
 	logo?: string | null;
 	actions?: React.ReactNode;
 	balanceAdjustment?: React.ReactNode;
@@ -44,6 +53,7 @@ export function AccountStatementCard({
 	openingBalance,
 	totalIncomes,
 	totalExpenses,
+	projected,
 	logo,
 	actions,
 	balanceAdjustment,
@@ -154,9 +164,97 @@ export function AccountStatementCard({
 							</span>
 						</MetaItem>
 					</div>
+
+					{/* Linha 4 — confirmado x projetado (inclui pendentes/agendados) */}
+					{projected ? (
+						<div className="space-y-2 rounded-md border border-border/60 px-3 py-3">
+							<p className="text-sm font-medium text-foreground">
+								Situação confirmada/projetada (R$)
+							</p>
+							<div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-4 gap-y-1.5 text-sm">
+								<span />
+								<span className="text-right text-xs text-muted-foreground">
+									Confirmado
+								</span>
+								<span className="text-right text-xs text-muted-foreground">
+									Projetado
+								</span>
+
+								<SituationRow
+									label="Saldo anterior"
+									confirmed={openingBalance}
+									projected={projected.openingBalance}
+								/>
+								<SituationRow
+									label="Receitas"
+									confirmed={totalIncomes}
+									projected={projected.totalIncomes}
+									tone="success"
+								/>
+								<SituationRow
+									label="Despesas"
+									confirmed={totalExpenses}
+									projected={projected.totalExpenses}
+									tone="destructive"
+								/>
+								<SituationRow
+									label="Resultado"
+									confirmed={totalIncomes - totalExpenses}
+									projected={projected.totalIncomes - projected.totalExpenses}
+									signed
+								/>
+								<SituationRow
+									label="Saldo final"
+									confirmed={currentBalance}
+									projected={projected.currentBalance}
+								/>
+							</div>
+						</div>
+					) : null}
 				</div>
 			</CardContent>
 		</Card>
+	);
+}
+
+function SituationRow({
+	label,
+	confirmed,
+	projected,
+	tone,
+	signed,
+}: {
+	label: string;
+	confirmed: number;
+	projected: number;
+	tone?: "success" | "destructive";
+	signed?: boolean;
+}) {
+	const toneClass =
+		tone === "success"
+			? "text-success"
+			: tone === "destructive"
+				? "text-destructive"
+				: undefined;
+
+	const formatValue = (value: number) => {
+		if (!signed) return formatCurrency(value);
+		return `${value >= 0 ? "+" : ""}${formatCurrency(value)}`;
+	};
+
+	const resolveClass = (value: number) =>
+		signed ? (value >= 0 ? "text-success" : "text-destructive") : toneClass;
+
+	return (
+		<>
+			<span className="text-muted-foreground">{label}</span>
+			<span className={cn("text-right font-medium", resolveClass(confirmed))}>
+				{formatValue(confirmed)}
+			</span>
+			<span className={cn("text-right font-medium", resolveClass(projected))}>
+				{formatValue(projected)}
+			</span>
+		</>
 	);
 }
 

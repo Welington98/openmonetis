@@ -2,8 +2,10 @@
 
 import { Checkbox } from "@/shared/components/ui/checkbox";
 import { CurrencyInput } from "@/shared/components/ui/currency-input";
+import { DatePicker } from "@/shared/components/ui/date-picker";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import {
 	Select,
 	SelectContent,
@@ -103,14 +105,59 @@ export function AccountFormFields({
 					</p>
 				</div>
 			) : showInitialBalance ? (
-				<div className="flex flex-col gap-2 sm:col-span-2">
-					<Label htmlFor="account-initial-balance">Saldo inicial</Label>
-					<CurrencyInput
-						id="account-initial-balance"
-						value={values.initialBalance}
-						onValueChange={(value) => onChange("initialBalance", value)}
-						placeholder="R$ 0,00"
-					/>
+				<div className="flex flex-col gap-4 sm:col-span-2">
+					<div className="flex flex-col gap-2 sm:flex-row">
+						<div className="flex w-full flex-col gap-2 sm:w-1/2">
+							<Label htmlFor="account-initial-balance">Saldo inicial</Label>
+							<CurrencyInput
+								id="account-initial-balance"
+								value={values.initialBalance}
+								onValueChange={(value) => onChange("initialBalance", value)}
+								placeholder="R$ 0,00"
+							/>
+						</div>
+						<div className="flex w-full flex-col gap-2 sm:w-1/2">
+							<Label htmlFor="account-initial-balance-date">
+								Data do saldo inicial
+							</Label>
+							<DatePicker
+								id="account-initial-balance-date"
+								value={values.initialBalanceDate}
+								onChange={(value) => onChange("initialBalanceDate", value)}
+								placeholder="Data"
+							/>
+						</div>
+					</div>
+
+					<RadioGroup
+						value={values.initialBalanceKind}
+						onValueChange={(value) =>
+							onChange(
+								"initialBalanceKind",
+								value as AccountFormValues["initialBalanceKind"],
+							)
+						}
+						className="flex items-center gap-6"
+					>
+						<div className="flex items-center gap-2">
+							<RadioGroupItem value="credor" id="account-balance-credor" />
+							<Label
+								htmlFor="account-balance-credor"
+								className="cursor-pointer font-normal"
+							>
+								Credor
+							</Label>
+						</div>
+						<div className="flex items-center gap-2">
+							<RadioGroupItem value="devedor" id="account-balance-devedor" />
+							<Label
+								htmlFor="account-balance-devedor"
+								className="cursor-pointer font-normal"
+							>
+								Devedor
+							</Label>
+						</div>
+					</RadioGroup>
 				</div>
 			) : null}
 
