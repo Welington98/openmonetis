@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.28.1](https://github.com/Welington98/openmonetis/compare/v2.28.0...v2.28.1) (2026-09-11)
+
+### Corrigido
+
+* **accounts:** permite saldo negativo (Devedor) no ajuste de saldo ([2065de6](https://github.com/Welington98/openmonetis/commit/2065de6a1d8c2c20f6fc00a80eb360b0da267364))
+
 ## [2.28.0](https://github.com/Welington98/openmonetis/compare/v2.27.0...v2.28.0) (2026-09-11)
 
 ### Adicionado
