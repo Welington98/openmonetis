@@ -34,6 +34,14 @@ type LoanSetupFormProps = {
 	paymentAccountOptions: PaymentAccountOption[];
 	/** Presente = formulário em modo edição, prefilled com os valores atuais. */
 	loan?: LoanSummary;
+	/** Quantas parcelas já foram pagas — vindas do schedule atual. */
+	settledCount?: number;
+	/** Número da próxima parcela ainda em aberto (ou a parcela inicial, se nada foi pago). */
+	nextInstallmentNumber?: number;
+	/** Saldo devedor sugerido pra edição — vem da última parcela paga, se houver. */
+	suggestedRemainingPrincipal?: number;
+	/** Quantas parcelas ainda estavam em aberto antes dessa edição. */
+	suggestedRemainingCount?: number;
 	onCancel?: () => void;
 };
 
@@ -43,27 +51,38 @@ export function LoanSetupForm({
 	direction,
 	paymentAccountOptions,
 	loan,
+	settledCount = 0,
+	nextInstallmentNumber,
+	suggestedRemainingPrincipal,
+	suggestedRemainingCount,
 	onCancel,
 }: LoanSetupFormProps) {
 	const router = useRouter();
 	const isEditMode = Boolean(loan);
+	const hasSettledInstallments = isEditMode && settledCount > 0;
 	const [isPending, startTransition] = useTransition();
-	const [principalAmount, setPrincipalAmount] = useState(
-		loan ? loan.principalAmount.toFixed(2) : "",
-	);
+	const [principalAmount, setPrincipalAmount] = useState(() => {
+		if (hasSettledInstallments) {
+			return (suggestedRemainingPrincipal ?? 0).toFixed(2);
+		}
+		return loan ? loan.principalAmount.toFixed(2) : "";
+	});
 	const [interestRateMonthly, setInterestRateMonthly] = useState(
 		loan ? loan.interestRateMonthly.toString() : "",
 	);
-	const [installmentCount, setInstallmentCount] = useState(
-		loan ? String(loan.installmentCount) : "12",
-	);
+	const [installmentCount, setInstallmentCount] = useState(() => {
+		if (hasSettledInstallments) {
+			return String(suggestedRemainingCount ?? 1);
+		}
+		return loan ? String(loan.installmentCount) : "12";
+	});
 	const [startingInstallmentNumber, setStartingInstallmentNumber] = useState(
 		loan ? String(loan.startingInstallmentNumber) : "1",
 	);
 	const [amortizationSystem, setAmortizationSystem] =
 		useState<AmortizationSystem>(loan?.amortizationSystem ?? "price");
 	const [firstDueDate, setFirstDueDate] = useState(
-		loan?.firstDueDate || getTodayDateString(),
+		hasSettledInstallments ? "" : (loan?.firstDueDate ?? getTodayDateString()),
 	);
 	const [paymentAccountId, setPaymentAccountId] = useState(
 		loan?.paymentAccountId || (paymentAccountOptions[0]?.id ?? ""),
@@ -74,6 +93,18 @@ export function LoanSetupForm({
 		direction === "contratado"
 			? `Quanto você tomou emprestado e vai pagar em parcelas, saindo da conta escolhida abaixo.`
 			: `Quanto você emprestou a alguém e vai receber em parcelas, entrando na conta escolhida abaixo.`;
+
+	const principalLabel = hasSettledInstallments
+		? "Saldo devedor atual"
+		: "Valor principal";
+	const installmentCountLabel = hasSettledInstallments
+		? "Parcelas restantes (a partir de agora)"
+		: "Número de parcelas";
+	const firstDueDateLabel = hasSettledInstallments
+		? "Vencimento da próxima parcela"
+		: Number(startingInstallmentNumber) > 1
+			? "Vencimento da parcela inicial"
+			: "Primeiro vencimento";
 
 	const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
 		event.preventDefault();
@@ -97,7 +128,11 @@ export function LoanSetupForm({
 				installmentCount,
 				amortizationSystem,
 				firstDueDate,
-				startingInstallmentNumber,
+				// Quando já existe parcela paga, esse campo é ignorado pela action
+				// (a numeração continua automaticamente depois da última paga).
+				startingInstallmentNumber: hasSettledInstallments
+					? "1"
+					: startingInstallmentNumber,
 			};
 
 			const result =
@@ -126,12 +161,20 @@ export function LoanSetupForm({
 						: "Configurar empréstimo"}
 				</h2>
 				<p className="text-sm text-muted-foreground">{helperText}</p>
+				{hasSettledInstallments ? (
+					<p className="rounded-md bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
+						Você já tem {settledCount}{" "}
+						{settledCount === 1 ? "parcela paga" : "parcelas pagas"} — elas não
+						serão alteradas. As mudanças abaixo valem a partir da parcela{" "}
+						{nextInstallmentNumber}.
+					</p>
+				) : null}
 			</div>
 
 			<form className="flex flex-col gap-5" onSubmit={handleSubmit}>
 				<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="loan-principal">Valor principal</Label>
+						<Label htmlFor="loan-principal">{principalLabel}</Label>
 						<CurrencyInput
 							id="loan-principal"
 							value={principalAmount}
@@ -155,7 +198,7 @@ export function LoanSetupForm({
 					</div>
 
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="loan-installments">Número de parcelas</Label>
+						<Label htmlFor="loan-installments">{installmentCountLabel}</Label>
 						<Input
 							id="loan-installments"
 							type="number"
@@ -167,26 +210,28 @@ export function LoanSetupForm({
 						/>
 					</div>
 
-					<div className="flex flex-col gap-2">
-						<Label htmlFor="loan-starting-installment">Parcela inicial</Label>
-						<Input
-							id="loan-starting-installment"
-							type="number"
-							min={1}
-							max={installmentCount || 420}
-							value={startingInstallmentNumber}
-							onChange={(event) =>
-								setStartingInstallmentNumber(event.target.value)
-							}
-							required
-						/>
-						<p className="text-xs text-muted-foreground">
-							Deixe 1 se o empréstimo está começando agora. Se já está em
-							andamento, informe a partir de qual parcela você vai passar a
-							registrar aqui — nesse caso nenhum lançamento de desembolso é
-							criado.
-						</p>
-					</div>
+					{hasSettledInstallments ? null : (
+						<div className="flex flex-col gap-2">
+							<Label htmlFor="loan-starting-installment">Parcela inicial</Label>
+							<Input
+								id="loan-starting-installment"
+								type="number"
+								min={1}
+								max={installmentCount || 420}
+								value={startingInstallmentNumber}
+								onChange={(event) =>
+									setStartingInstallmentNumber(event.target.value)
+								}
+								required
+							/>
+							<p className="text-xs text-muted-foreground">
+								Deixe 1 se o empréstimo está começando agora. Se já está em
+								andamento, informe a partir de qual parcela você vai passar a
+								registrar aqui — nesse caso nenhum lançamento de desembolso é
+								criado.
+							</p>
+						</div>
+					)}
 
 					<div className="flex flex-col gap-2">
 						<Label htmlFor="loan-system">Sistema de amortização</Label>
@@ -207,11 +252,7 @@ export function LoanSetupForm({
 					</div>
 
 					<div className="flex flex-col gap-2">
-						<Label htmlFor="loan-first-due-date">
-							{Number(startingInstallmentNumber) > 1
-								? "Vencimento da parcela inicial"
-								: "Primeiro vencimento"}
-						</Label>
+						<Label htmlFor="loan-first-due-date">{firstDueDateLabel}</Label>
 						<Input
 							id="loan-first-due-date"
 							type="date"

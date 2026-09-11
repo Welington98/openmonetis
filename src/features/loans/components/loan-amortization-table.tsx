@@ -3,25 +3,18 @@ import MoneyValues from "@/shared/components/money-values";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
-import {
-	Tooltip,
-	TooltipContent,
-	TooltipTrigger,
-} from "@/shared/components/ui/tooltip";
 import { formatDateOnlyLabel } from "@/shared/utils/date";
 import { formatPercentage } from "@/shared/utils/percentage";
 
 type LoanAmortizationTableProps = {
 	loan: LoanSummary;
 	schedule: LoanInstallmentRow[];
-	hasSettledInstallments: boolean;
 	onEdit: () => void;
 };
 
 export function LoanAmortizationTable({
 	loan,
 	schedule,
-	hasSettledInstallments,
 	onEdit,
 }: LoanAmortizationTableProps) {
 	const paidCount = schedule.filter((row) => row.isSettled).length;
@@ -51,25 +44,9 @@ export function LoanAmortizationTable({
 							className="text-lg font-semibold"
 						/>
 					</div>
-					{hasSettledInstallments ? (
-						<Tooltip>
-							<TooltipTrigger asChild>
-								<span>
-									<Button type="button" variant="outline" size="sm" disabled>
-										Editar configuração
-									</Button>
-								</span>
-							</TooltipTrigger>
-							<TooltipContent side="top" className="max-w-xs text-xs">
-								Não é possível editar um empréstimo com parcelas já pagas — isso
-								já representa histórico financeiro real.
-							</TooltipContent>
-						</Tooltip>
-					) : (
-						<Button type="button" variant="outline" size="sm" onClick={onEdit}>
-							Editar configuração
-						</Button>
-					)}
+					<Button type="button" variant="outline" size="sm" onClick={onEdit}>
+						Editar configuração
+					</Button>
 				</div>
 			</div>
 

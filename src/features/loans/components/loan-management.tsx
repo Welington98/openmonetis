@@ -26,7 +26,23 @@ export function LoanManagement({
 	paymentAccountOptions,
 }: LoanManagementProps) {
 	const [isEditing, setIsEditing] = useState(false);
-	const hasSettledInstallments = schedule.some((row) => row.isSettled);
+	const settledRows = schedule.filter((row) => row.isSettled);
+	const settledCount = settledRows.length;
+	const lastSettledNumber = settledRows.reduce(
+		(max, row) => Math.max(max, row.installmentNumber),
+		0,
+	);
+	const nextInstallmentNumber =
+		settledCount > 0 ? lastSettledNumber + 1 : loan.startingInstallmentNumber;
+	const lastSettledRow = settledRows.find(
+		(row) => row.installmentNumber === lastSettledNumber,
+	);
+	const suggestedRemainingPrincipal =
+		lastSettledRow?.remainingBalanceAfter ?? loan.principalAmount;
+	const suggestedRemainingCount = Math.max(
+		1,
+		loan.installmentCount - settledCount,
+	);
 
 	if (isEditing) {
 		return (
@@ -36,6 +52,10 @@ export function LoanManagement({
 				direction={direction}
 				paymentAccountOptions={paymentAccountOptions}
 				loan={loan}
+				settledCount={settledCount}
+				nextInstallmentNumber={nextInstallmentNumber}
+				suggestedRemainingPrincipal={suggestedRemainingPrincipal}
+				suggestedRemainingCount={suggestedRemainingCount}
 				onCancel={() => setIsEditing(false)}
 			/>
 		);
@@ -45,7 +65,6 @@ export function LoanManagement({
 		<LoanAmortizationTable
 			loan={loan}
 			schedule={schedule}
-			hasSettledInstallments={hasSettledInstallments}
 			onEdit={() => setIsEditing(true)}
 		/>
 	);

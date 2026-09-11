@@ -387,9 +387,11 @@ export async function createLoanAction(
 /**
  * Reconfigura um empréstimo já existente (valor, juros, quantidade de
  * parcelas, sistema, primeiro vencimento, parcela inicial, conta de
- * pagamento). Só é permitido enquanto NENHUMA parcela foi liquidada — a
- * tabela inteira é apagada e regerada do zero. O lançamento de desembolso
- * original não é alterado.
+ * pagamento). Parcelas já liquidadas NUNCA são tocadas — permanecem como
+ * histórico financeiro real, com seu número/valor/data originais. Só as
+ * parcelas ainda em aberto são apagadas e regeradas com os novos termos,
+ * continuando a numeração logo depois da última parcela paga (quando existe
+ * alguma). O lançamento de desembolso original não é alterado.
  */
 export async function updateLoanConfigAction(
 	input: UpdateLoanConfigInput,
@@ -448,36 +450,58 @@ export async function updateLoanConfigAction(
 			}
 
 			const existingInstallments = await tx.query.loanInstallments.findMany({
-				columns: { transactionId: true },
+				columns: { transactionId: true, installmentNumber: true },
 				where: eq(loanInstallments.loanId, data.loanId),
 				with: { transaction: { columns: { isSettled: true } } },
 			});
 
-			if (existingInstallments.some((row) => row.transaction?.isSettled)) {
-				throw new Error(
-					"Não é possível editar um empréstimo com parcelas já pagas.",
-				);
-			}
-
-			const transactionIds = existingInstallments.map(
-				(row) => row.transactionId,
+			const settledInstallments = existingInstallments.filter(
+				(row) => row.transaction?.isSettled,
 			);
-			if (transactionIds.length > 0) {
-				await tx
-					.delete(transactions)
-					.where(inArray(transactions.id, transactionIds));
+			const unsettledInstallments = existingInstallments.filter(
+				(row) => !row.transaction?.isSettled,
+			);
+			const hasSettledInstallments = settledInstallments.length > 0;
+
+			// Enquanto nada foi pago, a parcela inicial informada no formulário
+			// vale (empréstimo ainda não "andou"). Assim que existe parcela paga,
+			// a numeração histórica é fixa — a regeneração sempre continua logo
+			// depois da última parcela liquidada.
+			const effectiveStartingInstallmentNumber = hasSettledInstallments
+				? Math.max(...settledInstallments.map((row) => row.installmentNumber)) +
+					1
+				: data.startingInstallmentNumber;
+
+			if (unsettledInstallments.length > 0) {
+				await tx.delete(transactions).where(
+					inArray(
+						transactions.id,
+						unsettledInstallments.map((row) => row.transactionId),
+					),
+				);
 			}
 
 			const principalCents = toCents(data.principalAmount);
 			const isContratado = direction === "contratado";
+
+			// `installmentCount` guardado no empréstimo é sempre o total rastreado
+			// desde `startingInstallmentNumber` original — parcelas já pagas
+			// entram nessa conta mesmo sem serem tocadas.
+			const totalInstallmentCount = hasSettledInstallments
+				? effectiveStartingInstallmentNumber -
+					loan.startingInstallmentNumber +
+					data.installmentCount
+				: data.installmentCount;
 
 			await tx
 				.update(loans)
 				.set({
 					principalAmount: centsToDecimalString(principalCents),
 					interestRateMonthly: data.interestRateMonthly.toFixed(4),
-					installmentCount: data.installmentCount,
-					startingInstallmentNumber: data.startingInstallmentNumber,
+					installmentCount: totalInstallmentCount,
+					startingInstallmentNumber: hasSettledInstallments
+						? loan.startingInstallmentNumber
+						: data.startingInstallmentNumber,
 					amortizationSystem: data.amortizationSystem,
 					firstDueDate,
 					paymentAccountId: data.paymentAccountId,
@@ -499,9 +523,11 @@ export async function updateLoanConfigAction(
 				isContratado,
 				principalCents,
 				interestRateMonthly: data.interestRateMonthly,
+				// A partir daqui, `data.installmentCount` significa "quantas
+				// parcelas regerar a partir da parcela efetiva" — não o total.
 				installmentCount: data.installmentCount,
 				amortizationSystem: data.amortizationSystem,
-				startingInstallmentNumber: data.startingInstallmentNumber,
+				startingInstallmentNumber: effectiveStartingInstallmentNumber,
 				firstDueDate,
 				installmentCategoryId: isContratado
 					? despesaCategory.id
