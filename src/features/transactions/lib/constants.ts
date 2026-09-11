@@ -4,11 +4,7 @@ export const TRANSACTION_TYPES = [
 	"Transferência",
 ] as const;
 
-export const TRANSACTION_CONDITIONS = [
-	"À vista",
-	"Parcelado",
-	"Recorrente",
-] as const;
+export const TRANSACTION_CONDITIONS = ["À vista", "Parcelado", "Fixa"] as const;
 
 /**
  * "Repetirá por" em meses quando o usuário escolhe uma recorrência "sem

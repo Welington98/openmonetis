@@ -101,7 +101,7 @@ export async function createTransactionAction(
 		});
 
 		const isSeriesLancamento =
-			data.condition === "Parcelado" || data.condition === "Recorrente";
+			data.condition === "Parcelado" || data.condition === "Fixa";
 		const seriesId = isSeriesLancamento ? randomUUID() : null;
 
 		const records = buildTransactionRecords({
@@ -712,7 +712,7 @@ export async function convertTransactionToRecurringAction(
 				name: existing.name,
 				transactionType: existing.transactionType as "Receita" | "Despesa",
 				amount: totalCents / 100,
-				condition: "Recorrente",
+				condition: "Fixa",
 				paymentMethod: existing.paymentMethod as
 					| "Pix"
 					| "Boleto"

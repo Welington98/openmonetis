@@ -148,8 +148,8 @@ export function TransactionActionsMenu({
 
 				{canConvertToRecurring ? (
 					<DropdownMenuItem onSelect={() => onConvertToRecurring?.(item)}>
-						{getConditionIcon("Recorrente")}
-						Converter em Recorrente
+						{getConditionIcon("Fixa")}
+						Converter em Fixa
 					</DropdownMenuItem>
 				) : null}
 

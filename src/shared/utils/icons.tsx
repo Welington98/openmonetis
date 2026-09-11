@@ -28,7 +28,7 @@ export const getConditionIcon = (condition: string): ReactNode => {
 
 	const registry: Record<string, ReactNode> = {
 		parcelado: <RemixIcons.RiLoader2Fill className={ICON_CLASS} aria-hidden />,
-		recorrente: <RemixIcons.RiRefreshLine className={ICON_CLASS} aria-hidden />,
+		fixa: <RemixIcons.RiRefreshLine className={ICON_CLASS} aria-hidden />,
 		avista: <RemixIcons.RiCheckLine className={ICON_CLASS} aria-hidden />,
 		vista: <RemixIcons.RiCheckLine className={ICON_CLASS} aria-hidden />,
 	};

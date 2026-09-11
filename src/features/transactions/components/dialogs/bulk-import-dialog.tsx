@@ -158,7 +158,7 @@ export function BulkImportDialog({
 							? Number(item.installmentCount)
 							: undefined,
 					recurrenceCount:
-						item.condition === "Recorrente" && item.recurrenceCount
+						item.condition === "Fixa" && item.recurrenceCount
 							? Number(item.recurrenceCount)
 							: undefined,
 					dueDate:

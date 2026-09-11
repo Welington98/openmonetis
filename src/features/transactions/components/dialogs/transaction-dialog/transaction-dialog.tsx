@@ -368,7 +368,7 @@ export function TransactionDialog({
 					? Number(formState.startInstallment)
 					: undefined,
 			recurrenceCount:
-				formState.condition === "Recorrente" && formState.recurrenceCount
+				formState.condition === "Fixa" && formState.recurrenceCount
 					? Number(formState.recurrenceCount)
 					: undefined,
 			dueDate:
@@ -396,7 +396,7 @@ export function TransactionDialog({
 						const firstId = result.data.ids[0];
 						const isNewSeries =
 							formState.condition === "Parcelado" ||
-							formState.condition === "Recorrente";
+							formState.condition === "Fixa";
 						for (const file of pendingFiles) {
 							const presign = await getPresignedUploadUrlAction({
 								fileName: file.name,
@@ -577,7 +577,7 @@ export function TransactionDialog({
 	const submitLabel = mode === "create" ? "Salvar" : "Atualizar";
 
 	const showInstallments = formState.condition === "Parcelado";
-	const showRecurrence = formState.condition === "Recorrente";
+	const showRecurrence = formState.condition === "Fixa";
 	const showDueDate = formState.paymentMethod === "Boleto";
 	const showPaymentDate = mode === "update" && showDueDate;
 	const showSettledToggle = formState.paymentMethod !== "Cartão de crédito";
@@ -716,6 +716,7 @@ export function TransactionDialog({
 										onFieldChange={handleFieldChange}
 										showInstallments={showInstallments}
 										showRecurrence={showRecurrence}
+										isCreateMode={mode === "create"}
 									/>
 									<NoteSection
 										formState={formState}
