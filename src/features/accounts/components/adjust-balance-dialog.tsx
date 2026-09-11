@@ -17,6 +17,7 @@ import {
 	DialogTrigger,
 } from "@/shared/components/ui/dialog";
 import { Label } from "@/shared/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/shared/components/ui/radio-group";
 import {
 	Tooltip,
 	TooltipContent,
@@ -38,15 +39,26 @@ export function AdjustBalanceDialog({
 	const router = useRouter();
 	const [open, setOpen] = useState(false);
 	const [isPending, startTransition] = useTransition();
-	const [amount, setAmount] = useState<string>(currentBalance.toFixed(2));
+	const [amount, setAmount] = useState<string>(
+		Math.abs(currentBalance).toFixed(2),
+	);
+	const [sign, setSign] = useState<"credor" | "devedor">(
+		currentBalance < 0 ? "devedor" : "credor",
+	);
 
 	useEffect(() => {
 		if (open) {
-			setAmount(currentBalance.toFixed(2));
+			setAmount(Math.abs(currentBalance).toFixed(2));
+			setSign(currentBalance < 0 ? "devedor" : "credor");
 		}
 	}, [open, currentBalance]);
 
-	const targetBalance = Number(amount);
+	const amountMagnitude = Number(amount);
+	const targetBalance = Number.isFinite(amountMagnitude)
+		? sign === "devedor"
+			? -Math.abs(amountMagnitude)
+			: Math.abs(amountMagnitude)
+		: Number.NaN;
 	const diff = Number.isFinite(targetBalance)
 		? Math.round((targetBalance - currentBalance) * 100) / 100
 		: 0;
@@ -123,6 +135,30 @@ export function AdjustBalanceDialog({
 							onValueChange={setAmount}
 							autoFocus
 						/>
+						<RadioGroup
+							value={sign}
+							onValueChange={(value) => setSign(value as "credor" | "devedor")}
+							className="flex items-center gap-6"
+						>
+							<div className="flex items-center gap-2">
+								<RadioGroupItem value="credor" id="adjust-balance-credor" />
+								<Label
+									htmlFor="adjust-balance-credor"
+									className="cursor-pointer font-normal"
+								>
+									Credor
+								</Label>
+							</div>
+							<div className="flex items-center gap-2">
+								<RadioGroupItem value="devedor" id="adjust-balance-devedor" />
+								<Label
+									htmlFor="adjust-balance-devedor"
+									className="cursor-pointer font-normal"
+								>
+									Devedor
+								</Label>
+							</div>
+						</RadioGroup>
 						<p className="text-xs text-muted-foreground">{diffLabel}</p>
 					</div>
 				</div>
