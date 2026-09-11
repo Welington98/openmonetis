@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.28.0](https://github.com/Welington98/openmonetis/compare/v2.27.0...v2.28.0) (2026-09-11)
+
+### Adicionado
+
+* **accounts:** saldo inicial devedor/credor, data do saldo e abas no extrato ([b84efff](https://github.com/Welington98/openmonetis/commit/b84efff6b964af7afd715359b922f1a573dbf4c4))
+
 ## [2.27.0](https://github.com/Welington98/openmonetis/compare/v2.26.1...v2.27.0) (2026-09-11)
 
 ### Adicionado
