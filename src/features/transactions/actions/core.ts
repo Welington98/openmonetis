@@ -1042,3 +1042,16 @@ export const deleteMultipleSchema = z.object({
 });
 
 export type DeleteMultipleInput = z.infer<typeof deleteMultipleSchema>;
+
+export const settleBulkSchema = z.object({
+	ids: z
+		.array(uuidSchema("Lançamento"))
+		.min(2, "Selecione ao menos dois lançamentos para agrupar."),
+	paymentAccountId: uuidSchema("Conta de pagamento").nullable().optional(),
+	paymentDate: z
+		.string()
+		.regex(/^\d{4}-\d{2}-\d{2}$/u, "Data de pagamento inválida.")
+		.optional(),
+});
+
+export type SettleBulkInput = z.infer<typeof settleBulkSchema>;

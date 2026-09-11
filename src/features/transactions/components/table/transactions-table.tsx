@@ -17,6 +17,7 @@ import {
 } from "@tanstack/react-table";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, type ReactNode, useMemo, useState } from "react";
+import { CREDIT_CARD_PAYMENT_METHOD } from "@/features/transactions/lib/constants";
 import type {
 	TransactionsExportContext,
 	TransactionsPaginationState,
@@ -71,6 +72,7 @@ type TransactionsTableProps = {
 	onConfirmDelete?: (item: TransactionItem) => void;
 	onBulkDelete?: (items: TransactionItem[]) => void;
 	onBulkImport?: (items: TransactionItem[]) => void;
+	onBulkSettle?: (items: TransactionItem[]) => void;
 	onViewDetails?: (item: TransactionItem) => void;
 	onRefund?: (item: TransactionItem) => void;
 	onConvertToInstallment?: (item: TransactionItem) => void;
@@ -104,6 +106,7 @@ export function TransactionsTable({
 	onConfirmDelete,
 	onBulkDelete,
 	onBulkImport,
+	onBulkSettle,
 	onViewDetails,
 	onRefund,
 	onConvertToInstallment,
@@ -229,12 +232,21 @@ export function TransactionsTable({
 	const selectedImportRows = selectedRows.filter(
 		(row) => row.original.userId !== currentUserId,
 	);
+	const selectedSettleRows = selectedOwnRows.filter(
+		(row) =>
+			!row.original.isSettled &&
+			row.original.paymentMethod !== CREDIT_CARD_PAYMENT_METHOD,
+	);
 	const selectedCount = selectedRows.length;
 	const selectedTotal = selectedRows.reduce(
 		(total, row) => total + (row.original.amount ?? 0),
 		0,
 	);
 	const selectedImportTotal = selectedImportRows.reduce(
+		(total, row) => total + (row.original.amount ?? 0),
+		0,
+	);
+	const selectedSettleTotal = selectedSettleRows.reduce(
 		(total, row) => total + (row.original.amount ?? 0),
 		0,
 	);
@@ -262,6 +274,13 @@ export function TransactionsTable({
 	const handleBulkImport = () => {
 		if (onBulkImport && selectedImportRows.length > 0) {
 			onBulkImport(selectedImportRows.map((row) => row.original));
+			setRowSelection({});
+		}
+	};
+
+	const handleBulkSettle = () => {
+		if (onBulkSettle && selectedSettleRows.length > 1) {
+			onBulkSettle(selectedSettleRows.map((row) => row.original));
 			setRowSelection({});
 		}
 	};
@@ -400,6 +419,17 @@ export function TransactionsTable({
 					selectedTotal={selectedTotal}
 					mode="delete"
 					onAction={handleBulkDelete}
+				/>
+			) : null}
+
+			{selectedSettleRows.length > 1 &&
+			onBulkSettle &&
+			selectedSettleRows.length === selectedCount ? (
+				<TransactionsBulkBar
+					selectedCount={selectedSettleRows.length}
+					selectedTotal={selectedSettleTotal}
+					mode="settle"
+					onAction={handleBulkSettle}
 				/>
 			) : null}
 

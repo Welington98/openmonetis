@@ -1,11 +1,15 @@
-import { RiDeleteBin5Line, RiFileCopyLine } from "@remixicon/react";
+import {
+	RiCheckboxCircleLine,
+	RiDeleteBin5Line,
+	RiFileCopyLine,
+} from "@remixicon/react";
 import MoneyValues from "@/shared/components/money-values";
 import { Button } from "@/shared/components/ui/button";
 
 type TransactionsBulkBarProps = {
 	selectedCount: number;
 	selectedTotal: number;
-	mode: "delete" | "import";
+	mode: "delete" | "import" | "settle";
 	onAction: () => void;
 };
 
@@ -42,6 +46,16 @@ export function TransactionsBulkBar({
 				>
 					<RiDeleteBin5Line className="size-4" />
 					Remover selecionados
+				</Button>
+			) : mode === "settle" ? (
+				<Button
+					onClick={onAction}
+					variant="default"
+					size="sm"
+					className="ml-auto"
+				>
+					<RiCheckboxCircleLine className="size-4" />
+					Agrupar e marcar como pago
 				</Button>
 			) : (
 				<Button
