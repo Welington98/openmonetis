@@ -9,6 +9,9 @@ import {
 	REFUND_NOTE_PREFIX,
 } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
+import { isLoanAccountType } from "@/shared/lib/loans/constants";
+import { buildAccountTransactionCondition } from "@/shared/lib/loans/linked-transactions";
+import { fetchLoanBalanceAsOfPeriod } from "@/shared/lib/loans/outstanding-balance";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 
 type AccountSummaryData = {
@@ -124,7 +127,7 @@ export async function fetchAccountSummary(
 		.where(
 			and(
 				eq(transactions.userId, userId),
-				eq(transactions.accountId, accountId),
+				buildAccountTransactionCondition(accountId),
 				eq(transactions.period, selectedPeriod),
 				eq(transactions.payerId, adminPayerId),
 				...settledCondition,
@@ -149,7 +152,7 @@ export async function fetchAccountSummary(
 		.where(
 			and(
 				eq(transactions.userId, userId),
-				eq(transactions.accountId, accountId),
+				buildAccountTransactionCondition(accountId),
 				lt(transactions.period, selectedPeriod),
 				eq(transactions.payerId, adminPayerId),
 				...settledCondition,
@@ -158,12 +161,35 @@ export async function fetchAccountSummary(
 
 	const initialBalance = Number(account.initialBalance ?? 0);
 	const previousMovements = Number(previousRow?.previousMovements ?? 0);
-	const openingBalance = initialBalance + previousMovements;
 	const netAmount = Number(periodSummary?.netAmount ?? 0);
 	const totalIncomes = Number(periodSummary?.incomes ?? 0);
 	const expenseNet = Number(periodSummary?.expenses ?? 0);
 	const totalExpenses = Math.max(0, -expenseNet);
-	const currentBalance = openingBalance + netAmount;
+
+	// Conta de empréstimo: saldo não é a soma dos lançamentos (que incluem
+	// juros, e ficariam fora da amortização), e sim o saldo devedor/recebível
+	// derivado das parcelas — mesmo princípio de `fetchLoanOutstandingBalances`
+	// usado na listagem de contas, só que cortado no período navegado aqui.
+	let openingBalance = initialBalance + previousMovements;
+	let currentBalance = openingBalance + netAmount;
+
+	if (isLoanAccountType(account.accountType)) {
+		const [openingLoanBalance, closingLoanBalance] = await Promise.all([
+			fetchLoanBalanceAsOfPeriod(userId, accountId, selectedPeriod, {
+				inclusive: false,
+				settledOnly,
+			}),
+			fetchLoanBalanceAsOfPeriod(userId, accountId, selectedPeriod, {
+				inclusive: true,
+				settledOnly,
+			}),
+		]);
+
+		if (openingLoanBalance !== null && closingLoanBalance !== null) {
+			openingBalance = openingLoanBalance;
+			currentBalance = closingLoanBalance;
+		}
+	}
 
 	return {
 		openingBalance,

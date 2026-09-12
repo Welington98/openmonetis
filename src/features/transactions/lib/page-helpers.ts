@@ -41,6 +41,7 @@ import {
 	INITIAL_BALANCE_PAYMENT_METHOD,
 	INITIAL_BALANCE_TRANSACTION_TYPES,
 } from "@/shared/lib/accounts/constants";
+import { buildAccountTransactionCondition } from "@/shared/lib/loans/linked-transactions";
 import {
 	PAYER_ROLE_ADMIN,
 	PAYER_ROLE_THIRD_PARTY,
@@ -449,7 +450,7 @@ export const buildTransactionWhere = ({
 	}
 
 	if (accountId) {
-		where.push(eq(transactions.accountId, accountId));
+		where.push(buildAccountTransactionCondition(accountId));
 	}
 
 	const typeValue = typeSlugToValue[filters.transactionFilter ?? ""] ?? null;
