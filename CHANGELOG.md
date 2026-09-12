@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.32.0](https://github.com/Welington98/openmonetis/compare/v2.31.0...v2.32.0) (2026-09-12)
+
+### Adicionado
+
+* **transactions:** detalhar lançamento em itens (Detalhar/Desagrupar) ([2d298ab](https://github.com/Welington98/openmonetis/commit/2d298ab5d39f9ed191fb16648bff549a26485714))
+
 ## [2.31.0](https://github.com/Welington98/openmonetis/compare/v2.30.0...v2.31.0) (2026-09-12)
 
 ### Adicionado
