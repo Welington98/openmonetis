@@ -1023,6 +1023,10 @@ export const transactions = pgTable(
 		isSettled: boolean("realizado").default(false),
 		isDivided: boolean("dividido").default(false),
 		isAnticipated: boolean("antecipado").default(false),
+		// "Detalhar": o valor total foi subdividido em itens com categoria/centro
+		// de custo próprios (ver `transactionItems`) — ex.: separar principal e
+		// juros de atraso de uma conta paga fora do prazo.
+		isItemized: boolean("detalhado").default(false),
 		// Controla se este lançamento (boleto/parcela) deve ser espelhado como
 		// evento na agenda "OpenMonetis" do Google Agenda do usuário, quando a
 		// integração estiver conectada. Ver `googleCalendarSyncedEvents`.
@@ -1620,6 +1624,66 @@ export const transactionsRelations = relations(
 			references: [installmentAnticipations.id],
 		}),
 		transactionAttachments: many(transactionAttachments),
+		items: many(transactionItems),
+	}),
+);
+
+// ===================== TRANSACTION ITEMS (Detalhar) =====================
+
+export const transactionItems = pgTable(
+	"itens_lancamento",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		transactionId: uuid("lancamento_id")
+			.notNull()
+			.references(() => transactions.id, { onDelete: "cascade" }),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("nome").notNull(),
+		categoryId: uuid("categoria_id")
+			.notNull()
+			.references(() => categories.id, { onDelete: "cascade" }),
+		costCenterId: uuid("centro_custo_id").references(
+			(): AnyPgColumn => costCenters.id,
+			{ onDelete: "set null" },
+		),
+		// Sempre positivo — magnitude do item; o sinal vem do lançamento pai.
+		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		transactionIdIdx: index("itens_lancamento_lancamento_id_idx").on(
+			table.transactionId,
+		),
+		userIdIdx: index("itens_lancamento_user_id_idx").on(table.userId),
+		categoryIdIdx: index("itens_lancamento_categoria_id_idx").on(
+			table.categoryId,
+		),
+	}),
+);
+
+export const transactionItemsRelations = relations(
+	transactionItems,
+	({ one }) => ({
+		transaction: one(transactions, {
+			fields: [transactionItems.transactionId],
+			references: [transactions.id],
+		}),
+		category: one(categories, {
+			fields: [transactionItems.categoryId],
+			references: [categories.id],
+		}),
+		costCenter: one(costCenters, {
+			fields: [transactionItems.costCenterId],
+			references: [costCenters.id],
+		}),
+		user: one(user, {
+			fields: [transactionItems.userId],
+			references: [user.id],
+		}),
 	}),
 );
 
