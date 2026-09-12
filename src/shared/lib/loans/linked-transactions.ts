@@ -1,6 +1,5 @@
-import { and, eq, exists, or, type SQL } from "drizzle-orm";
+import { eq, or, type SQL, sql } from "drizzle-orm";
 import { loanInstallments, loans, transactions } from "@/db/schema";
-import { db } from "@/shared/lib/db";
 import { LOAN_DISBURSEMENT_NOTE_PREFIX } from "@/shared/lib/loans/constants";
 
 /**
@@ -16,22 +15,23 @@ import { LOAN_DISBURSEMENT_NOTE_PREFIX } from "@/shared/lib/loans/constants";
  * (ex.: a conta de pagamento), não muda nada: nenhum empréstimo tem
  * `accountId` igual à conta de pagamento, então as condições extras nunca
  * batem.
+ *
+ * Monta o EXISTS via `sql` puro (em vez do query builder ligado à instância
+ * de `db`) porque esse módulo é importado por `page-helpers.ts`, que também
+ * é importado por componentes client — puxar a instância de `db` (e o
+ * driver `pg`, que depende de módulos Node como `fs`/`net`/`tls`) pra dentro
+ * do bundle do cliente quebra o build do Next.
  */
 export function buildAccountTransactionCondition(accountId: string): SQL {
 	return or(
 		eq(transactions.accountId, accountId),
-		exists(
-			db
-				.select({ one: loanInstallments.transactionId })
-				.from(loanInstallments)
-				.innerJoin(loans, eq(loans.id, loanInstallments.loanId))
-				.where(
-					and(
-						eq(loanInstallments.transactionId, transactions.id),
-						eq(loans.accountId, accountId),
-					),
-				),
-		),
+		sql`exists (
+			select 1
+			from ${loanInstallments}
+			inner join ${loans} on ${loans.id} = ${loanInstallments.loanId}
+			where ${loanInstallments.transactionId} = ${transactions.id}
+				and ${loans.accountId} = ${accountId}
+		)`,
 		eq(transactions.note, `${LOAN_DISBURSEMENT_NOTE_PREFIX}${accountId}`),
 	) as SQL;
 }
