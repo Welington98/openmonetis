@@ -1,8 +1,14 @@
 "use server";
 
 import { and, asc, eq, inArray, isNull, sql } from "drizzle-orm";
-import { attachments, transactionAttachments, transactions } from "@/db/schema";
 import {
+	attachments,
+	financialAccounts,
+	transactionAttachments,
+	transactions,
+} from "@/db/schema";
+import {
+	CREDIT_CARD_PAYMENT_METHOD,
 	PAYMENT_METHODS,
 	TRANSACTION_CONDITIONS,
 	TRANSACTION_TYPES,
@@ -16,7 +22,11 @@ import {
 	sendPayerAutoEmails,
 } from "@/shared/lib/payers/notifications";
 import type { ActionResult } from "@/shared/lib/types/actions";
-import { addMonthsToDate, parseLocalDateString } from "@/shared/utils/date";
+import {
+	addMonthsToDate,
+	getBusinessTodayDate,
+	parseLocalDateString,
+} from "@/shared/utils/date";
 import { addMonthsToPeriod, parsePeriod } from "@/shared/utils/period";
 import { cleanupAttachmentsAfterTransactionDelete } from "./attachments";
 import {
@@ -37,6 +47,8 @@ import {
 	resolvePeriod,
 	resolveUserLabel,
 	revalidate,
+	type SettleBulkInput,
+	settleBulkSchema,
 	type TransactionInsert,
 	type UpdateBulkInput,
 	updateBulkSchema,
@@ -853,6 +865,122 @@ export async function deleteMultipleTransactionsAction(
 			message: `${count} ${
 				count === 1 ? "lançamento removido" : "lançamentos removidos"
 			} com sucesso.`,
+		};
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
+/**
+ * Marca múltiplos lançamentos (de qualquer pagador) como pagos/recebidos em
+ * uma única operação — usado quando o usuário agrupa dois ou mais
+ * lançamentos (ex.: da mesma pessoa) para liquidar com um único envio/
+ * recebimento no valor total.
+ *
+ * Não força que os lançamentos pertençam ao mesmo pagador: quem decide o
+ * que agrupar é o usuário, no momento da seleção na tabela.
+ */
+export async function settleTransactionsBulkAction(
+	input: SettleBulkInput,
+): Promise<ActionResult> {
+	try {
+		const user = await getUser();
+		const data = settleBulkSchema.parse(input);
+
+		if (data.paymentAccountId) {
+			const paymentAccount = await db.query.financialAccounts.findFirst({
+				columns: { id: true },
+				where: and(
+					eq(financialAccounts.id, data.paymentAccountId),
+					eq(financialAccounts.userId, user.id),
+				),
+			});
+
+			if (!paymentAccount) {
+				return { success: false, error: "Conta de pagamento não encontrada." };
+			}
+		}
+
+		const existing = await db.query.transactions.findMany({
+			columns: {
+				id: true,
+				name: true,
+				payerId: true,
+				amount: true,
+				transactionType: true,
+				paymentMethod: true,
+				condition: true,
+				purchaseDate: true,
+				period: true,
+				note: true,
+				isSettled: true,
+			},
+			where: and(
+				inArray(transactions.id, data.ids),
+				eq(transactions.userId, user.id),
+			),
+		});
+
+		if (existing.length !== data.ids.length) {
+			return {
+				success: false,
+				error: "Um ou mais lançamentos não foram encontrados.",
+			};
+		}
+
+		if (existing.some(isProtectedTransaction)) {
+			return {
+				success: false,
+				error: "Lançamentos protegidos não podem ser agrupados.",
+			};
+		}
+
+		if (
+			existing.some((item) => item.paymentMethod === CREDIT_CARD_PAYMENT_METHOD)
+		) {
+			return {
+				success: false,
+				error:
+					"Lançamentos de cartão de crédito são conciliados automaticamente pela fatura e não podem ser agrupados.",
+			};
+		}
+
+		if (existing.some((item) => item.isSettled)) {
+			return {
+				success: false,
+				error: "Um ou mais lançamentos selecionados já estão pagos.",
+			};
+		}
+
+		const customPaymentDate = data.paymentDate
+			? parseLocalDateString(data.paymentDate)
+			: null;
+		const boletoPaymentDate = customPaymentDate ?? getBusinessTodayDate();
+
+		await db.transaction(async (tx: typeof db) => {
+			await tx
+				.update(transactions)
+				.set({
+					isSettled: true,
+					boletoPaymentDate,
+					...(data.paymentAccountId !== undefined && {
+						accountId: data.paymentAccountId,
+					}),
+				})
+				.where(
+					and(
+						inArray(transactions.id, data.ids),
+						eq(transactions.userId, user.id),
+					),
+				);
+		});
+
+		revalidate(user.id);
+
+		const count = existing.length;
+		return {
+			success: true,
+			message: `${count} lançamentos agrupados e marcados como pagos com sucesso.`,
 		};
 	} catch (error) {
 		return handleActionError(error);

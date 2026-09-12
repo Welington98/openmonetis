@@ -11,6 +11,7 @@ import {
 	deleteMultipleTransactionsAction,
 	deleteTransactionAction,
 	deleteTransactionBulkAction,
+	settleTransactionsBulkAction,
 	toggleTransactionSettlementAction,
 	updateTransactionAction,
 	updateTransactionBulkAction,
@@ -46,6 +47,7 @@ import {
 	type BulkActionScope,
 } from "../dialogs/bulk-action-dialog";
 import { BulkImportDialog } from "../dialogs/bulk-import-dialog";
+import { GroupSettleDialog } from "../dialogs/group-settle-dialog";
 import {
 	MassAddDialog,
 	type MassAddFormData,
@@ -202,6 +204,10 @@ export function TransactionsPage({
 		useState<TransactionItem | null>(null);
 	const [multipleBulkDeleteOpen, setMultipleBulkDeleteOpen] = useState(false);
 	const [pendingMultipleDeleteData, setPendingMultipleDeleteData] = useState<
+		TransactionItem[]
+	>([]);
+	const [groupSettleOpen, setGroupSettleOpen] = useState(false);
+	const [pendingGroupSettleData, setPendingGroupSettleData] = useState<
 		TransactionItem[]
 	>([]);
 	const [anticipateOpen, setAnticipateOpen] = useState(false);
@@ -457,6 +463,36 @@ export function TransactionsPage({
 		toast.success(result.message);
 		setMultipleBulkDeleteOpen(false);
 		setPendingMultipleDeleteData([]);
+	};
+
+	const handleBulkSettle = (items: TransactionItem[]) => {
+		setPendingGroupSettleData(items);
+		setGroupSettleOpen(true);
+	};
+
+	const confirmGroupSettle = async (data: {
+		paymentDate: string;
+		paymentAccountId: string | null;
+	}) => {
+		if (pendingGroupSettleData.length === 0) {
+			return;
+		}
+
+		const ids = pendingGroupSettleData.map((item) => item.id);
+		const result = await settleTransactionsBulkAction({
+			ids,
+			paymentDate: data.paymentDate,
+			paymentAccountId: data.paymentAccountId,
+		});
+
+		if (!result.success) {
+			toast.error(result.error);
+			throw new Error(result.error);
+		}
+
+		toast.success(result.message);
+		setGroupSettleOpen(false);
+		setPendingGroupSettleData([]);
 	};
 
 	const handleMassAdd = () => {
@@ -801,6 +837,7 @@ export function TransactionsPage({
 				onConfirmDelete={handleConfirmDelete}
 				onBulkDelete={handleMultipleBulkDelete}
 				onBulkImport={handleBulkImport}
+				onBulkSettle={handleBulkSettle}
 				onViewDetails={handleViewDetails}
 				onRefund={handleRefund}
 				onConvertToInstallment={handleConvertToInstallment}
@@ -1168,6 +1205,19 @@ export function TransactionsPage({
 				confirmVariant="destructive"
 				onConfirm={confirmMultipleBulkDelete}
 				disabled={pendingMultipleDeleteData.length === 0}
+			/>
+
+			<GroupSettleDialog
+				open={groupSettleOpen && pendingGroupSettleData.length > 0}
+				onOpenChange={(open) => {
+					setGroupSettleOpen(open);
+					if (!open) {
+						setPendingGroupSettleData([]);
+					}
+				}}
+				items={pendingGroupSettleData}
+				accountOptions={accountOptions}
+				onConfirm={confirmGroupSettle}
 			/>
 
 			{/* Dialogs de Antecipação */}
