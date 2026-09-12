@@ -78,6 +78,8 @@ type TransactionsTableProps = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
+	onDetail?: (item: TransactionItem) => void;
+	onUngroup?: (item: TransactionItem) => void;
 	onToggleSettlement?: (item: TransactionItem) => void;
 	onAnticipate?: (item: TransactionItem) => void;
 	onViewAnticipationHistory?: (item: TransactionItem) => void;
@@ -112,6 +114,8 @@ export function TransactionsTable({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onReconcile,
+	onDetail,
+	onUngroup,
 	onToggleSettlement,
 	onAnticipate,
 	onViewAnticipationHistory,
@@ -150,6 +154,8 @@ export function TransactionsTable({
 				onConvertToInstallment,
 				onConvertToRecurring,
 				onReconcile,
+				onDetail,
+				onUngroup,
 				onToggleSettlement,
 				onAnticipate,
 				onViewAnticipationHistory,
@@ -172,6 +178,8 @@ export function TransactionsTable({
 			onConvertToInstallment,
 			onConvertToRecurring,
 			onReconcile,
+			onDetail,
+			onUngroup,
 			onToggleSettlement,
 			onAnticipate,
 			onViewAnticipationHistory,
@@ -456,6 +464,8 @@ export function TransactionsTable({
 								onViewDetails={onViewDetails}
 								onRefund={onRefund}
 								onReconcile={onReconcile}
+								onDetail={onDetail}
+								onUngroup={onUngroup}
 								onToggleSettlement={onToggleSettlement}
 								onAnticipate={onAnticipate}
 								onViewAnticipationHistory={onViewAnticipationHistory}

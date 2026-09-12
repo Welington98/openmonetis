@@ -7,9 +7,11 @@ import {
 	RiFileCopyLine,
 	RiFileList2Line,
 	RiHistoryLine,
+	RiListCheck3,
 	RiMoreFill,
 	RiPencilLine,
 	RiRefundLine,
+	RiSplitCellsHorizontal,
 	RiTimeLine,
 } from "@remixicon/react";
 import { CREDIT_CARD_PAYMENT_METHOD } from "@/features/transactions/lib/constants";
@@ -39,6 +41,8 @@ type TransactionActionsMenuProps = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
+	onDetail?: (item: TransactionItem) => void;
+	onUngroup?: (item: TransactionItem) => void;
 };
 
 export function TransactionActionsMenu({
@@ -55,6 +59,8 @@ export function TransactionActionsMenu({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onReconcile,
+	onDetail,
+	onUngroup,
 }: TransactionActionsMenuProps) {
 	const isOwnData = item.userId === currentUserId;
 	const canRefund =
@@ -84,6 +90,13 @@ export function TransactionActionsMenu({
 		!item.isDivided &&
 		!item.readonly &&
 		Boolean(onConvertToRecurring);
+
+	const canDetail =
+		isOwnData &&
+		!item.isItemized &&
+		!item.splitGroupId &&
+		!item.readonly &&
+		(item.transactionType === "Despesa" || item.transactionType === "Receita");
 
 	return (
 		<DropdownMenu>
@@ -150,6 +163,26 @@ export function TransactionActionsMenu({
 					<DropdownMenuItem onSelect={() => onConvertToRecurring?.(item)}>
 						{getConditionIcon("Fixa")}
 						Converter em Fixa
+					</DropdownMenuItem>
+				) : null}
+
+				{canDetail ? (
+					<DropdownMenuItem
+						onSelect={() => onDetail?.(item)}
+						disabled={!onDetail}
+					>
+						<RiSplitCellsHorizontal className="size-4" aria-hidden />
+						Detalhar
+					</DropdownMenuItem>
+				) : null}
+
+				{isOwnData && item.isItemized ? (
+					<DropdownMenuItem
+						onSelect={() => onUngroup?.(item)}
+						disabled={!onUngroup}
+					>
+						<RiListCheck3 className="size-4" aria-hidden />
+						Desagrupar
 					</DropdownMenuItem>
 				) : null}
 

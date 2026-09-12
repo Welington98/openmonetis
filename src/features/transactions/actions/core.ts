@@ -580,30 +580,88 @@ export const convertToRecurringSchema = z.object({
 		.max(60, "Selecione até 60 meses."),
 });
 
+// Tipo de item de um lançamento detalhado — Despesa ou Receita (o item soma
+// ou subtrai do líquido conforme seu próprio tipo). Transferência não é
+// suportada como tipo de item.
+const detailedItemTypes = ["Despesa", "Receita"] as const;
+
+const detailedItemSchema = z.object({
+	name: z
+		.string({ message: "Informe uma descrição para o item." })
+		.trim()
+		.min(1, "Informe uma descrição para o item."),
+	transactionType: z.enum(detailedItemTypes, {
+		message: "Selecione um tipo válido para o item.",
+	}),
+	categoryId: uuidSchema("Categoria"),
+	costCenterId: uuidSchema("Centro de custo").nullable().optional(),
+	amount: z.coerce
+		.number({ message: "Informe o valor do item." })
+		.positive("Informe um valor maior que zero para cada item."),
+});
+
+type DetailedItemLike = {
+	transactionType: "Despesa" | "Receita";
+	amount: number;
+};
+
+// Soma líquida com sinal dos itens de um lançamento detalhado: itens de
+// Receita somam, itens de Despesa subtraem — precisa bater com o valor com
+// sinal do lançamento (Despesa = negativo, Receita = positivo).
+export const computeDetailedItemsNetAmount = (items: DetailedItemLike[]) =>
+	items.reduce(
+		(total, item) =>
+			total + (item.transactionType === "Receita" ? item.amount : -item.amount),
+		0,
+	);
+
 // "Detalhar": substitui o único par categoria/centro do lançamento por uma
-// lista de itens que juntos somam o valor total — útil pra separar principal,
-// juros de atraso, multa, desconto etc. numa mesma conta.
+// lista de itens — útil pra separar principal, juros de atraso, multa,
+// desconto etc. numa mesma conta. A soma líquida dos itens (Receita soma,
+// Despesa subtrai) precisa bater com o valor com sinal do lançamento.
 export const detailTransactionSchema = z.object({
 	id: uuidSchema("Lançamento"),
 	items: z
-		.array(
-			z.object({
-				name: z
-					.string({ message: "Informe uma descrição para o item." })
-					.trim()
-					.min(1, "Informe uma descrição para o item."),
-				categoryId: uuidSchema("Categoria"),
-				costCenterId: uuidSchema("Centro de custo").nullable().optional(),
-				amount: z.coerce
-					.number({ message: "Informe o valor do item." })
-					.positive("Informe um valor maior que zero para cada item."),
-			}),
-		)
+		.array(detailedItemSchema)
 		.min(2, "Um lançamento detalhado precisa de pelo menos dois itens."),
 });
 
 export const ungroupTransactionSchema = z.object({
 	id: uuidSchema("Lançamento"),
+});
+
+// Cria um lançamento detalhado do zero — sem lançamento "pai" pré-existente.
+// O tipo e o valor do lançamento resultante são derivados da soma líquida
+// dos itens. Escopo reduzido de propósito: só contas comuns (sem cartão de
+// crédito) e sem parcelamento/recorrência — cobre o caso de uso real
+// (separar principal/juros/desconto de um pagamento), não substitui o
+// formulário completo de lançamento.
+export const createDetailedTransactionSchema = z.object({
+	purchaseDate: z
+		.string({ message: "Informe a data do lançamento." })
+		.trim()
+		.refine((value) => isValidDateInput(value), {
+			message: "Data do lançamento inválida.",
+		}),
+	period: z
+		.string()
+		.trim()
+		.regex(/^(\d{4})-(\d{2})$/, { message: "Selecione um período válido." })
+		.optional(),
+	name: z
+		.string({ message: "Informe uma descrição." })
+		.trim()
+		.min(1, "Informe uma descrição."),
+	paymentMethod: z.enum(PAYMENT_METHODS, {
+		message: "Selecione uma forma de pagamento válida.",
+	}),
+	accountId: uuidSchema("FinancialAccount"),
+	payerId: uuidSchema("Payer").nullable().optional(),
+	note: noteSchema,
+	isSettled: z.boolean().nullable().optional(),
+	items: z
+		.array(detailedItemSchema)
+		.min(2, "Um lançamento detalhado precisa de pelo menos dois itens."),
 });
 
 type BaseInput = z.infer<typeof baseFields>;
@@ -617,6 +675,9 @@ export type ConvertToInstallmentInput = z.infer<
 export type ConvertToRecurringInput = z.infer<typeof convertToRecurringSchema>;
 export type DetailTransactionInput = z.infer<typeof detailTransactionSchema>;
 export type UngroupTransactionInput = z.infer<typeof ungroupTransactionSchema>;
+export type CreateDetailedTransactionInput = z.infer<
+	typeof createDetailedTransactionSchema
+>;
 
 export const revalidate = (userId: string) =>
 	revalidateForEntity("transactions", userId);

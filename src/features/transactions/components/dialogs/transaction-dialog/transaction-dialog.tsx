@@ -696,12 +696,21 @@ export function TransactionDialog({
 											}
 										/>
 									</div>
-									{transaction?.id ? (
+									{transaction?.id &&
+									formState.transactionType !== "Transferência" ? (
 										<DetailItemsSection
 											transactionId={transaction.id}
 											isItemized={transaction.isItemized}
-											totalAmount={Math.abs(Number(formState.amount)) || 0}
+											signedAmount={
+												(formState.transactionType === "Despesa" ? -1 : 1) *
+												(Math.abs(Number(formState.amount)) || 0)
+											}
 											defaultName={formState.name}
+											defaultTransactionType={
+												formState.transactionType === "Receita"
+													? "Receita"
+													: "Despesa"
+											}
 											defaultCategoryId={formState.categoryId ?? ""}
 											defaultCostCenterId={formState.costCenterId ?? ""}
 											categoryOptions={categoryOptions}

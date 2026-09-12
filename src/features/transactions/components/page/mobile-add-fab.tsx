@@ -5,6 +5,7 @@ import {
 	RiArrowLeftRightLine,
 	RiArrowRightDownLine,
 	RiArrowRightUpLine,
+	RiSplitCellsHorizontal,
 } from "@remixicon/react";
 import Link from "next/link";
 import { useState } from "react";
@@ -17,6 +18,7 @@ import {
 	DropdownMenuTrigger,
 } from "@/shared/components/ui/dropdown-menu";
 import { cn } from "@/shared/utils/ui";
+import { CreateDetailedTransactionDialog } from "../dialogs/create-detailed-transaction-dialog";
 import { TransactionDialog } from "../dialogs/transaction-dialog/transaction-dialog";
 
 interface MobileAddFabProps {
@@ -65,6 +67,7 @@ export function MobileAddFab({
 	const [dialogType, setDialogType] = useState<"Despesa" | "Receita" | null>(
 		null,
 	);
+	const [detailedOpen, setDetailedOpen] = useState(false);
 
 	return (
 		<>
@@ -103,9 +106,22 @@ export function MobileAddFab({
 								Transferência entre contas
 							</Link>
 						</DropdownMenuItem>
+						<DropdownMenuItem onSelect={() => setDetailedOpen(true)}>
+							<RiSplitCellsHorizontal className="size-4 text-muted-foreground" />
+							Lançamento detalhado
+						</DropdownMenuItem>
 					</DropdownMenuContent>
 				</DropdownMenu>
 			</div>
+
+			<CreateDetailedTransactionDialog
+				open={detailedOpen}
+				onOpenChange={setDetailedOpen}
+				accountOptions={accountOptions}
+				payerOptions={payerOptions}
+				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
+			/>
 
 			<TransactionDialog
 				mode="create"

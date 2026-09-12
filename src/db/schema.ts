@@ -1641,6 +1641,11 @@ export const transactionItems = pgTable(
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
 		name: text("nome").notNull(),
+		// "Despesa" | "Receita" — cada item pode ter seu próprio sentido (ex.:
+		// um item "Desconto" tipado como Receita reduz o líquido de um
+		// lançamento pai que é Despesa). Transferência não é suportada como
+		// tipo de item.
+		transactionType: text("tipo_transacao").notNull(),
 		categoryId: uuid("categoria_id")
 			.notNull()
 			.references(() => categories.id, { onDelete: "cascade" }),
@@ -1648,7 +1653,8 @@ export const transactionItems = pgTable(
 			(): AnyPgColumn => costCenters.id,
 			{ onDelete: "set null" },
 		),
-		// Sempre positivo — magnitude do item; o sinal vem do lançamento pai.
+		// Sempre positivo — magnitude do item; o sinal é derivado do próprio
+		// `transactionType` do item, não do lançamento pai.
 		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
 		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
 			.notNull()

@@ -44,6 +44,8 @@ type TransactionsMobileListProps = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
+	onDetail?: (item: TransactionItem) => void;
+	onUngroup?: (item: TransactionItem) => void;
 	isSettlementLoading: (id: string) => boolean;
 	showActions?: boolean;
 	showDateGroups?: boolean;
@@ -64,6 +66,8 @@ export function TransactionsMobileList({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onReconcile,
+	onDetail,
+	onUngroup,
 	isSettlementLoading,
 	showActions = true,
 	showDateGroups = true,
@@ -106,6 +110,8 @@ export function TransactionsMobileList({
 						onConvertToInstallment={onConvertToInstallment}
 						onConvertToRecurring={onConvertToRecurring}
 						onReconcile={onReconcile}
+						onDetail={onDetail}
+						onUngroup={onUngroup}
 						isSettlementLoading={isSettlementLoading}
 						showActions={showActions}
 						showDate
@@ -143,6 +149,8 @@ export function TransactionsMobileList({
 								onConvertToInstallment={onConvertToInstallment}
 								onConvertToRecurring={onConvertToRecurring}
 								onReconcile={onReconcile}
+								onDetail={onDetail}
+								onUngroup={onUngroup}
 								isSettlementLoading={isSettlementLoading}
 								showActions={showActions}
 							/>
@@ -174,6 +182,8 @@ function TransactionMobileCard({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onReconcile,
+	onDetail,
+	onUngroup,
 	isSettlementLoading,
 	showActions = true,
 	showDate = false,
@@ -353,6 +363,8 @@ function TransactionMobileCard({
 									onConvertToInstallment={onConvertToInstallment}
 									onConvertToRecurring={onConvertToRecurring}
 									onReconcile={onReconcile}
+									onDetail={onDetail}
+									onUngroup={onUngroup}
 								/>
 							</div>
 						) : null}

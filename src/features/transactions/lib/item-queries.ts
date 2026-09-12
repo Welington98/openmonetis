@@ -6,6 +6,7 @@ import { safeToNumber as toNumber } from "@/shared/utils/number";
 export type TransactionItemListItem = {
 	id: string;
 	name: string;
+	transactionType: "Despesa" | "Receita";
 	categoryId: string;
 	categoryName: string;
 	costCenterId: string | null;
@@ -21,6 +22,7 @@ export async function fetchTransactionItems(
 		.select({
 			id: transactionItems.id,
 			name: transactionItems.name,
+			transactionType: transactionItems.transactionType,
 			categoryId: transactionItems.categoryId,
 			categoryName: categories.name,
 			costCenterId: transactionItems.costCenterId,
@@ -41,6 +43,7 @@ export async function fetchTransactionItems(
 	return rows.map((row) => ({
 		id: row.id,
 		name: row.name,
+		transactionType: row.transactionType as "Despesa" | "Receita",
 		categoryId: row.categoryId,
 		categoryName: row.categoryName,
 		costCenterId: row.costCenterId,

@@ -13,6 +13,7 @@ import {
 	deleteTransactionBulkAction,
 	settleTransactionsBulkAction,
 	toggleTransactionSettlementAction,
+	ungroupTransactionAction,
 	updateTransactionAction,
 	updateTransactionBulkAction,
 	updateTransactionSplitPairAction,
@@ -47,6 +48,7 @@ import {
 	type BulkActionScope,
 } from "../dialogs/bulk-action-dialog";
 import { BulkImportDialog } from "../dialogs/bulk-import-dialog";
+import { CreateDetailedTransactionDialog } from "../dialogs/create-detailed-transaction-dialog";
 import { GroupSettleDialog } from "../dialogs/group-settle-dialog";
 import {
 	MassAddDialog,
@@ -589,6 +591,21 @@ export function TransactionsPage({
 		setEditOpen(true);
 	};
 
+	// "Detalhar" abre o mesmo diálogo de edição — a seção "Detalhes do
+	// lançamento" já fica visível lá.
+	const handleDetail = handleEdit;
+
+	const handleUngroup = async (item: TransactionItem) => {
+		const result = await ungroupTransactionAction({ id: item.id });
+
+		if (!result.success) {
+			toast.error(result.error);
+			return;
+		}
+
+		toast.success(result.message);
+	};
+
 	const handleCopy = (item: TransactionItem) => {
 		setTransactionToCopy(item);
 		setCopyOpen(true);
@@ -792,6 +809,18 @@ export function TransactionsPage({
 					</Button>
 				}
 			/>
+			<CreateDetailedTransactionDialog
+				accountOptions={accountOptions}
+				payerOptions={payerOptions}
+				categoryOptions={categoryOptions}
+				costCenterOptions={costCenterOptions}
+				trigger={
+					<Button variant="outline" className="w-full sm:w-auto">
+						<RiAddFill className="size-4" />
+						Lançamento detalhado
+					</Button>
+				}
+			/>
 		</>
 	) : null;
 
@@ -843,6 +872,8 @@ export function TransactionsPage({
 				onConvertToInstallment={handleConvertToInstallment}
 				onConvertToRecurring={handleConvertToRecurring}
 				onReconcile={handleReconcile}
+				onDetail={handleDetail}
+				onUngroup={handleUngroup}
 				onToggleSettlement={handleToggleSettlement}
 				onAnticipate={handleAnticipate}
 				onViewAnticipationHistory={handleViewAnticipationHistory}
