@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.31.0](https://github.com/Welington98/openmonetis/compare/v2.30.0...v2.31.0) (2026-09-12)
+
+### Adicionado
+
+* **loans:** editar vencimento de uma parcela específica ([6464c55](https://github.com/Welington98/openmonetis/commit/6464c55a84cd589e720d01bf9a7e3092cc89d58c))
+
 ## [2.30.0](https://github.com/Welington98/openmonetis/compare/v2.29.0...v2.30.0) (2026-09-12)
 
 ### Adicionado
