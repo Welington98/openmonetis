@@ -6,7 +6,6 @@ import {
 	attachments,
 	financialAccounts,
 	transactionAttachments,
-	transactionItems,
 	transactions,
 } from "@/db/schema";
 import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
@@ -37,9 +36,7 @@ import {
 	convertToRecurringSchema,
 	createSchema,
 	type DeleteInput,
-	type DetailTransactionInput,
 	deleteSchema,
-	detailTransactionSchema,
 	formatPaidInvoicePeriods,
 	getPaidInvoicePeriods,
 	isInitialBalanceTransaction,
@@ -48,9 +45,7 @@ import {
 	revalidate,
 	type ToggleSettlementInput,
 	toggleSettlementSchema,
-	type UngroupTransactionInput,
 	type UpdateInput,
-	ungroupTransactionSchema,
 	updateSchema,
 	validateAllOwnership,
 	validateCardLimit,
@@ -1064,135 +1059,6 @@ export async function toggleTransactionSettlementAction(
 				? `Lançamento marcado como ${isIncome ? "recebido" : "pago"}.`
 				: `${isIncome ? "Recebimento" : "Pagamento"} desfeito com sucesso.`,
 		};
-	} catch (error) {
-		return handleActionError(error);
-	}
-}
-
-/**
- * "Detalhar": substitui os itens do lançamento (se houver) pela lista
- * enviada, que precisa somar exatamente o valor total do lançamento. Útil
- * pra separar principal, juros de atraso, multa ou desconto de uma mesma
- * conta, cada um com sua própria categoria/centro de custo.
- */
-export async function detailTransactionAction(
-	input: DetailTransactionInput,
-): Promise<ActionResult> {
-	try {
-		const user = await getUser();
-		const data = detailTransactionSchema.parse(input);
-
-		const existing = await db.query.transactions.findFirst({
-			columns: {
-				id: true,
-				amount: true,
-				note: true,
-				transactionType: true,
-				condition: true,
-				paymentMethod: true,
-			},
-			where: and(
-				eq(transactions.id, data.id),
-				eq(transactions.userId, user.id),
-			),
-		});
-
-		if (!existing) {
-			return { success: false, error: "Lançamento não encontrado." };
-		}
-
-		if (isInitialBalanceTransaction(existing)) {
-			return {
-				success: false,
-				error: "Lançamentos de saldo inicial não podem ser detalhados.",
-			};
-		}
-
-		if (existing.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) {
-			return {
-				success: false,
-				error: "Pagamentos automáticos de fatura não podem ser detalhados.",
-			};
-		}
-
-		const totalAmount = Math.abs(Number(existing.amount));
-		const itemsSum = data.items.reduce((total, item) => total + item.amount, 0);
-
-		if (Math.abs(itemsSum - totalAmount) > 0.01) {
-			return {
-				success: false,
-				error: `A soma dos itens (${itemsSum.toFixed(2)}) precisa ser igual ao valor do lançamento (${totalAmount.toFixed(2)}).`,
-			};
-		}
-
-		await db.transaction(async (tx: typeof db) => {
-			await tx
-				.delete(transactionItems)
-				.where(eq(transactionItems.transactionId, data.id));
-
-			await tx.insert(transactionItems).values(
-				data.items.map((item) => ({
-					transactionId: data.id,
-					userId: user.id,
-					name: item.name,
-					categoryId: item.categoryId,
-					costCenterId: item.costCenterId ?? null,
-					amount: formatDecimalForDbRequired(item.amount),
-				})),
-			);
-
-			await tx
-				.update(transactions)
-				.set({ isItemized: true })
-				.where(eq(transactions.id, data.id));
-		});
-
-		revalidate(user.id);
-
-		return { success: true, message: "Lançamento detalhado com sucesso." };
-	} catch (error) {
-		return handleActionError(error);
-	}
-}
-
-/**
- * "Desagrupar": remove os itens do lançamento, voltando ele a ser um
- * lançamento simples (categoria/centro únicos, já gravados na própria
- * linha de `transactions`).
- */
-export async function ungroupTransactionAction(
-	input: UngroupTransactionInput,
-): Promise<ActionResult> {
-	try {
-		const user = await getUser();
-		const data = ungroupTransactionSchema.parse(input);
-
-		const existing = await db.query.transactions.findFirst({
-			columns: { id: true },
-			where: and(
-				eq(transactions.id, data.id),
-				eq(transactions.userId, user.id),
-			),
-		});
-
-		if (!existing) {
-			return { success: false, error: "Lançamento não encontrado." };
-		}
-
-		await db.transaction(async (tx: typeof db) => {
-			await tx
-				.delete(transactionItems)
-				.where(eq(transactionItems.transactionId, data.id));
-
-			await tx
-				.update(transactions)
-				.set({ isItemized: false })
-				.where(eq(transactions.id, data.id));
-		});
-
-		revalidate(user.id);
-
-		return { success: true, message: "Detalhamento removido." };
 	} catch (error) {
 		return handleActionError(error);
 	}

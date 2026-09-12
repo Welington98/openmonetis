@@ -33,7 +33,6 @@ export type TransactionItem = {
 	isSettled: boolean | null;
 	isDivided: boolean;
 	isAnticipated: boolean;
-	isItemized: boolean;
 	anticipationId: string | null;
 	seriesId: string | null;
 	splitGroupId: string | null;

@@ -41,7 +41,6 @@ import { BasicFieldsSection } from "./basic-fields-section";
 import { BoletoFieldsSection } from "./boleto-fields-section";
 import { CategorySection } from "./category-section";
 import { ConditionSection } from "./condition-section";
-import { DetailItemsSection } from "./detail-items-section";
 import { NoteSection } from "./note-section";
 import { PayerSection } from "./payer-section";
 import { PaymentMethodSection } from "./payment-method-section";
@@ -696,18 +695,6 @@ export function TransactionDialog({
 											}
 										/>
 									</div>
-									{transaction?.id ? (
-										<DetailItemsSection
-											transactionId={transaction.id}
-											isItemized={transaction.isItemized}
-											totalAmount={Math.abs(Number(formState.amount)) || 0}
-											defaultName={formState.name}
-											defaultCategoryId={formState.categoryId ?? ""}
-											defaultCostCenterId={formState.costCenterId ?? ""}
-											categoryOptions={categoryOptions}
-											costCenterOptions={costCenterOptions}
-										/>
-									) : null}
 								</div>
 							</>
 						) : (

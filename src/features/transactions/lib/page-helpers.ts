@@ -644,7 +644,6 @@ export const mapTransactionsData = (rows: TransactionRowWithRelations[]) =>
 		isSettled: item.isSettled ?? null,
 		isDivided: item.isDivided ?? false,
 		isAnticipated: item.isAnticipated ?? false,
-		isItemized: item.isItemized ?? false,
 		anticipationId: item.anticipationId ?? null,
 		seriesId: item.seriesId ?? null,
 		splitGroupId: item.splitGroupId ?? null,
