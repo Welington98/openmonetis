@@ -11,7 +11,9 @@ export {
 	convertTransactionToRecurringAction,
 	createTransactionAction,
 	deleteTransactionAction,
+	detailTransactionAction,
 	toggleTransactionSettlementAction,
+	ungroupTransactionAction,
 	updateTransactionAction,
 	updateTransactionSplitPairAction,
 } from "./actions/single-actions";

@@ -580,6 +580,32 @@ export const convertToRecurringSchema = z.object({
 		.max(60, "Selecione até 60 meses."),
 });
 
+// "Detalhar": substitui o único par categoria/centro do lançamento por uma
+// lista de itens que juntos somam o valor total — útil pra separar principal,
+// juros de atraso, multa, desconto etc. numa mesma conta.
+export const detailTransactionSchema = z.object({
+	id: uuidSchema("Lançamento"),
+	items: z
+		.array(
+			z.object({
+				name: z
+					.string({ message: "Informe uma descrição para o item." })
+					.trim()
+					.min(1, "Informe uma descrição para o item."),
+				categoryId: uuidSchema("Categoria"),
+				costCenterId: uuidSchema("Centro de custo").nullable().optional(),
+				amount: z.coerce
+					.number({ message: "Informe o valor do item." })
+					.positive("Informe um valor maior que zero para cada item."),
+			}),
+		)
+		.min(2, "Um lançamento detalhado precisa de pelo menos dois itens."),
+});
+
+export const ungroupTransactionSchema = z.object({
+	id: uuidSchema("Lançamento"),
+});
+
 type BaseInput = z.infer<typeof baseFields>;
 export type CreateInput = z.infer<typeof createSchema>;
 export type UpdateInput = z.infer<typeof updateSchema>;
@@ -589,6 +615,8 @@ export type ConvertToInstallmentInput = z.infer<
 	typeof convertToInstallmentSchema
 >;
 export type ConvertToRecurringInput = z.infer<typeof convertToRecurringSchema>;
+export type DetailTransactionInput = z.infer<typeof detailTransactionSchema>;
+export type UngroupTransactionInput = z.infer<typeof ungroupTransactionSchema>;
 
 export const revalidate = (userId: string) =>
 	revalidateForEntity("transactions", userId);
