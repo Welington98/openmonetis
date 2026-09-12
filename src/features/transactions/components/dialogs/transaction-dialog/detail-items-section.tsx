@@ -28,9 +28,12 @@ import { formatCurrency } from "@/shared/utils/currency";
 import { cn } from "@/shared/utils/ui";
 import type { SelectOption } from "../../types";
 
+type DetailedItemType = "Despesa" | "Receita";
+
 type DetailItemDraft = {
 	key: string;
 	name: string;
+	transactionType: DetailedItemType;
 	categoryId: string;
 	costCenterId: string;
 	amount: string;
@@ -39,8 +42,10 @@ type DetailItemDraft = {
 type DetailItemsSectionProps = {
 	transactionId: string;
 	isItemized: boolean;
-	totalAmount: number;
+	/** Valor do lançamento COM sinal (Despesa negativo, Receita positivo). */
+	signedAmount: number;
 	defaultName: string;
+	defaultTransactionType: DetailedItemType;
 	defaultCategoryId: string;
 	defaultCostCenterId: string;
 	categoryOptions: SelectOption[];
@@ -52,11 +57,18 @@ const makeKey = () =>
 
 const NO_COST_CENTER = "__none__";
 
+const netAmount = (items: DetailItemDraft[]) =>
+	items.reduce((total, item) => {
+		const value = Number(item.amount) || 0;
+		return total + (item.transactionType === "Receita" ? value : -value);
+	}, 0);
+
 export function DetailItemsSection({
 	transactionId,
 	isItemized,
-	totalAmount,
+	signedAmount,
 	defaultName,
+	defaultTransactionType,
 	defaultCategoryId,
 	defaultCostCenterId,
 	categoryOptions,
@@ -79,6 +91,7 @@ export function DetailItemsSection({
 				existingItems.map((item) => ({
 					key: item.id,
 					name: item.name,
+					transactionType: item.transactionType,
 					categoryId: item.categoryId,
 					costCenterId: item.costCenterId ?? NO_COST_CENTER,
 					amount: item.amount.toFixed(2),
@@ -92,9 +105,10 @@ export function DetailItemsSection({
 			{
 				key: makeKey(),
 				name: defaultName,
+				transactionType: defaultTransactionType,
 				categoryId: defaultCategoryId,
 				costCenterId: defaultCostCenterId || NO_COST_CENTER,
-				amount: totalAmount.toFixed(2),
+				amount: Math.abs(signedAmount).toFixed(2),
 			},
 		]);
 		setIsEditing(true);
@@ -107,6 +121,7 @@ export function DetailItemsSection({
 			{
 				key: makeKey(),
 				name: last?.name ?? defaultName,
+				transactionType: last?.transactionType ?? defaultTransactionType,
 				categoryId: last?.categoryId ?? defaultCategoryId,
 				costCenterId: last?.costCenterId ?? NO_COST_CENTER,
 				amount: "",
@@ -141,6 +156,7 @@ export function DetailItemsSection({
 				existingItems.map((item) => ({
 					key: item.id,
 					name: item.name,
+					transactionType: item.transactionType,
 					categoryId: item.categoryId,
 					costCenterId: item.costCenterId ?? NO_COST_CENTER,
 					amount: item.amount.toFixed(2),
@@ -151,11 +167,8 @@ export function DetailItemsSection({
 		}
 	};
 
-	const itemsSum = draftItems.reduce(
-		(total, item) => total + (Number(item.amount) || 0),
-		0,
-	);
-	const sumMatches = Math.abs(itemsSum - totalAmount) < 0.01;
+	const itemsNet = netAmount(draftItems);
+	const sumMatches = Math.abs(itemsNet - signedAmount) < 0.01;
 	const canSave = draftItems.length >= 2 && sumMatches;
 
 	const handleSave = () => {
@@ -164,6 +177,7 @@ export function DetailItemsSection({
 				id: transactionId,
 				items: draftItems.map((item) => ({
 					name: item.name,
+					transactionType: item.transactionType,
 					categoryId: item.categoryId,
 					costCenterId:
 						item.costCenterId === NO_COST_CENTER ? null : item.costCenterId,
@@ -216,8 +230,9 @@ export function DetailItemsSection({
 					Incluir detalhes
 				</button>
 				<p className="text-xs text-muted-foreground">
-					Divida o valor total em itens com categoria e centro de custo próprios
-					— útil pra separar principal e juros de atraso, por exemplo.
+					Divida o valor total em itens com categoria, centro de custo e tipo
+					próprios — útil pra separar principal e juros de atraso, ou registrar
+					um desconto, por exemplo.
 				</p>
 			</div>
 		);
@@ -250,7 +265,23 @@ export function DetailItemsSection({
 								}
 								placeholder="Descrição do item"
 							/>
-							<div className="grid grid-cols-2 gap-2">
+							<div className="grid grid-cols-3 gap-2">
+								<Select
+									value={item.transactionType}
+									onValueChange={(value) =>
+										updateItem(item.key, {
+											transactionType: value as DetailedItemType,
+										})
+									}
+								>
+									<SelectTrigger className="w-full">
+										<SelectValue placeholder="Tipo" />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="Despesa">Despesa</SelectItem>
+										<SelectItem value="Receita">Receita</SelectItem>
+									</SelectContent>
+								</Select>
 								<Select
 									value={item.categoryId}
 									onValueChange={(value) =>
@@ -338,8 +369,8 @@ export function DetailItemsSection({
 							sumMatches ? "text-success" : "text-destructive",
 						)}
 					>
-						Soma dos itens: {formatCurrency(itemsSum)} / total:{" "}
-						{formatCurrency(totalAmount)}
+						Soma líquida dos itens: {formatCurrency(itemsNet)} / total:{" "}
+						{formatCurrency(signedAmount)}
 					</span>
 				</div>
 

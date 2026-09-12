@@ -9,6 +9,7 @@ export { exportTransactionsDataAction } from "./actions/export-actions";
 export {
 	convertTransactionToInstallmentAction,
 	convertTransactionToRecurringAction,
+	createDetailedTransactionAction,
 	createTransactionAction,
 	deleteTransactionAction,
 	detailTransactionAction,

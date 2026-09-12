@@ -52,6 +52,8 @@ type BuildColumnsArgs = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
+	onDetail?: (item: TransactionItem) => void;
+	onUngroup?: (item: TransactionItem) => void;
 	isSettlementLoading: (id: string) => boolean;
 	showActions: boolean;
 	showDateGroups: boolean;
@@ -118,6 +120,8 @@ function buildColumns({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onReconcile,
+	onDetail,
+	onUngroup,
 	isSettlementLoading,
 	showActions,
 	showDateGroups,
@@ -599,6 +603,8 @@ function buildColumns({
 							onConvertToRecurring ? handleConvertToRecurring : undefined
 						}
 						onReconcile={onReconcile}
+						onDetail={onDetail}
+						onUngroup={onUngroup}
 					/>
 				</div>
 			),

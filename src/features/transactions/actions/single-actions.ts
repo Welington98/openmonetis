@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { and, eq, ne } from "drizzle-orm";
 import {
 	attachments,
+	categories,
 	financialAccounts,
 	transactionAttachments,
 	transactionItems,
@@ -31,10 +32,13 @@ import {
 	buildTransactionRecords,
 	type ConvertToInstallmentInput,
 	type ConvertToRecurringInput,
+	type CreateDetailedTransactionInput,
 	type CreateInput,
 	centsToDecimalString,
+	computeDetailedItemsNetAmount,
 	convertToInstallmentSchema,
 	convertToRecurringSchema,
+	createDetailedTransactionSchema,
 	createSchema,
 	type DeleteInput,
 	type DetailTransactionInput,
@@ -55,6 +59,50 @@ import {
 	validateAllOwnership,
 	validateCardLimit,
 } from "./core";
+
+const ADJUSTMENT_CATEGORY_NAME = "Juros, multas e descontos";
+const ADJUSTMENT_CATEGORY_ICON = "RiPercentLine";
+
+/**
+ * Categoria usada pro item de ajuste gerado automaticamente ao liquidar um
+ * lançamento com valor diferente do previsto (juros/multa/desconto) — ver
+ * `toggleTransactionSettlementAction`. Mesmo padrão de
+ * `resolveOrCreateLoanCategory` em `features/loans/actions.ts`.
+ */
+async function resolveOrCreateAdjustmentCategory(
+	tx: typeof db,
+	userId: string,
+	type: "Despesa" | "Receita",
+) {
+	const categoryType = type === "Despesa" ? "despesa" : "receita";
+
+	const existing = await tx.query.categories.findFirst({
+		columns: { id: true },
+		where: and(
+			eq(categories.userId, userId),
+			eq(categories.type, categoryType),
+			eq(categories.name, ADJUSTMENT_CATEGORY_NAME),
+		),
+	});
+
+	if (existing) return existing;
+
+	const [created] = await tx
+		.insert(categories)
+		.values({
+			name: ADJUSTMENT_CATEGORY_NAME,
+			type: categoryType,
+			icon: ADJUSTMENT_CATEGORY_ICON,
+			userId,
+		})
+		.returning({ id: categories.id });
+
+	if (!created) {
+		throw new Error("Não foi possível preparar a categoria de ajuste.");
+	}
+
+	return created;
+}
 
 export async function createTransactionAction(
 	input: CreateInput,
@@ -981,6 +1029,10 @@ export async function toggleTransactionSettlementAction(
 				paymentMethod: true,
 				accountId: true,
 				transactionType: true,
+				amount: true,
+				name: true,
+				categoryId: true,
+				costCenterId: true,
 			},
 			where: and(
 				eq(transactions.id, data.id),
@@ -1042,19 +1094,81 @@ export async function toggleTransactionSettlementAction(
 			updatePayload.accountId = data.paymentAccountId ?? null;
 		}
 
-		// Valor pago informado ao confirmar: substitui o valor do lançamento
-		// (mantém o sinal — despesa negativa, receita positiva).
+		// Valor pago informado ao confirmar: se bater com o valor original, só
+		// atualiza o valor. Se for diferente (juros/multa de atraso ou
+		// desconto), gera automaticamente um lançamento detalhado com "valor
+		// original" + um item de ajuste, em vez de sobrescrever o valor e
+		// perder a diferença sem registro.
+		let shouldItemize = false;
+		let adjustmentDelta = 0;
+
 		if (data.value && data.paidAmount !== undefined) {
+			const originalAmount = Math.abs(Number(existing.amount));
+			adjustmentDelta =
+				Math.round((data.paidAmount - originalAmount) * 100) / 100;
+			shouldItemize = Math.abs(adjustmentDelta) >= 0.01;
+
 			const signedAmount = isIncome ? data.paidAmount : -data.paidAmount;
 			updatePayload.amount = formatDecimalForDbRequired(signedAmount);
 		}
 
-		await db
-			.update(transactions)
-			.set(updatePayload)
-			.where(
-				and(eq(transactions.id, data.id), eq(transactions.userId, user.id)),
+		await db.transaction(async (tx: typeof db) => {
+			await tx
+				.update(transactions)
+				.set(
+					shouldItemize
+						? { ...updatePayload, isItemized: true }
+						: updatePayload,
+				)
+				.where(
+					and(eq(transactions.id, data.id), eq(transactions.userId, user.id)),
+				);
+
+			if (!shouldItemize) return;
+
+			const originalAmount = Math.abs(Number(existing.amount));
+			const isSurcharge = adjustmentDelta > 0;
+			const baseType = existing.transactionType as "Despesa" | "Receita";
+			// Pagou mais caro (juros/multa) → o ajuste é do mesmo tipo (aumenta
+			// o líquido). Pagou mais barato (desconto) → o ajuste é do tipo
+			// OPOSTO, pra reduzir o líquido.
+			const adjustmentType: "Despesa" | "Receita" = isSurcharge
+				? baseType
+				: baseType === "Despesa"
+					? "Receita"
+					: "Despesa";
+
+			const adjustmentCategory = await resolveOrCreateAdjustmentCategory(
+				tx,
+				user.id,
+				adjustmentType,
 			);
+
+			await tx
+				.delete(transactionItems)
+				.where(eq(transactionItems.transactionId, data.id));
+
+			await tx.insert(transactionItems).values([
+				{
+					transactionId: data.id,
+					userId: user.id,
+					name: existing.name,
+					transactionType: baseType,
+					categoryId: existing.categoryId ?? adjustmentCategory.id,
+					costCenterId: existing.costCenterId,
+					amount: formatDecimalForDbRequired(originalAmount),
+				},
+				{
+					transactionId: data.id,
+					userId: user.id,
+					name: isSurcharge ? "Juros/multa" : "Desconto",
+					transactionType: adjustmentType,
+					categoryId: adjustmentCategory.id,
+					costCenterId: null,
+					amount: formatDecimalForDbRequired(Math.abs(adjustmentDelta)),
+				},
+			]);
+		});
 
 		revalidate(user.id);
 
@@ -1071,9 +1185,10 @@ export async function toggleTransactionSettlementAction(
 
 /**
  * "Detalhar": substitui os itens do lançamento (se houver) pela lista
- * enviada, que precisa somar exatamente o valor total do lançamento. Útil
- * pra separar principal, juros de atraso, multa ou desconto de uma mesma
- * conta, cada um com sua própria categoria/centro de custo.
+ * enviada. A soma líquida dos itens (Receita soma, Despesa subtrai) precisa
+ * bater com o valor com sinal do lançamento. Útil pra separar principal,
+ * juros de atraso, multa ou desconto de uma mesma conta, cada um com sua
+ * própria categoria/centro de custo e tipo.
  */
 export async function detailTransactionAction(
 	input: DetailTransactionInput,
@@ -1115,13 +1230,20 @@ export async function detailTransactionAction(
 			};
 		}
 
-		const totalAmount = Math.abs(Number(existing.amount));
-		const itemsSum = data.items.reduce((total, item) => total + item.amount, 0);
-
-		if (Math.abs(itemsSum - totalAmount) > 0.01) {
+		if (existing.transactionType === "Transferência") {
 			return {
 				success: false,
-				error: `A soma dos itens (${itemsSum.toFixed(2)}) precisa ser igual ao valor do lançamento (${totalAmount.toFixed(2)}).`,
+				error: "Transferências ainda não podem ser detalhadas.",
+			};
+		}
+
+		const netAmount = computeDetailedItemsNetAmount(data.items);
+		const existingAmount = Number(existing.amount);
+
+		if (Math.abs(netAmount - existingAmount) > 0.01) {
+			return {
+				success: false,
+				error: `A soma líquida dos itens (${netAmount.toFixed(2)}) precisa ser igual ao valor do lançamento (${existingAmount.toFixed(2)}).`,
 			};
 		}
 
@@ -1135,6 +1257,7 @@ export async function detailTransactionAction(
 					transactionId: data.id,
 					userId: user.id,
 					name: item.name,
+					transactionType: item.transactionType,
 					categoryId: item.categoryId,
 					costCenterId: item.costCenterId ?? null,
 					amount: formatDecimalForDbRequired(item.amount),
@@ -1156,9 +1279,10 @@ export async function detailTransactionAction(
 }
 
 /**
- * "Desagrupar": remove os itens do lançamento, voltando ele a ser um
- * lançamento simples (categoria/centro únicos, já gravados na própria
- * linha de `transactions`).
+ * "Desagrupar": operação inversa de Detalhar — explode cada item num
+ * lançamento independente (Despesa ou Receita) com as datas/conta/pagador do
+ * lançamento original, e remove o lançamento detalhado. Anexos do lançamento
+ * original são realocados pro primeiro lançamento gerado.
  */
 export async function ungroupTransactionAction(
 	input: UngroupTransactionInput,
@@ -1168,7 +1292,6 @@ export async function ungroupTransactionAction(
 		const data = ungroupTransactionSchema.parse(input);
 
 		const existing = await db.query.transactions.findFirst({
-			columns: { id: true },
 			where: and(
 				eq(transactions.id, data.id),
 				eq(transactions.userId, user.id),
@@ -1179,21 +1302,167 @@ export async function ungroupTransactionAction(
 			return { success: false, error: "Lançamento não encontrado." };
 		}
 
-		await db.transaction(async (tx: typeof db) => {
-			await tx
-				.delete(transactionItems)
-				.where(eq(transactionItems.transactionId, data.id));
+		if (!existing.isItemized) {
+			return {
+				success: false,
+				error: "Este lançamento não está detalhado.",
+			};
+		}
 
-			await tx
-				.update(transactions)
-				.set({ isItemized: false })
-				.where(eq(transactions.id, data.id));
+		const items = await db.query.transactionItems.findMany({
+			where: eq(transactionItems.transactionId, data.id),
+			orderBy: (table, { asc }) => asc(table.createdAt),
+		});
+
+		if (items.length === 0) {
+			return {
+				success: false,
+				error: "Este lançamento detalhado não tem itens.",
+			};
+		}
+
+		const generatedIds = await db.transaction(async (tx: typeof db) => {
+			const ids: string[] = [];
+
+			for (const item of items) {
+				const amountSign = item.transactionType === "Despesa" ? -1 : 1;
+				const [created] = await tx
+					.insert(transactions)
+					.values({
+						condition: existing.condition,
+						name: item.name,
+						paymentMethod: existing.paymentMethod,
+						note: existing.note,
+						amount: formatDecimalForDbRequired(
+							Number(item.amount) * amountSign,
+						),
+						purchaseDate: existing.purchaseDate,
+						dueDate: existing.dueDate,
+						boletoPaymentDate: existing.boletoPaymentDate,
+						transactionType: item.transactionType,
+						period: existing.period,
+						isSettled: existing.isSettled,
+						userId: user.id,
+						accountId: existing.accountId,
+						cardId: existing.cardId,
+						categoryId: item.categoryId,
+						costCenterId: item.costCenterId,
+						payerId: existing.payerId,
+					})
+					.returning({ id: transactions.id });
+
+				if (!created) {
+					throw new Error("Não foi possível gerar os lançamentos.");
+				}
+				ids.push(created.id);
+			}
+
+			const [firstId] = ids;
+			if (firstId) {
+				await tx
+					.update(transactionAttachments)
+					.set({ transactionId: firstId })
+					.where(eq(transactionAttachments.transactionId, data.id));
+			}
+
+			await tx.delete(transactions).where(eq(transactions.id, data.id));
+
+			return ids;
 		});
 
 		revalidate(user.id);
 
-		return { success: true, message: "Detalhamento removido." };
+		return {
+			success: true,
+			message: `Lançamento desagrupado em ${generatedIds.length} lançamentos.`,
+		};
 	} catch (error) {
 		return handleActionError(error);
+	}
+}
+
+/**
+ * Cria um lançamento detalhado do zero (sem partir de um lançamento
+ * existente). O tipo (Despesa/Receita) e o valor do lançamento são
+ * derivados automaticamente da soma líquida dos itens.
+ */
+export async function createDetailedTransactionAction(
+	input: CreateDetailedTransactionInput,
+): Promise<ActionResult<{ id: string }>> {
+	try {
+		const user = await getUser();
+		const data = createDetailedTransactionSchema.parse(input);
+
+		const ownershipError = await validateAllOwnership(user.id, {
+			payerId: data.payerId,
+			accountId: data.accountId,
+		});
+		if (ownershipError) {
+			return { success: false, error: ownershipError };
+		}
+
+		const netAmount = computeDetailedItemsNetAmount(data.items);
+		if (Math.abs(netAmount) < 0.01) {
+			return {
+				success: false,
+				error: "A soma líquida dos itens não pode ser zero.",
+			};
+		}
+
+		const transactionType = netAmount >= 0 ? "Receita" : "Despesa";
+		const period = resolvePeriod(data.purchaseDate, data.period);
+		const purchaseDate = parseLocalDateString(data.purchaseDate);
+		const firstItem = data.items[0];
+
+		const createdId = await db.transaction(async (tx: typeof db) => {
+			const [created] = await tx
+				.insert(transactions)
+				.values({
+					condition: "À vista",
+					name: data.name,
+					paymentMethod: data.paymentMethod,
+					note: data.note ?? null,
+					amount: formatDecimalForDbRequired(netAmount),
+					purchaseDate,
+					transactionType,
+					period,
+					isSettled: data.isSettled ?? true,
+					isItemized: true,
+					userId: user.id,
+					accountId: data.accountId,
+					categoryId: firstItem.categoryId,
+					costCenterId: firstItem.costCenterId ?? null,
+					payerId: data.payerId ?? null,
+				})
+				.returning({ id: transactions.id });
+
+			if (!created) {
+				throw new Error("Não foi possível criar o lançamento.");
+			}
+
+			await tx.insert(transactionItems).values(
+				data.items.map((item) => ({
+					transactionId: created.id,
+					userId: user.id,
+					name: item.name,
+					transactionType: item.transactionType,
+					categoryId: item.categoryId,
+					costCenterId: item.costCenterId ?? null,
+					amount: formatDecimalForDbRequired(item.amount),
+				})),
+			);
+
+			return created.id;
+		});
+
+		revalidate(user.id);
+
+		return {
+			success: true,
+			message: "Lançamento detalhado criado com sucesso.",
+			data: { id: createdId },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<{ id: string }>;
 	}
 }
