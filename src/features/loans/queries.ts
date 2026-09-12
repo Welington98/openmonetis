@@ -49,6 +49,7 @@ export async function fetchLoanByAccountId(
 }
 
 export type LoanInstallmentRow = {
+	id: string;
 	installmentNumber: number;
 	dueDate: string;
 	totalAmount: number;
@@ -72,6 +73,7 @@ export async function fetchLoanAmortizationSchedule(
 	});
 
 	return rows.map((row) => ({
+		id: row.id,
 		installmentNumber: row.installmentNumber,
 		dueDate: toDateOnlyString(row.dueDate) ?? "",
 		totalAmount: Math.abs(toNumber(row.transaction?.amount)),

@@ -108,6 +108,18 @@ const updateLoanConfigSchema = createLoanSchema.and(
 
 type UpdateLoanConfigInput = z.input<typeof updateLoanConfigSchema>;
 
+const updateLoanInstallmentDueDateSchema = z.object({
+	installmentId: uuidSchema("Parcela"),
+	dueDate: z
+		.string({ message: "Informe a nova data de vencimento." })
+		.trim()
+		.min(1, "Informe a nova data de vencimento."),
+});
+
+type UpdateLoanInstallmentDueDateInput = z.input<
+	typeof updateLoanInstallmentDueDateSchema
+>;
+
 async function resolveOrCreateLoanCategory(
 	tx: typeof db,
 	userId: string,
@@ -541,6 +553,69 @@ export async function updateLoanConfigAction(
 		revalidateForEntity("transactions", user.id);
 
 		return { success: true, message: "Empréstimo atualizado com sucesso." };
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
+/**
+ * Move o vencimento de UMA parcela específica ainda em aberto — sem mexer em
+ * valor, principal, juros ou saldo devedor de nenhuma parcela (a data não
+ * entra na matemática da amortização, então mudar só ela nunca desalinha a
+ * cadeia de saldo devedor das parcelas seguintes). Bloqueado pra parcelas já
+ * pagas, que ficam como histórico real. Pra mudar o VALOR de uma parcela,
+ * use "Editar configuração" — editar o valor de uma parcela isolada
+ * quebraria a tabela de amortização.
+ */
+export async function updateLoanInstallmentDueDateAction(
+	input: UpdateLoanInstallmentDueDateInput,
+): Promise<ActionResult> {
+	try {
+		const user = await getUser();
+		const data = updateLoanInstallmentDueDateSchema.parse(input);
+
+		const newDueDate = new Date(`${data.dueDate}T00:00:00`);
+		if (Number.isNaN(newDueDate.getTime())) {
+			throw new Error("Data de vencimento inválida.");
+		}
+
+		await db.transaction(async (tx: typeof db) => {
+			const installment = await tx.query.loanInstallments.findFirst({
+				where: and(
+					eq(loanInstallments.id, data.installmentId),
+					eq(loanInstallments.userId, user.id),
+				),
+				with: { transaction: { columns: { id: true, isSettled: true } } },
+			});
+
+			if (!installment?.transaction) {
+				throw new Error("Parcela não encontrada.");
+			}
+
+			if (installment.transaction.isSettled) {
+				throw new Error(
+					"Não é possível alterar o vencimento de uma parcela já paga.",
+				);
+			}
+
+			const period = derivePeriodFromDate(toLocalDateString(newDueDate));
+
+			await tx
+				.update(loanInstallments)
+				.set({ dueDate: newDueDate })
+				.where(eq(loanInstallments.id, data.installmentId));
+
+			await tx
+				.update(transactions)
+				.set({ dueDate: newDueDate, purchaseDate: newDueDate, period })
+				.where(eq(transactions.id, installment.transaction.id));
+		});
+
+		revalidateForEntity("loans", user.id);
+		revalidateForEntity("accounts", user.id);
+		revalidateForEntity("transactions", user.id);
+
+		return { success: true, message: "Vencimento da parcela atualizado." };
 	} catch (error) {
 		return handleActionError(error);
 	}

@@ -1,8 +1,21 @@
+"use client";
+
+import { RiPencilLine } from "@remixicon/react";
+import { useRouter } from "next/navigation";
+import { useState, useTransition } from "react";
+import { toast } from "sonner";
+import { updateLoanInstallmentDueDateAction } from "@/features/loans/actions";
 import type { LoanInstallmentRow, LoanSummary } from "@/features/loans/queries";
 import MoneyValues from "@/shared/components/money-values";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Card } from "@/shared/components/ui/card";
+import { Input } from "@/shared/components/ui/input";
+import {
+	Popover,
+	PopoverContent,
+	PopoverTrigger,
+} from "@/shared/components/ui/popover";
 import { formatDateOnlyLabel } from "@/shared/utils/date";
 import { formatPercentage } from "@/shared/utils/percentage";
 
@@ -65,13 +78,17 @@ export function LoanAmortizationTable({
 					</thead>
 					<tbody>
 						{schedule.map((row) => (
-							<tr
-								key={row.installmentNumber}
-								className="border-b last:border-0"
-							>
+							<tr key={row.id} className="border-b last:border-0">
 								<td className="py-2 pr-3">{row.installmentNumber}</td>
 								<td className="py-2 pr-3 whitespace-nowrap">
-									{formatDateOnlyLabel(row.dueDate)}
+									{row.isSettled ? (
+										formatDateOnlyLabel(row.dueDate)
+									) : (
+										<InstallmentDueDateEditor
+											installmentId={row.id}
+											dueDate={row.dueDate}
+										/>
+									)}
 								</td>
 								<td className="py-2 pr-3">
 									<MoneyValues amount={row.totalAmount} />
@@ -96,5 +113,93 @@ export function LoanAmortizationTable({
 				</table>
 			</div>
 		</Card>
+	);
+}
+
+/**
+ * Só a data de vencimento é editável parcela-a-parcela, direto na tabela —
+ * ela não entra na matemática da amortização, então mudar só ela nunca
+ * desalinha o saldo devedor das parcelas seguintes. Bloqueado pra parcelas
+ * pagas (ver `updateLoanInstallmentDueDateAction`). Pra mudar o VALOR de uma
+ * parcela, use "Editar configuração" — isso é o que recalcula o resto da
+ * tabela com segurança.
+ */
+function InstallmentDueDateEditor({
+	installmentId,
+	dueDate,
+}: {
+	installmentId: string;
+	dueDate: string;
+}) {
+	const router = useRouter();
+	const [open, setOpen] = useState(false);
+	const [value, setValue] = useState(dueDate);
+	const [isPending, startTransition] = useTransition();
+
+	const handleSave = () => {
+		startTransition(async () => {
+			const result = await updateLoanInstallmentDueDateAction({
+				installmentId,
+				dueDate: value,
+			});
+
+			if (result.success) {
+				toast.success(result.message);
+				setOpen(false);
+				router.refresh();
+				return;
+			}
+
+			toast.error(result.error);
+		});
+	};
+
+	return (
+		<Popover
+			open={open}
+			onOpenChange={(next) => {
+				setOpen(next);
+				if (next) setValue(dueDate);
+			}}
+		>
+			<PopoverTrigger asChild>
+				<button
+					type="button"
+					className="inline-flex items-center gap-1 underline-offset-2 hover:text-primary hover:underline"
+				>
+					{formatDateOnlyLabel(dueDate)}
+					<RiPencilLine className="size-3 text-muted-foreground" aria-hidden />
+				</button>
+			</PopoverTrigger>
+			<PopoverContent className="w-64 space-y-2" align="start">
+				<p className="text-xs text-muted-foreground">
+					Novo vencimento desta parcela
+				</p>
+				<Input
+					type="date"
+					value={value}
+					onChange={(event) => setValue(event.target.value)}
+				/>
+				<div className="flex justify-end gap-2">
+					<Button
+						type="button"
+						size="sm"
+						variant="outline"
+						onClick={() => setOpen(false)}
+						disabled={isPending}
+					>
+						Cancelar
+					</Button>
+					<Button
+						type="button"
+						size="sm"
+						onClick={handleSave}
+						disabled={isPending}
+					>
+						{isPending ? "Salvando..." : "Salvar"}
+					</Button>
+				</div>
+			</PopoverContent>
+		</Popover>
 	);
 }
