@@ -5,6 +5,13 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.33.1](https://github.com/Welington98/openmonetis/compare/v2.33.0...v2.33.1) (2026-09-12)
+
+### Corrigido
+
+* **accounts:** mostrar parcelas e desembolso de empréstimo no extrato da própria conta de empréstimo ([d586fd5](https://github.com/Welington98/openmonetis/commit/d586fd5b9fce8798f1f070c914e56ebd8a3cf8f3))
+* **accounts:** não puxar a instância de db pro bundle do cliente ([4c06140](https://github.com/Welington98/openmonetis/commit/4c061403b1c21566242cda513dbadb1b7508c4ee))
+
 ## [2.33.0](https://github.com/Welington98/openmonetis/compare/v2.32.0...v2.33.0) (2026-09-12)
 
 ### Adicionado
