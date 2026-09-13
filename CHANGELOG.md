@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.34.0](https://github.com/Welington98/openmonetis/compare/v2.33.1...v2.34.0) (2026-09-13)
+
+### Adicionado
+
+* **mcp:** adicionar tool create_transaction pro servidor MCP ([0973c9b](https://github.com/Welington98/openmonetis/commit/0973c9b02b4d41d4c55d1d3e64f70ebad8aed4b7))
+
 ## [2.33.1](https://github.com/Welington98/openmonetis/compare/v2.33.0...v2.33.1) (2026-09-12)
 
 ### Corrigido
