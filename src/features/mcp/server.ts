@@ -1,15 +1,29 @@
 import type { BaseContext, McpServer } from "@modelcontextprotocol/server";
 import { and, eq, gte, ilike, lte } from "drizzle-orm";
 import { z } from "zod";
-import { categories, transactions } from "@/db/schema";
+import {
+	categories,
+	costCenters,
+	financialAccounts,
+	transactions,
+} from "@/db/schema";
 import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import { fetchCategoryReport } from "@/features/reports/lib/category-report-queries";
 import { validateDateRange } from "@/features/reports/lib/utils";
+import { resolvePeriod } from "@/features/transactions/actions/core";
+import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
 import {
 	fetchTransactionsPageWithRelations,
 	fetchTransactionsWithRelations,
 } from "@/features/transactions/queries";
+import { fetchOrSeedCostCentersForUser } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
+import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
+import { formatDecimalForDbRequired } from "@/shared/utils/currency";
+import {
+	getBusinessDateString,
+	parseLocalDateString,
+} from "@/shared/utils/date";
 
 const periodSchema = z
 	.string()
@@ -30,6 +44,24 @@ function requireUserId(ctx: BaseContext): string {
 	}
 	return userId;
 }
+
+function requireWriteScope(ctx: BaseContext): string {
+	const userId = requireUserId(ctx);
+	const scopes = ctx.http?.authInfo?.scopes ?? [];
+	if (!scopes.includes("finance:write")) {
+		throw new Error("Token sem permissão de escrita (finance:write).");
+	}
+	return userId;
+}
+
+const TRANSACTION_TYPE_LABEL = {
+	despesa: "Despesa",
+	receita: "Receita",
+} as const;
+
+const WRITABLE_PAYMENT_METHODS = PAYMENT_METHODS.filter(
+	(method) => method !== "Cartão de crédito",
+) as [(typeof PAYMENT_METHODS)[number], ...(typeof PAYMENT_METHODS)[number][]];
 
 function jsonResult(data: unknown) {
 	return {
@@ -68,9 +100,11 @@ function serializeTransaction(row: TransactionRow) {
 }
 
 /**
- * Registra as tools MCP somente-leitura de consulta financeira. userId nunca
- * vem dos argumentos da tool — só do token Bearer verificado (ctx.http.authInfo),
- * então uma tool jamais pode ler dados de outro usuário.
+ * Registra as tools MCP de consulta e escrita financeira. userId nunca vem
+ * dos argumentos da tool — só do token Bearer verificado (ctx.http.authInfo),
+ * então uma tool jamais pode ler ou escrever dados de outro usuário. Tools de
+ * escrita (`create_transaction`) também exigem o escopo `finance:write` do
+ * token, verificado em `requireWriteScope`.
  */
 export function registerFinanceTools(server: McpServer) {
 	server.registerTool(
@@ -119,7 +153,11 @@ export function registerFinanceTools(server: McpServer) {
 			if (endDate) {
 				filters.push(lte(transactions.purchaseDate, new Date(endDate)));
 			}
-			if (type) filters.push(eq(transactions.transactionType, type));
+			if (type) {
+				filters.push(
+					eq(transactions.transactionType, TRANSACTION_TYPE_LABEL[type]),
+				);
+			}
 			if (categoryId) filters.push(eq(transactions.categoryId, categoryId));
 			if (search) filters.push(ilike(transactions.name, `%${search}%`));
 
@@ -249,6 +287,170 @@ export function registerFinanceTools(server: McpServer) {
 						monthlyData: Object.fromEntries(c.monthlyData),
 					}))
 					.sort((a, b) => b.total - a.total),
+			});
+		},
+	);
+
+	server.registerTool(
+		"create_transaction",
+		{
+			title: "Adicionar lançamento",
+			description:
+				"Cria um novo lançamento (despesa ou receita) à vista para o usuário autenticado. Descubra os IDs de categoria e conta antes com list_categories e list_accounts — a categoria precisa ser do mesmo tipo (despesa/receita) do lançamento. Não cobre parcelamento, recorrência, pagamento no cartão de crédito nem divisão entre pessoas — para esses casos, oriente o usuário a usar o app.",
+			inputSchema: z.object({
+				name: z
+					.string()
+					.trim()
+					.min(1)
+					.describe("Descrição/estabelecimento do lançamento"),
+				amount: z
+					.number()
+					.positive()
+					.describe(
+						"Valor do lançamento, sempre positivo — o campo type define o sinal",
+					),
+				type: z.enum(["despesa", "receita"]).describe("Tipo do lançamento"),
+				categoryId: z
+					.string()
+					.uuid()
+					.describe(
+						"ID da categoria (ver list_categories) — precisa ser do mesmo tipo informado em type",
+					),
+				accountId: z
+					.string()
+					.uuid()
+					.describe(
+						"ID da conta financeira que paga/recebe (ver list_accounts)",
+					),
+				date: dateSchema
+					.optional()
+					.describe("Data de compra, formato YYYY-MM-DD (padrão: hoje)"),
+				paymentMethod: z
+					.enum(WRITABLE_PAYMENT_METHODS)
+					.optional()
+					.describe(
+						"Forma de pagamento (padrão: Pix). Pagamento no cartão de crédito não é suportado aqui.",
+					),
+				costCenterId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe(
+						"ID do centro de custo — só relevante para despesa; se omitido, usa o centro de custo padrão 'Variável' do usuário",
+					),
+				note: z
+					.string()
+					.trim()
+					.max(500)
+					.optional()
+					.describe("Anotação opcional"),
+				isSettled: z
+					.boolean()
+					.optional()
+					.describe("Já foi pago/recebido? (padrão: true)"),
+			}),
+		},
+		async (
+			{
+				name,
+				amount,
+				type,
+				categoryId,
+				accountId,
+				date,
+				paymentMethod,
+				costCenterId,
+				note,
+				isSettled,
+			},
+			ctx,
+		) => {
+			const userId = requireWriteScope(ctx);
+
+			const category = await db.query.categories.findFirst({
+				where: and(
+					eq(categories.id, categoryId),
+					eq(categories.userId, userId),
+				),
+			});
+			if (!category) throw new Error("Categoria não encontrada.");
+			if (category.type !== type) {
+				throw new Error(
+					`A categoria "${category.name}" é do tipo "${category.type}", mas o lançamento é "${type}".`,
+				);
+			}
+
+			const account = await db.query.financialAccounts.findFirst({
+				where: and(
+					eq(financialAccounts.id, accountId),
+					eq(financialAccounts.userId, userId),
+				),
+			});
+			if (!account) throw new Error("Conta não encontrada.");
+
+			let resolvedCostCenterId: string | null = null;
+			if (costCenterId) {
+				const costCenter = await db.query.costCenters.findFirst({
+					where: and(
+						eq(costCenters.id, costCenterId),
+						eq(costCenters.userId, userId),
+					),
+				});
+				if (!costCenter) throw new Error("Centro de custo não encontrado.");
+				resolvedCostCenterId = costCenter.id;
+			} else if (type === "despesa") {
+				const userCostCenters = await fetchOrSeedCostCentersForUser(userId);
+				const defaultCostCenter =
+					userCostCenters.find((c) => c.kind === "variavel") ??
+					userCostCenters[0];
+				resolvedCostCenterId = defaultCostCenter?.id ?? null;
+			}
+
+			const adminPayerId = await getAdminPayerId(userId);
+			if (!adminPayerId) {
+				throw new Error(
+					"Pessoa com papel administrador não encontrada para este usuário.",
+				);
+			}
+
+			const purchaseDateString = date ?? getBusinessDateString();
+			const period = resolvePeriod(purchaseDateString);
+			const amountSign = type === "despesa" ? -1 : 1;
+
+			const [inserted] = await db
+				.insert(transactions)
+				.values({
+					condition: "À vista",
+					name: name.trim(),
+					paymentMethod: paymentMethod ?? "Pix",
+					note: note && note.length > 0 ? note : null,
+					amount: formatDecimalForDbRequired(amount * amountSign),
+					purchaseDate: parseLocalDateString(purchaseDateString),
+					transactionType: TRANSACTION_TYPE_LABEL[type],
+					period,
+					isSettled: isSettled ?? true,
+					costCenterId: resolvedCostCenterId,
+					userId,
+					accountId,
+					categoryId,
+					payerId: adminPayerId,
+				})
+				.returning({ id: transactions.id });
+
+			if (!inserted) {
+				throw new Error("Não foi possível criar o lançamento.");
+			}
+
+			const [row] = await fetchTransactionsWithRelations({
+				filters: [
+					eq(transactions.userId, userId),
+					eq(transactions.id, inserted.id),
+				],
+			});
+
+			return jsonResult({
+				message: "Lançamento criado com sucesso.",
+				transaction: row ? serializeTransaction(row) : { id: inserted.id },
 			});
 		},
 	);

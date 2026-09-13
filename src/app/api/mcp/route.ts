@@ -35,7 +35,10 @@ async function verifyToken(
 	return {
 		token: bearerToken,
 		clientId: result.userId,
-		scopes: ["finance:read"],
+		// Token pessoal `opm_xxx` tem acesso total à conta do usuário (mesmo
+		// token já usado pelo companion do inbox pra escrever dados) — não há
+		// seleção granular de escopo hoje, então concede leitura e escrita.
+		scopes: ["finance:read", "finance:write"],
 		extra: { userId: result.userId },
 	};
 }
