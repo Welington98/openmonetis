@@ -66,6 +66,10 @@ export function TransactionActionsMenu({
 	onUngroup,
 }: TransactionActionsMenuProps) {
 	const isOwnData = item.userId === currentUserId;
+	// O formulário de edição não tem noção de transferência (2 pernas ligadas
+	// por transferId) — editar por ali corrompe o sinal/valor da perna. Editar
+	// uma transferência ainda não tem um fluxo próprio nessa versão.
+	const isTransfer = item.transactionType === "Transferência";
 	const canRefund =
 		isOwnData &&
 		item.transactionType === "Despesa" &&
@@ -133,7 +137,7 @@ export function TransactionActionsMenu({
 				{isOwnData ? (
 					<DropdownMenuItem
 						onSelect={() => onEdit?.(item)}
-						disabled={item.readonly || !onEdit}
+						disabled={item.readonly || isTransfer || !onEdit}
 					>
 						<RiPencilLine className="size-4" aria-hidden />
 						Editar
