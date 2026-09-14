@@ -19,6 +19,14 @@ function diffBump(current: string, previous: string | undefined): BumpType {
 
 let cached: ChangelogVersion[] | null = null;
 
+// O `semantic-release` (ver .releaserc.json) gera o cabeçalho com um link de
+// comparação entre colchete e parênteses, e a data em parênteses no fim —
+// formato diferente do usado nas entradas manuais mais antigas do arquivo.
+// Os dois têm os mesmos grupos de captura (versão, data), então o resto do
+// parser não precisa saber qual bateu.
+const NEW_FORMAT_HEADER = /^## \[(.+?)\]\(.*?\)\s*\((.+)\)$/;
+const OLD_FORMAT_HEADER = /^## \[(.+?)\] - (.+)$/;
+
 export function parseChangelog(): ChangelogVersion[] {
 	if (cached) return cached;
 
@@ -32,7 +40,8 @@ export function parseChangelog(): ChangelogVersion[] {
 	let summaryLines: string[] = [];
 
 	for (const line of lines) {
-		const versionMatch = line.match(/^## \[(.+?)\] - (.+)$/);
+		const versionMatch =
+			line.match(NEW_FORMAT_HEADER) ?? line.match(OLD_FORMAT_HEADER);
 		if (versionMatch) {
 			if (currentSection && currentVersion) {
 				currentVersion.sections.push(currentSection);
