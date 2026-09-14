@@ -25,6 +25,8 @@ interface ReconcileTransactionDialogProps {
 	onOpenChange: (open: boolean) => void;
 	transactionId: string;
 	transactionName: string;
+	transactionAmount: number;
+	transactionDate: Date | string;
 	onDone: () => void;
 }
 
@@ -33,6 +35,8 @@ export function ReconcileTransactionDialog({
 	onOpenChange,
 	transactionId,
 	transactionName,
+	transactionAmount,
+	transactionDate,
 	onDone,
 }: ReconcileTransactionDialogProps) {
 	const [query, setQuery] = useState(transactionName);
@@ -51,7 +55,11 @@ export function ReconcileTransactionDialog({
 		let cancelled = false;
 		setIsSearching(true);
 		const timeout = setTimeout(async () => {
-			const result = await searchUnmatchedStatementLinesAction({ query });
+			const result = await searchUnmatchedStatementLinesAction({
+				query,
+				amount: transactionAmount,
+				date: new Date(transactionDate),
+			});
 			if (cancelled) return;
 			if (result.success && result.data) {
 				setCandidates(result.data.lines);
@@ -63,7 +71,7 @@ export function ReconcileTransactionDialog({
 			cancelled = true;
 			clearTimeout(timeout);
 		};
-	}, [query, open]);
+	}, [query, open, transactionAmount, transactionDate]);
 
 	const handleMatch = async (statementLineId: string) => {
 		setMatchingId(statementLineId);

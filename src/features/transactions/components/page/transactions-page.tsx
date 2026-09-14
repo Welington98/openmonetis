@@ -1075,6 +1075,8 @@ export function TransactionsPage({
 					}}
 					transactionId={transactionToReconcile.id}
 					transactionName={transactionToReconcile.name}
+					transactionAmount={transactionToReconcile.amount}
+					transactionDate={transactionToReconcile.purchaseDate}
 					onDone={() => setTransactionToReconcile(null)}
 				/>
 			) : null}

@@ -1,6 +1,17 @@
 "use server";
 
-import { and, desc, eq, ilike, inArray, isNull } from "drizzle-orm";
+import {
+	and,
+	desc,
+	eq,
+	gte,
+	ilike,
+	inArray,
+	isNull,
+	lte,
+	or,
+	sql,
+} from "drizzle-orm";
 import { z } from "zod";
 import {
 	bankConnections,
@@ -1056,14 +1067,31 @@ export type TransactionMatchCandidate = {
 	isSettled: boolean | null;
 };
 
+// Janela de tolerância de data pra considerar um lançamento/linha de
+// extrato candidato a conciliação — fora dela, nem entra na lista.
+const MATCH_DATE_WINDOW_DAYS = 3;
+
+const buildDateWindow = (anchor: Date) => {
+	const min = new Date(anchor);
+	min.setDate(min.getDate() - MATCH_DATE_WINDOW_DAYS);
+	const max = new Date(anchor);
+	max.setDate(max.getDate() + MATCH_DATE_WINDOW_DAYS);
+	return { min, max };
+};
+
 const searchTransactionsSchema = z.object({
 	query: z.string().trim().max(200),
+	amount: z.number(),
+	date: z.coerce.date(),
 	accountId: z.string().uuid().nullable().optional(),
 });
 
 /**
  * Busca lançamentos já existentes pra conciliar manualmente com uma linha de
  * extrato, em vez de criar um novo (aba "Escolher lançamento existente").
+ * Só considera lançamentos com data a até `MATCH_DATE_WINDOW_DAYS` da linha
+ * de extrato; dentro dessa janela, batem por nome (texto digitado) OU valor
+ * (em módulo) igual ao da linha — não precisa dos dois.
  */
 export async function searchTransactionsToMatchAction(
 	input: z.infer<typeof searchTransactionsSchema>,
@@ -1071,10 +1099,20 @@ export async function searchTransactionsToMatchAction(
 	try {
 		const userId = await getUserId();
 		const data = searchTransactionsSchema.parse(input);
+		const { min, max } = buildDateWindow(data.date);
+		const amountAbs = Math.abs(data.amount).toFixed(2);
 
-		const conditions = [eq(transactions.userId, userId)];
+		const conditions = [
+			eq(transactions.userId, userId),
+			gte(transactions.purchaseDate, min),
+			lte(transactions.purchaseDate, max),
+		];
 		if (data.query.length > 0) {
-			conditions.push(ilike(transactions.name, `%${data.query}%`));
+			const nameOrAmountMatch = or(
+				ilike(transactions.name, `%${data.query}%`),
+				eq(sql`abs(${transactions.amount})`, amountAbs),
+			);
+			if (nameOrAmountMatch) conditions.push(nameOrAmountMatch);
 		}
 		if (data.accountId) {
 			conditions.push(eq(transactions.accountId, data.accountId));
@@ -1118,12 +1156,16 @@ export type StatementLineMatchCandidate = {
 
 const searchStatementLinesSchema = z.object({
 	query: z.string().trim().max(200),
+	amount: z.number(),
+	date: z.coerce.date(),
 });
 
 /**
  * Busca linhas de extrato ainda pendentes pra conciliar manualmente com um
  * lançamento já existente — direção inversa de `searchTransactionsToMatchAction`,
- * usada a partir da tela de Transações ("Conciliar com extrato").
+ * usada a partir da tela de Transações ("Conciliar com extrato"). Mesmo
+ * critério: data a até `MATCH_DATE_WINDOW_DAYS` do lançamento (obrigatório) e
+ * nome OU valor batendo (não precisa dos dois).
  */
 export async function searchUnmatchedStatementLinesAction(
 	input: z.infer<typeof searchStatementLinesSchema>,
@@ -1131,13 +1173,21 @@ export async function searchUnmatchedStatementLinesAction(
 	try {
 		const userId = await getUserId();
 		const data = searchStatementLinesSchema.parse(input);
+		const { min, max } = buildDateWindow(data.date);
+		const amountAbs = Math.abs(data.amount).toFixed(2);
 
 		const conditions = [
 			eq(statementLines.userId, userId),
 			eq(statementLines.status, "unmatched"),
+			gte(statementLines.date, min),
+			lte(statementLines.date, max),
 		];
 		if (data.query.length > 0) {
-			conditions.push(ilike(statementLines.description, `%${data.query}%`));
+			const descriptionOrAmountMatch = or(
+				ilike(statementLines.description, `%${data.query}%`),
+				eq(statementLines.amount, amountAbs),
+			);
+			if (descriptionOrAmountMatch) conditions.push(descriptionOrAmountMatch);
 		}
 
 		const rows = await db
