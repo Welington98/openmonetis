@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.38.0](https://github.com/Welington98/openmonetis/compare/v2.37.2...v2.38.0) (2026-09-14)
+
+### Adicionado
+
+* **transactions:** editar transferência com conta de origem e destino ([3bd0205](https://github.com/Welington98/openmonetis/commit/3bd020521a1c246e8d11023632c008175c7ffaa2))
+
 ## [2.37.2](https://github.com/Welington98/openmonetis/compare/v2.37.1...v2.37.2) (2026-09-14)
 
 ### Corrigido
