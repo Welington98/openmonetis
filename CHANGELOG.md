@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.37.1](https://github.com/Welington98/openmonetis/compare/v2.37.0...v2.37.1) (2026-09-14)
+
+### Corrigido
+
+* **loans,transactions:** parcela duplicada no extrato do empréstimo e edição corrompendo transferência ([030fcb4](https://github.com/Welington98/openmonetis/commit/030fcb4914a0b24c68fc39941b2547c0f9f4c5a0))
+
 ## [2.37.0](https://github.com/Welington98/openmonetis/compare/v2.36.0...v2.37.0) (2026-09-14)
 
 ### Adicionado
