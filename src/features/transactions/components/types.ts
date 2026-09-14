@@ -40,6 +40,12 @@ export type TransactionItem = {
 	hasAttachments: boolean;
 	isReconciled: boolean;
 	readonly?: boolean;
+	/**
+	 * Saldo da conta logo após este lançamento (só calculado no extrato de
+	 * uma conta específica, com transações confirmadas do período) — `null`
+	 * quando não se aplica (lançamento pendente, listagem multi-conta etc.).
+	 */
+	runningBalance?: number | null;
 };
 
 export type SelectOption = {

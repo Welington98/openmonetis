@@ -607,7 +607,10 @@ type TransactionRowWithRelations = Partial<typeof transactions.$inferSelect> & {
 	isReconciled?: boolean;
 };
 
-export const mapTransactionsData = (rows: TransactionRowWithRelations[]) =>
+export const mapTransactionsData = (
+	rows: TransactionRowWithRelations[],
+	runningBalanceById?: Map<string, number>,
+) =>
 	rows.map((item) => ({
 		id: item.id ?? "",
 		userId: item.userId ?? "",
@@ -651,6 +654,10 @@ export const mapTransactionsData = (rows: TransactionRowWithRelations[]) =>
 		splitGroupId: item.splitGroupId ?? null,
 		hasAttachments: item.hasAttachments ?? false,
 		isReconciled: item.isReconciled ?? false,
+		runningBalance:
+			item.id && runningBalanceById
+				? (runningBalanceById.get(item.id) ?? null)
+				: null,
 		readonly:
 			Boolean(item.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) ||
 			(item.note === INITIAL_BALANCE_NOTE &&

@@ -199,6 +199,60 @@ export async function fetchAccountSummary(
 	};
 }
 
+/**
+ * Saldo da conta logo após cada lançamento confirmado do período — pra
+ * mostrar "quanto tinha na conta naquele dia" no extrato. Só faz sentido
+ * pra uma conta comum (não empréstimo, cujo "saldo" é devedor/recebível, não
+ * soma de lançamentos — ver `fetchLoanBalanceAsOfPeriod`) e pras transações
+ * realmente liquidadas (`isSettled`) — pendente/agendado ainda não afetou o
+ * saldo de verdade.
+ *
+ * Calcula com uma soma cumulativa em janela SQL, ordenada cronologicamente
+ * (independente da ordem de exibição da tabela, que é mais recente
+ * primeiro), somada ao saldo de abertura do período — o mesmo usado no
+ * card de resumo, então o saldo do dia do extrato bate com aquele número.
+ */
+export async function fetchAccountRunningBalances(
+	userId: string,
+	accountId: string,
+	selectedPeriod: string,
+	openingBalance: number,
+): Promise<Map<string, number>> {
+	const adminPayerId = await getAdminPayerId(userId);
+	if (!adminPayerId) return new Map();
+
+	const rows = await db
+		.select({
+			id: transactions.id,
+			cumulative: sql<string>`
+				sum(
+					case
+						when ${transactions.note} = ${INITIAL_BALANCE_NOTE} then 0
+						else ${transactions.amount}
+					end
+				) over (
+					order by ${transactions.purchaseDate} asc, ${transactions.createdAt} asc
+				)
+			`,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.accountId, accountId),
+				eq(transactions.period, selectedPeriod),
+				eq(transactions.payerId, adminPayerId),
+				eq(transactions.isSettled, true),
+			),
+		);
+
+	const balanceById = new Map<string, number>();
+	for (const row of rows) {
+		balanceById.set(row.id, openingBalance + Number(row.cumulative));
+	}
+	return balanceById;
+}
+
 export async function fetchAccountTransactions(
 	filters: SQL[],
 	settledOnly = true,
