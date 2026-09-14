@@ -332,6 +332,20 @@ export async function updateTransactionAction(
 			};
 		}
 
+		// Esse formulário não tem noção de transferência (2 pernas ligadas por
+		// transferId) — editar por aqui corrompe o sinal/valor de uma perna sem
+		// sincronizar a outra. Editar uma transferência ainda não tem um fluxo
+		// próprio nessa versão.
+		if (
+			existing.transactionType === "Transferência" ||
+			data.transactionType === "Transferência"
+		) {
+			return {
+				success: false,
+				error: "Transferências ainda não podem ser editadas por aqui.",
+			};
+		}
+
 		const period = resolvePeriod(data.purchaseDate, data.period);
 		const amountSign: 1 | -1 = data.transactionType === "Despesa" ? -1 : 1;
 		const amountCents = Math.round(Math.abs(data.amount) * 100);

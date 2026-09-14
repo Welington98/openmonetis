@@ -1,20 +1,18 @@
-import { eq, or, type SQL, sql } from "drizzle-orm";
+import { and, eq, isNull, or, type SQL, sql } from "drizzle-orm";
 import { loanInstallments, loans, transactions } from "@/db/schema";
 import { LOAN_DISBURSEMENT_NOTE_PREFIX } from "@/shared/lib/loans/constants";
 
 /**
- * Lançamentos de parcela e de desembolso de um empréstimo têm `accountId`
- * apontando pra conta de pagamento (ex.: conta corrente que efetivamente
- * recebe/paga), nunca pra própria conta de empréstimo — o dinheiro de fato
- * sai/entra ali. Sem isso, o extrato da conta de empréstimo fica sempre
- * vazio, mesmo com parcelas pendentes e pagas reais.
- *
- * Amplia o filtro de conta pra também incluir essas linhas quando a conta
- * sendo vista é a própria conta de empréstimo — via `loanInstallments` (
- * parcelas) e via o prefixo de nota do desembolso. Para uma conta comum
- * (ex.: a conta de pagamento), não muda nada: nenhum empréstimo tem
- * `accountId` igual à conta de pagamento, então as condições extras nunca
- * batem.
+ * Empréstimos criados ANTES da parcela/desembolso virarem transferências reais
+ * (ver `insertLoanSchedule`) têm `accountId` apontando só pra conta de
+ * pagamento — nunca pra própria conta de empréstimo — então o extrato da
+ * conta de empréstimo ficaria sempre vazio sem essa ampliação. Empréstimos
+ * criados DEPOIS já têm uma perna de verdade (`accountId` = conta de
+ * empréstimo, `transferId` preenchido) — pra esses, ampliar o filtro
+ * duplicaria a parcela (a perna da conta de pagamento apareceria também no
+ * extrato da conta de empréstimo, sem pertencer lá). Por isso as duas
+ * condições de ampliação só valem pra linhas sem `transferId` (formato
+ * antigo) — os `and(isNull(transferId), ...)` abaixo.
  *
  * Monta o EXISTS via `sql` puro (em vez do query builder ligado à instância
  * de `db`) porque esse módulo é importado por `page-helpers.ts`, que também
@@ -25,13 +23,19 @@ import { LOAN_DISBURSEMENT_NOTE_PREFIX } from "@/shared/lib/loans/constants";
 export function buildAccountTransactionCondition(accountId: string): SQL {
 	return or(
 		eq(transactions.accountId, accountId),
-		sql`exists (
-			select 1
-			from ${loanInstallments}
-			inner join ${loans} on ${loans.id} = ${loanInstallments.loanId}
-			where ${loanInstallments.transactionId} = ${transactions.id}
-				and ${loans.accountId} = ${accountId}
-		)`,
-		eq(transactions.note, `${LOAN_DISBURSEMENT_NOTE_PREFIX}${accountId}`),
+		and(
+			isNull(transactions.transferId),
+			sql`exists (
+				select 1
+				from ${loanInstallments}
+				inner join ${loans} on ${loans.id} = ${loanInstallments.loanId}
+				where ${loanInstallments.transactionId} = ${transactions.id}
+					and ${loans.accountId} = ${accountId}
+			)`,
+		),
+		and(
+			isNull(transactions.transferId),
+			eq(transactions.note, `${LOAN_DISBURSEMENT_NOTE_PREFIX}${accountId}`),
+		),
 	) as SQL;
 }
