@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.37.2](https://github.com/Welington98/openmonetis/compare/v2.37.1...v2.37.2) (2026-09-14)
+
+### Corrigido
+
+* **settings:** changelog da interface parado desde que a automação de release começou ([4752280](https://github.com/Welington98/openmonetis/commit/475228013fecb5bac3bed2824636a27969cfba55))
+
 ## [2.37.1](https://github.com/Welington98/openmonetis/compare/v2.37.0...v2.37.1) (2026-09-14)
 
 ### Corrigido
