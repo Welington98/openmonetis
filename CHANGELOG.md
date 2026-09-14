@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.35.0](https://github.com/Welington98/openmonetis/compare/v2.34.0...v2.35.0) (2026-09-14)
+
+### Adicionado
+
+* **accounts:** saldo do dia no extrato da conta ([84205ef](https://github.com/Welington98/openmonetis/commit/84205efe6565ae66b7b95fb42c283caa8f42f1e0))
+
 ## [2.34.0](https://github.com/Welington98/openmonetis/compare/v2.33.1...v2.34.0) (2026-09-13)
 
 ### Adicionado
