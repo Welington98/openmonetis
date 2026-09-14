@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import {
 	RiAddFill,
+	RiArrowLeftRightLine,
 	RiCheckLine,
 	RiCloseLine,
 	RiDragMove2Line,
@@ -26,6 +27,7 @@ import {
 } from "@remixicon/react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
+import { TransferDialog } from "@/features/accounts/components/transfer-dialog";
 import { SortableWidget } from "@/features/dashboard/components/widgets/sortable-widget";
 import { WidgetSettingsDialog } from "@/features/dashboard/components/widgets/widget-settings-dialog";
 import type { DashboardData } from "@/features/dashboard/fetch-dashboard-data";
@@ -70,6 +72,7 @@ export function DashboardGridEditable({
 	const [isMobileIncomeOpen, setIsMobileIncomeOpen] = useState(false);
 	const [isMobileExpenseOpen, setIsMobileExpenseOpen] = useState(false);
 	const [isMobileNoteOpen, setIsMobileNoteOpen] = useState(false);
+	const [isMobileTransferOpen, setIsMobileTransferOpen] = useState(false);
 
 	// Initialize widget order and hidden state
 	const [widgetOrder, setWidgetOrder] = useState<string[]>(
@@ -224,6 +227,14 @@ export function DashboardGridEditable({
 										<RiTodoLine className="text-info/80" />
 										Nova anotação
 									</DropdownMenuItem>
+									{quickActionOptions.accountOptions[0] ? (
+										<DropdownMenuItem
+											onSelect={() => setIsMobileTransferOpen(true)}
+										>
+											<RiArrowLeftRightLine className="text-info" />
+											Nova transferência
+										</DropdownMenuItem>
+									) : null}
 								</DropdownMenuContent>
 							</DropdownMenu>
 							<TransactionDialog
@@ -261,6 +272,19 @@ export function DashboardGridEditable({
 								open={isMobileNoteOpen}
 								onOpenChange={setIsMobileNoteOpen}
 							/>
+							{quickActionOptions.accountOptions[0] ? (
+								<TransferDialog
+									open={isMobileTransferOpen}
+									onOpenChange={setIsMobileTransferOpen}
+									accounts={quickActionOptions.accountOptions.map((option) => ({
+										id: option.value,
+										name: option.label,
+										logo: option.logo ?? null,
+									}))}
+									fromAccountId={quickActionOptions.accountOptions[0].value}
+									currentPeriod={period}
+								/>
+							) : null}
 						</div>
 						<div className="hidden items-center gap-2 sm:flex">
 							<TransactionDialog
@@ -329,6 +353,30 @@ export function DashboardGridEditable({
 									</Button>
 								}
 							/>
+							{quickActionOptions.accountOptions[0] ? (
+								<TransferDialog
+									accounts={quickActionOptions.accountOptions.map((option) => ({
+										id: option.value,
+										name: option.label,
+										logo: option.logo ?? null,
+									}))}
+									fromAccountId={quickActionOptions.accountOptions[0].value}
+									currentPeriod={period}
+									trigger={
+										<Button
+											size="sm"
+											variant="outline"
+											className="h-12 w-full min-w-0 flex-col justify-center gap-0.5 px-1.5 text-sm whitespace-normal sm:h-8 sm:w-auto sm:flex-row sm:gap-2 sm:px-3 sm:whitespace-nowrap"
+										>
+											<RiArrowLeftRightLine className="size-3.5 shrink-0 text-info" />
+											<span className="sm:hidden">Transferência</span>
+											<span className="hidden sm:inline">
+												Nova transferência
+											</span>
+										</Button>
+									}
+								/>
+							) : null}
 						</div>
 					</div>
 				) : (

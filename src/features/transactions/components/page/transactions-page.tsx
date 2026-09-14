@@ -3,10 +3,12 @@
 import { RiAddFill } from "@remixicon/react";
 import { useState } from "react";
 import { toast } from "sonner";
+import { TransferDialog } from "@/features/accounts/components/transfer-dialog";
 import { ReconcileTransactionDialog } from "@/features/bank-sync/components/reconcile-transaction-dialog";
 import {
 	convertTransactionToInstallmentAction,
 	convertTransactionToRecurringAction,
+	convertTransactionToTransferAction,
 	createMassTransactionsAction,
 	deleteMultipleTransactionsAction,
 	deleteTransactionAction,
@@ -36,6 +38,13 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/shared/components/ui/select";
 import { formatCurrency } from "@/shared/utils/currency";
 import type {
 	TransactionsExportContext,
@@ -61,6 +70,7 @@ import {
 } from "../dialogs/split-pair-dialog";
 import { TransactionDetailsDialog } from "../dialogs/transaction-details-dialog";
 import { TransactionDialog } from "../dialogs/transaction-dialog/transaction-dialog";
+import { AccountCardSelectContent } from "../select-items";
 import { TransactionsTable } from "../table/transactions-table";
 import type {
 	AccountCardFilterOption,
@@ -233,6 +243,11 @@ export function TransactionsPage({
 		useState<TransactionItem | null>(null);
 	const [recurrenceCount, setRecurrenceCount] = useState("12");
 	const [recurrencePending, setRecurrencePending] = useState(false);
+	const [convertTransferOpen, setConvertTransferOpen] = useState(false);
+	const [transactionToConvertTransfer, setTransactionToConvertTransfer] =
+		useState<TransactionItem | null>(null);
+	const [transferToAccountId, setTransferToAccountId] = useState("");
+	const [transferConvertPending, setTransferConvertPending] = useState(false);
 	const [reconcileOpen, setReconcileOpen] = useState(false);
 	const [transactionToReconcile, setTransactionToReconcile] =
 		useState<TransactionItem | null>(null);
@@ -716,6 +731,45 @@ export function TransactionsPage({
 		}
 	};
 
+	const handleConvertToTransfer = (item: TransactionItem) => {
+		const firstOtherAccount = accountOptions.find(
+			(option) => option.value !== item.accountId,
+		);
+		setTransactionToConvertTransfer(item);
+		setTransferToAccountId(firstOtherAccount?.value ?? "");
+		setConvertTransferOpen(true);
+	};
+
+	const confirmConvertToTransfer = async () => {
+		if (!transactionToConvertTransfer) {
+			return;
+		}
+
+		if (!transferToAccountId) {
+			toast.error("Selecione a conta de destino.");
+			return;
+		}
+
+		try {
+			setTransferConvertPending(true);
+			const result = await convertTransactionToTransferAction({
+				id: transactionToConvertTransfer.id,
+				toAccountId: transferToAccountId,
+			});
+
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+
+			toast.success(result.message);
+			setConvertTransferOpen(false);
+			setTransactionToConvertTransfer(null);
+		} finally {
+			setTransferConvertPending(false);
+		}
+	};
+
 	const parsedInstallmentCount = Number(installmentCount);
 	const installmentSummary =
 		transactionToConvert &&
@@ -809,6 +863,25 @@ export function TransactionsPage({
 					</Button>
 				}
 			/>
+			{(defaultAccountId ?? accountOptions[0]?.value) && (
+				<TransferDialog
+					accounts={accountOptions.map((option) => ({
+						id: option.value,
+						name: option.label,
+						logo: option.logo ?? null,
+					}))}
+					fromAccountId={
+						(defaultAccountId ?? accountOptions[0]?.value) as string
+					}
+					currentPeriod={selectedPeriod}
+					trigger={
+						<Button variant="outline" className="w-full sm:w-auto">
+							<RiAddFill className="size-4" />
+							Nova Transferência
+						</Button>
+					}
+				/>
+			)}
 			<CreateDetailedTransactionDialog
 				accountOptions={accountOptions}
 				payerOptions={payerOptions}
@@ -871,6 +944,7 @@ export function TransactionsPage({
 				onRefund={handleRefund}
 				onConvertToInstallment={handleConvertToInstallment}
 				onConvertToRecurring={handleConvertToRecurring}
+				onConvertToTransfer={handleConvertToTransfer}
 				onReconcile={handleReconcile}
 				onDetail={handleDetail}
 				onUngroup={handleUngroup}
@@ -1157,6 +1231,71 @@ export function TransactionsPage({
 							disabled={recurrencePending}
 						>
 							{recurrencePending ? "Convertendo..." : "Converter"}
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
+
+			<Dialog
+				open={convertTransferOpen && !!transactionToConvertTransfer}
+				onOpenChange={(open) => {
+					setConvertTransferOpen(open);
+					if (!open) {
+						setTransactionToConvertTransfer(null);
+					}
+				}}
+			>
+				<DialogContent className="sm:max-w-md">
+					<DialogHeader>
+						<DialogTitle>Converter em transferência?</DialogTitle>
+						<DialogDescription>
+							O lançamento atual vira uma das pernas da transferência. Selecione
+							a outra conta envolvida.
+						</DialogDescription>
+					</DialogHeader>
+
+					<div className="space-y-2">
+						<Label htmlFor="transferToAccount">Conta de destino</Label>
+						<Select
+							value={transferToAccountId}
+							onValueChange={setTransferToAccountId}
+						>
+							<SelectTrigger id="transferToAccount" className="w-full">
+								<SelectValue placeholder="Selecione a conta" />
+							</SelectTrigger>
+							<SelectContent>
+								{accountOptions
+									.filter(
+										(option) =>
+											option.value !== transactionToConvertTransfer?.accountId,
+									)
+									.map((option) => (
+										<SelectItem key={option.value} value={option.value}>
+											<AccountCardSelectContent
+												label={option.label}
+												logo={option.logo}
+											/>
+										</SelectItem>
+									))}
+							</SelectContent>
+						</Select>
+					</div>
+
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setConvertTransferOpen(false)}
+							disabled={transferConvertPending}
+						>
+							Cancelar
+						</Button>
+						<Button
+							type="button"
+							onClick={confirmConvertToTransfer}
+							disabled={transferConvertPending || !transferToAccountId}
+						>
+							{transferConvertPending ? "Convertendo..." : "Converter"}
 						</Button>
 					</DialogFooter>
 				</DialogContent>

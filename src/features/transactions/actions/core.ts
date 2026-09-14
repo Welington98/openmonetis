@@ -580,6 +580,11 @@ export const convertToRecurringSchema = z.object({
 		.max(60, "Selecione até 60 meses."),
 });
 
+export const convertToTransferSchema = z.object({
+	id: uuidSchema("Lançamento"),
+	toAccountId: uuidSchema("Conta de destino"),
+});
+
 // Tipo de item de um lançamento detalhado — Despesa ou Receita (o item soma
 // ou subtrai do líquido conforme seu próprio tipo). Transferência não é
 // suportada como tipo de item.
@@ -673,6 +678,7 @@ export type ConvertToInstallmentInput = z.infer<
 	typeof convertToInstallmentSchema
 >;
 export type ConvertToRecurringInput = z.infer<typeof convertToRecurringSchema>;
+export type ConvertToTransferInput = z.infer<typeof convertToTransferSchema>;
 export type DetailTransactionInput = z.infer<typeof detailTransactionSchema>;
 export type UngroupTransactionInput = z.infer<typeof ungroupTransactionSchema>;
 export type CreateDetailedTransactionInput = z.infer<
