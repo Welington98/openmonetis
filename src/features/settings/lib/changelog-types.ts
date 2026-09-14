@@ -1,10 +1,18 @@
-export type SectionType = "Adicionado" | "Alterado" | "Corrigido" | "Removido";
+export type SectionType =
+	| "Adicionado"
+	| "Alterado"
+	| "Corrigido"
+	| "Removido"
+	| "Desempenho"
+	| "Revertido";
 
 const SECTION_TYPES: readonly SectionType[] = [
 	"Adicionado",
 	"Alterado",
 	"Corrigido",
 	"Removido",
+	"Desempenho",
+	"Revertido",
 ];
 
 export type ChangelogSection = {

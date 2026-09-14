@@ -26,6 +26,8 @@ const sectionBadgeVariant: Record<
 	Alterado: "info",
 	Corrigido: "outline",
 	Removido: "destructive",
+	Desempenho: "info",
+	Revertido: "destructive",
 };
 
 const dotByBump: Record<BumpType, string> = {
