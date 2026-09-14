@@ -32,6 +32,8 @@ export function MatchExistingTab({ line, onDone }: MatchExistingTabProps) {
 		const timeout = setTimeout(async () => {
 			const result = await searchTransactionsToMatchAction({
 				query,
+				amount: Number(line.amount),
+				date: line.date,
 				accountId: line.linkedFinancialAccountId,
 			});
 			if (cancelled) return;
