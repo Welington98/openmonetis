@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.37.0](https://github.com/Welington98/openmonetis/compare/v2.36.0...v2.37.0) (2026-09-14)
+
+### Adicionado
+
+* **transactions:** botão de nova transferência e converter lançamento em transferência ([ac177f1](https://github.com/Welington98/openmonetis/commit/ac177f1303538601e8fb8ca7d49299c95d88b23c))
+
 ## [2.36.0](https://github.com/Welington98/openmonetis/compare/v2.35.0...v2.36.0) (2026-09-14)
 
 ### Adicionado
