@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.39.0](https://github.com/Welington98/openmonetis/compare/v2.38.0...v2.39.0) (2026-09-14)
+
+### Adicionado
+
+* **bank-sync:** conciliação valida por valor OU nome, com janela de data de 3 dias ([2b7e5a8](https://github.com/Welington98/openmonetis/commit/2b7e5a8b7259386a8881064f86765acaff432851))
+
 ## [2.38.0](https://github.com/Welington98/openmonetis/compare/v2.37.2...v2.38.0) (2026-09-14)
 
 ### Adicionado
