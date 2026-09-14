@@ -42,6 +42,7 @@ type TransactionActionsMenuProps = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onConvertToTransfer?: (item: TransactionItem) => void;
+	onEditTransfer?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
 	onDetail?: (item: TransactionItem) => void;
 	onUngroup?: (item: TransactionItem) => void;
@@ -61,15 +62,24 @@ export function TransactionActionsMenu({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onConvertToTransfer,
+	onEditTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
 }: TransactionActionsMenuProps) {
 	const isOwnData = item.userId === currentUserId;
-	// O formulário de edição não tem noção de transferência (2 pernas ligadas
-	// por transferId) — editar por ali corrompe o sinal/valor da perna. Editar
-	// uma transferência ainda não tem um fluxo próprio nessa versão.
+	// O formulário de edição genérico não tem noção de transferência (2 pernas
+	// ligadas por transferId) — editar por ali corrompe o sinal/valor da
+	// perna. Transferência usa "Editar transferência" (própria, com conta de
+	// origem/destino) quando elegível; senão "Editar" fica desabilitado.
 	const isTransfer = item.transactionType === "Transferência";
+	const canEditTransfer =
+		isOwnData &&
+		isTransfer &&
+		item.amount < 0 &&
+		!item.isLoanLinked &&
+		!item.readonly &&
+		Boolean(onEditTransfer);
 	const canRefund =
 		isOwnData &&
 		item.transactionType === "Despesa" &&
@@ -134,7 +144,12 @@ export function TransactionActionsMenu({
 					Detalhes
 				</DropdownMenuItem>
 
-				{isOwnData ? (
+				{isOwnData && canEditTransfer ? (
+					<DropdownMenuItem onSelect={() => onEditTransfer?.(item)}>
+						<RiPencilLine className="size-4" aria-hidden />
+						Editar transferência
+					</DropdownMenuItem>
+				) : isOwnData ? (
 					<DropdownMenuItem
 						onSelect={() => onEdit?.(item)}
 						disabled={item.readonly || isTransfer || !onEdit}

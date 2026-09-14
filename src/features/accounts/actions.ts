@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, ne } from "drizzle-orm";
 import { z } from "zod";
 import { categories, financialAccounts, transactions } from "@/db/schema";
 import {
@@ -23,6 +23,7 @@ import {
 	isAccountFundingActiveLoan,
 } from "@/shared/lib/loans/account-deletion";
 import { isLoanAccountType } from "@/shared/lib/loans/constants";
+import { findLoanInstallmentLegs } from "@/shared/lib/loans/settlement";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { noteSchema, uuidSchema } from "@/shared/lib/schemas/common";
 import {
@@ -445,6 +446,140 @@ export async function transferBetweenAccountsAction(
 			success: true,
 			message: "Transferência registrada com sucesso.",
 		};
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
+const updateTransferSchema = z.object({
+	id: uuidSchema("Lançamento"),
+	toAccountId: uuidSchema("Conta de destino"),
+	amount: z
+		.string()
+		.trim()
+		.transform((value) => (value.length === 0 ? "0" : value.replace(",", ".")))
+		.refine(
+			(value) => !Number.isNaN(Number.parseFloat(value)),
+			"Informe um valor válido.",
+		)
+		.transform((value) => Number.parseFloat(value))
+		.refine((value) => value > 0, "O valor deve ser maior que zero."),
+	date: z.coerce.date({ message: "Informe uma data válida." }),
+	period: z
+		.string({ message: "Informe o período." })
+		.trim()
+		.min(1, "Informe o período."),
+});
+
+type UpdateTransferInput = z.input<typeof updateTransferSchema>;
+
+/**
+ * Edita valor/data/conta de destino de uma transferência já existente — só a
+ * partir da perna de SAÍDA (valor negativo); a conta de origem não muda por
+ * aqui (mesma trava de UX do `TransferDialog` na criação). Bloqueado pra
+ * parcelas/juros/desembolso de empréstimo, que têm suas próprias
+ * ferramentas de edição na tela do empréstimo.
+ */
+export async function updateTransferAction(
+	input: UpdateTransferInput,
+): Promise<ActionResult> {
+	try {
+		const user = await getUser();
+		const data = updateTransferSchema.parse(input);
+
+		const existing = await db.query.transactions.findFirst({
+			where: and(
+				eq(transactions.id, data.id),
+				eq(transactions.userId, user.id),
+			),
+		});
+		if (!existing) {
+			return { success: false, error: "Lançamento não encontrado." };
+		}
+		if (existing.transactionType !== "Transferência" || !existing.transferId) {
+			return {
+				success: false,
+				error: "Este lançamento não é uma transferência.",
+			};
+		}
+		if (Number(existing.amount) >= 0) {
+			return {
+				success: false,
+				error:
+					"Edite a transferência a partir da perna de saída (valor negativo).",
+			};
+		}
+		if (!existing.accountId) {
+			return { success: false, error: "Conta de origem não encontrada." };
+		}
+		if (data.toAccountId === existing.accountId) {
+			return {
+				success: false,
+				error: "A conta de destino deve ser diferente da conta de origem.",
+			};
+		}
+
+		const sibling = await db.query.transactions.findFirst({
+			where: and(
+				eq(transactions.transferId, existing.transferId),
+				ne(transactions.id, existing.id),
+			),
+		});
+		if (!sibling) {
+			return {
+				success: false,
+				error: "Não foi possível localizar a outra perna dessa transferência.",
+			};
+		}
+
+		const [existingLoanLink, siblingLoanLink] = await Promise.all([
+			findLoanInstallmentLegs(db, existing.id),
+			findLoanInstallmentLegs(db, sibling.id),
+		]);
+		if (existingLoanLink || siblingLoanLink) {
+			return {
+				success: false,
+				error:
+					"Parcelas de empréstimo têm ferramentas próprias de edição — use a tela do empréstimo.",
+			};
+		}
+
+		const toAccount = await db.query.financialAccounts.findFirst({
+			columns: { id: true },
+			where: and(
+				eq(financialAccounts.id, data.toAccountId),
+				eq(financialAccounts.userId, user.id),
+			),
+		});
+		if (!toAccount) {
+			return { success: false, error: "Conta de destino não encontrada." };
+		}
+
+		await db.transaction(async (tx: typeof db) => {
+			await tx
+				.update(transactions)
+				.set({
+					amount: formatDecimalForDbRequired(-Math.abs(data.amount)),
+					purchaseDate: data.date,
+					period: data.period,
+				})
+				.where(eq(transactions.id, existing.id));
+
+			await tx
+				.update(transactions)
+				.set({
+					accountId: data.toAccountId,
+					amount: formatDecimalForDbRequired(Math.abs(data.amount)),
+					purchaseDate: data.date,
+					period: data.period,
+				})
+				.where(eq(transactions.id, sibling.id));
+		});
+
+		revalidateForEntity("accounts", user.id);
+		revalidateForEntity("transactions", user.id);
+
+		return { success: true, message: "Transferência atualizada com sucesso." };
 	} catch (error) {
 		return handleActionError(error);
 	}

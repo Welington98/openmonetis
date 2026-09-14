@@ -52,6 +52,7 @@ type BuildColumnsArgs = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onConvertToTransfer?: (item: TransactionItem) => void;
+	onEditTransfer?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
 	onDetail?: (item: TransactionItem) => void;
 	onUngroup?: (item: TransactionItem) => void;
@@ -122,6 +123,7 @@ function buildColumns({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onConvertToTransfer,
+	onEditTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -143,6 +145,7 @@ function buildColumns({
 	const handleConvertToInstallment = onConvertToInstallment ?? noop;
 	const handleConvertToRecurring = onConvertToRecurring ?? noop;
 	const handleConvertToTransfer = onConvertToTransfer ?? noop;
+	const handleEditTransfer = onEditTransfer ?? noop;
 
 	const columns: ColumnDef<TransactionItem>[] = [
 		{
@@ -630,6 +633,7 @@ function buildColumns({
 						onConvertToTransfer={
 							onConvertToTransfer ? handleConvertToTransfer : undefined
 						}
+						onEditTransfer={onEditTransfer ? handleEditTransfer : undefined}
 						onReconcile={onReconcile}
 						onDetail={onDetail}
 						onUngroup={onUngroup}

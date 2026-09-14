@@ -78,6 +78,7 @@ type TransactionsTableProps = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onConvertToTransfer?: (item: TransactionItem) => void;
+	onEditTransfer?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
 	onDetail?: (item: TransactionItem) => void;
 	onUngroup?: (item: TransactionItem) => void;
@@ -115,6 +116,7 @@ export function TransactionsTable({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onConvertToTransfer,
+	onEditTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -160,6 +162,7 @@ export function TransactionsTable({
 				onConvertToInstallment,
 				onConvertToRecurring,
 				onConvertToTransfer,
+				onEditTransfer,
 				onReconcile,
 				onDetail,
 				onUngroup,
@@ -187,6 +190,7 @@ export function TransactionsTable({
 			onConvertToInstallment,
 			onConvertToRecurring,
 			onConvertToTransfer,
+			onEditTransfer,
 			onReconcile,
 			onDetail,
 			onUngroup,

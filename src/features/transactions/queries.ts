@@ -10,11 +10,13 @@ import {
 	type SQL,
 	sql,
 } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import {
 	cards,
 	categories,
 	costCenters,
 	financialAccounts,
+	loanInstallments,
 	payers,
 	statementLines,
 	transactionAttachments,
@@ -22,6 +24,8 @@ import {
 } from "@/db/schema";
 import { INITIAL_BALANCE_NOTE } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
+
+const transferCounterpart = alias(transactions, "transfer_counterpart");
 
 type BaseTransactionQueryInput = {
 	filters: SQL[];
@@ -80,6 +84,8 @@ const mapTransactionRows = (
 		costCenter: typeof costCenters.$inferSelect | null;
 		hasAttachments: boolean;
 		isReconciled: boolean;
+		isLoanLinked: boolean;
+		transferCounterpartAccountId: string | null;
 	}[],
 ) =>
 	transactionRows.map((row) => ({
@@ -91,6 +97,8 @@ const mapTransactionRows = (
 		costCenter: row.costCenter,
 		hasAttachments: row.hasAttachments,
 		isReconciled: row.isReconciled,
+		isLoanLinked: row.isLoanLinked,
+		transferCounterpartAccountId: row.transferCounterpartAccountId,
 	}));
 
 async function selectTransactionsWithRelations({
@@ -116,6 +124,24 @@ async function selectTransactionsWithRelations({
 				SELECT 1 FROM ${statementLines}
 				WHERE ${statementLines.matchedTransactionId} = ${transactions.id}
 			)`,
+			// Parcela/juros/desembolso de empréstimo — tem ferramentas de edição
+			// próprias (tela do empréstimo), então fica de fora da edição
+			// genérica de transferência.
+			isLoanLinked: sql<boolean>`EXISTS (
+				SELECT 1 FROM ${loanInstallments}
+				WHERE ${loanInstallments.transactionId} = ${transactions.id}
+					OR ${loanInstallments.interestTransactionId} = ${transactions.id}
+			)`,
+			transferCounterpartAccountId: sql<string | null>`(${db
+				.select({ accountId: transferCounterpart.accountId })
+				.from(transferCounterpart)
+				.where(
+					and(
+						eq(transferCounterpart.transferId, transactions.transferId),
+						ne(transferCounterpart.id, transactions.id),
+					),
+				)
+				.limit(1)})`,
 		})
 		.from(transactions)
 		.leftJoin(payers, eq(transactions.payerId, payers.id))

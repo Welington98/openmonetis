@@ -45,6 +45,7 @@ type TransactionsMobileListProps = {
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
 	onConvertToTransfer?: (item: TransactionItem) => void;
+	onEditTransfer?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
 	onDetail?: (item: TransactionItem) => void;
 	onUngroup?: (item: TransactionItem) => void;
@@ -68,6 +69,7 @@ export function TransactionsMobileList({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onConvertToTransfer,
+	onEditTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -113,6 +115,7 @@ export function TransactionsMobileList({
 						onConvertToInstallment={onConvertToInstallment}
 						onConvertToRecurring={onConvertToRecurring}
 						onConvertToTransfer={onConvertToTransfer}
+						onEditTransfer={onEditTransfer}
 						onReconcile={onReconcile}
 						onDetail={onDetail}
 						onUngroup={onUngroup}
@@ -153,6 +156,7 @@ export function TransactionsMobileList({
 								onConvertToInstallment={onConvertToInstallment}
 								onConvertToRecurring={onConvertToRecurring}
 								onConvertToTransfer={onConvertToTransfer}
+								onEditTransfer={onEditTransfer}
 								onReconcile={onReconcile}
 								onDetail={onDetail}
 								onUngroup={onUngroup}
@@ -187,6 +191,7 @@ function TransactionMobileCard({
 	onConvertToInstallment,
 	onConvertToRecurring,
 	onConvertToTransfer,
+	onEditTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -374,6 +379,7 @@ function TransactionMobileCard({
 									onConvertToInstallment={onConvertToInstallment}
 									onConvertToRecurring={onConvertToRecurring}
 									onConvertToTransfer={onConvertToTransfer}
+									onEditTransfer={onEditTransfer}
 									onReconcile={onReconcile}
 									onDetail={onDetail}
 									onUngroup={onUngroup}

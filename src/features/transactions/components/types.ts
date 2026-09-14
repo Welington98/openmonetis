@@ -39,6 +39,10 @@ export type TransactionItem = {
 	splitGroupId: string | null;
 	hasAttachments: boolean;
 	isReconciled: boolean;
+	/** Parcela/juros/desembolso de empréstimo — tem ferramentas de edição próprias, ver `isLoanLinked` na query. */
+	isLoanLinked: boolean;
+	/** Id da conta da OUTRA perna, quando este lançamento é uma transferência. */
+	transferCounterpartAccountId: string | null;
 	readonly?: boolean;
 	/**
 	 * Saldo da conta logo após este lançamento (só calculado no extrato de
