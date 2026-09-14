@@ -19,6 +19,7 @@ import {
 	buildEntriesByPayer,
 	sendPayerAutoEmails,
 } from "@/shared/lib/payers/notifications";
+import { TRANSFER_CATEGORY_NAME } from "@/shared/lib/transfers/constants";
 import type { ActionResult } from "@/shared/lib/types/actions";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import {
@@ -35,12 +36,14 @@ import {
 	buildTransactionRecords,
 	type ConvertToInstallmentInput,
 	type ConvertToRecurringInput,
+	type ConvertToTransferInput,
 	type CreateDetailedTransactionInput,
 	type CreateInput,
 	centsToDecimalString,
 	computeDetailedItemsNetAmount,
 	convertToInstallmentSchema,
 	convertToRecurringSchema,
+	convertToTransferSchema,
 	createDetailedTransactionSchema,
 	createSchema,
 	type DeleteInput,
@@ -885,6 +888,161 @@ export async function convertTransactionToRecurringAction(
 		};
 	} catch (error) {
 		return handleActionError(error) as ActionResult<{ createdCount: number }>;
+	}
+}
+
+/**
+ * Converte um lançamento à vista de Despesa/Receita numa transferência real
+ * entre a conta atual e `toAccountId` — mesmo padrão de
+ * `transferBetweenAccountsAction`: o lançamento existente vira uma das
+ * pernas (mantém o próprio sinal — despesa continua negativa, receita
+ * continua positiva), e uma segunda perna (sinal oposto) é criada na conta
+ * de destino, ligadas por `transferId`.
+ */
+export async function convertTransactionToTransferAction(
+	input: ConvertToTransferInput,
+): Promise<ActionResult> {
+	try {
+		const user = await getUser();
+		const data = convertToTransferSchema.parse(input);
+
+		const existing = await db.query.transactions.findFirst({
+			where: and(
+				eq(transactions.id, data.id),
+				eq(transactions.userId, user.id),
+			),
+		});
+
+		if (!existing) {
+			return { success: false, error: "Lançamento não encontrado." };
+		}
+
+		if (existing.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) {
+			return {
+				success: false,
+				error: "Pagamentos automáticos de fatura não podem ser convertidos.",
+			};
+		}
+
+		if (isInitialBalanceTransaction(existing)) {
+			return {
+				success: false,
+				error: "Lançamentos de saldo inicial não podem ser convertidos.",
+			};
+		}
+
+		if (existing.transactionType === "Transferência") {
+			return {
+				success: false,
+				error: "Este lançamento já é uma transferência.",
+			};
+		}
+
+		if (existing.paymentMethod === "Cartão de crédito" || !existing.accountId) {
+			return {
+				success: false,
+				error:
+					"Lançamentos de cartão de crédito não podem virar transferência.",
+			};
+		}
+
+		if (existing.condition !== "À vista") {
+			return {
+				success: false,
+				error:
+					"Apenas lançamentos à vista podem ser convertidos em transferência.",
+			};
+		}
+
+		if (existing.splitGroupId || existing.isDivided) {
+			return {
+				success: false,
+				error:
+					"Lançamentos divididos não podem ser convertidos em transferência.",
+			};
+		}
+
+		if (existing.isItemized) {
+			return {
+				success: false,
+				error: "Desfaça o detalhamento antes de converter em transferência.",
+			};
+		}
+
+		if (data.toAccountId === existing.accountId) {
+			return {
+				success: false,
+				error: "A conta de destino deve ser diferente da conta de origem.",
+			};
+		}
+
+		const toAccount = await db.query.financialAccounts.findFirst({
+			columns: { id: true },
+			where: and(
+				eq(financialAccounts.id, data.toAccountId),
+				eq(financialAccounts.userId, user.id),
+			),
+		});
+		if (!toAccount) {
+			return { success: false, error: "Conta de destino não encontrada." };
+		}
+
+		const transferCategory = await db.query.categories.findFirst({
+			columns: { id: true },
+			where: and(
+				eq(categories.userId, user.id),
+				eq(categories.name, TRANSFER_CATEGORY_NAME),
+			),
+		});
+		if (!transferCategory) {
+			throw new Error(
+				`Categoria "${TRANSFER_CATEGORY_NAME}" não encontrada. Crie essa categoria antes de converter em transferência.`,
+			);
+		}
+
+		const transferId = randomUUID();
+		const isIncome = existing.transactionType === "Receita";
+		const magnitude = Math.abs(Number(existing.amount));
+
+		await db.transaction(async (tx: typeof db) => {
+			await tx
+				.update(transactions)
+				.set({
+					transactionType: "Transferência",
+					categoryId: transferCategory.id,
+					costCenterId: null,
+					paymentMethod: "Transferência bancária",
+					amount: formatDecimalForDbRequired(isIncome ? magnitude : -magnitude),
+					transferId,
+				})
+				.where(eq(transactions.id, existing.id));
+
+			await tx.insert(transactions).values({
+				condition: "À vista",
+				name: existing.name,
+				paymentMethod: "Transferência bancária",
+				note: existing.note,
+				amount: formatDecimalForDbRequired(isIncome ? -magnitude : magnitude),
+				purchaseDate: existing.purchaseDate,
+				transactionType: "Transferência",
+				period: existing.period,
+				isSettled: existing.isSettled,
+				userId: user.id,
+				accountId: data.toAccountId,
+				categoryId: transferCategory.id,
+				payerId: existing.payerId,
+				transferId,
+			});
+		});
+
+		revalidate(user.id);
+
+		return {
+			success: true,
+			message: "Lançamento convertido em transferência.",
+		};
+	} catch (error) {
+		return handleActionError(error);
 	}
 }
 

@@ -44,6 +44,7 @@ type TransactionsMobileListProps = {
 	onViewAnticipationHistory?: (item: TransactionItem) => void;
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
+	onConvertToTransfer?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
 	onDetail?: (item: TransactionItem) => void;
 	onUngroup?: (item: TransactionItem) => void;
@@ -66,6 +67,7 @@ export function TransactionsMobileList({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onConvertToTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -110,6 +112,7 @@ export function TransactionsMobileList({
 						onViewAnticipationHistory={onViewAnticipationHistory}
 						onConvertToInstallment={onConvertToInstallment}
 						onConvertToRecurring={onConvertToRecurring}
+						onConvertToTransfer={onConvertToTransfer}
 						onReconcile={onReconcile}
 						onDetail={onDetail}
 						onUngroup={onUngroup}
@@ -149,6 +152,7 @@ export function TransactionsMobileList({
 								onViewAnticipationHistory={onViewAnticipationHistory}
 								onConvertToInstallment={onConvertToInstallment}
 								onConvertToRecurring={onConvertToRecurring}
+								onConvertToTransfer={onConvertToTransfer}
 								onReconcile={onReconcile}
 								onDetail={onDetail}
 								onUngroup={onUngroup}
@@ -182,6 +186,7 @@ function TransactionMobileCard({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onConvertToTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -368,6 +373,7 @@ function TransactionMobileCard({
 									onViewAnticipationHistory={onViewAnticipationHistory}
 									onConvertToInstallment={onConvertToInstallment}
 									onConvertToRecurring={onConvertToRecurring}
+									onConvertToTransfer={onConvertToTransfer}
 									onReconcile={onReconcile}
 									onDetail={onDetail}
 									onUngroup={onUngroup}

@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	RiArrowLeftRightLine,
 	RiBankLine,
 	RiCheckLine,
 	RiDeleteBin5Line,
@@ -40,6 +41,7 @@ type TransactionActionsMenuProps = {
 	onViewAnticipationHistory?: (item: TransactionItem) => void;
 	onConvertToInstallment?: (item: TransactionItem) => void;
 	onConvertToRecurring?: (item: TransactionItem) => void;
+	onConvertToTransfer?: (item: TransactionItem) => void;
 	onReconcile?: (item: TransactionItem) => void;
 	onDetail?: (item: TransactionItem) => void;
 	onUngroup?: (item: TransactionItem) => void;
@@ -58,6 +60,7 @@ export function TransactionActionsMenu({
 	onViewAnticipationHistory,
 	onConvertToInstallment,
 	onConvertToRecurring,
+	onConvertToTransfer,
 	onReconcile,
 	onDetail,
 	onUngroup,
@@ -97,6 +100,18 @@ export function TransactionActionsMenu({
 		!item.splitGroupId &&
 		!item.readonly &&
 		(item.transactionType === "Despesa" || item.transactionType === "Receita");
+
+	const canConvertToTransfer =
+		isOwnData &&
+		(item.transactionType === "Despesa" ||
+			item.transactionType === "Receita") &&
+		item.paymentMethod !== CREDIT_CARD_PAYMENT_METHOD &&
+		item.condition === "À vista" &&
+		!item.splitGroupId &&
+		!item.isDivided &&
+		!item.isItemized &&
+		!item.readonly &&
+		Boolean(onConvertToTransfer);
 
 	return (
 		<DropdownMenu>
@@ -163,6 +178,13 @@ export function TransactionActionsMenu({
 					<DropdownMenuItem onSelect={() => onConvertToRecurring?.(item)}>
 						{getConditionIcon("Fixa")}
 						Converter em Fixa
+					</DropdownMenuItem>
+				) : null}
+
+				{canConvertToTransfer ? (
+					<DropdownMenuItem onSelect={() => onConvertToTransfer?.(item)}>
+						<RiArrowLeftRightLine className="size-4" aria-hidden />
+						Converter em Transferência
 					</DropdownMenuItem>
 				) : null}
 
