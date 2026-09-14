@@ -2,7 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { transferBetweenAccountsAction } from "@/features/accounts/actions";
+import {
+	transferBetweenAccountsAction,
+	updateTransferAction,
+} from "@/features/accounts/actions";
 import { AccountCardSelectContent } from "@/features/transactions/components/select-items";
 import { PeriodPicker } from "@/shared/components/period-picker";
 import { Button } from "@/shared/components/ui/button";
@@ -41,6 +44,17 @@ interface TransferDialogProps {
 	currentPeriod: string;
 	open?: boolean;
 	onOpenChange?: (open: boolean) => void;
+	/**
+	 * Presente = modo edição: atualiza a transferência existente
+	 * (`editTransactionId`, a perna de saída) em vez de criar uma nova. A
+	 * conta de origem continua travada (`fromAccountId`), só destino/valor/
+	 * data são editáveis.
+	 */
+	editTransactionId?: string;
+	initialToAccountId?: string;
+	initialAmount?: number;
+	initialDate?: string;
+	initialPeriod?: string;
 }
 
 export function TransferDialog({
@@ -50,21 +64,29 @@ export function TransferDialog({
 	currentPeriod,
 	open,
 	onOpenChange,
+	editTransactionId,
+	initialToAccountId,
+	initialAmount,
+	initialDate,
+	initialPeriod,
 }: TransferDialogProps) {
 	const [dialogOpen, setDialogOpen] = useControlledState(
 		open,
 		false,
 		onOpenChange,
 	);
+	const isEditMode = Boolean(editTransactionId);
 
 	const [isPending, startTransition] = useTransition();
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	// Form state
-	const [toAccountId, setToAccountId] = useState("");
-	const [amount, setAmount] = useState("");
-	const [date, setDate] = useState(getTodayDateString());
-	const [period, setPeriod] = useState(currentPeriod);
+	const [toAccountId, setToAccountId] = useState(initialToAccountId ?? "");
+	const [amount, setAmount] = useState(
+		initialAmount !== undefined ? initialAmount.toFixed(2) : "",
+	);
+	const [date, setDate] = useState(initialDate ?? getTodayDateString());
+	const [period, setPeriod] = useState(initialPeriod ?? currentPeriod);
 
 	// Available destination accounts (exclude source account)
 	const availableAccounts = accounts.filter(
@@ -94,22 +116,34 @@ export function TransferDialog({
 		}
 
 		startTransition(async () => {
-			const result = await transferBetweenAccountsAction({
-				fromAccountId,
-				toAccountId,
-				amount,
-				date: new Date(date),
-				period,
-			});
+			const result =
+				isEditMode && editTransactionId
+					? await updateTransferAction({
+							id: editTransactionId,
+							toAccountId,
+							amount,
+							date: new Date(date),
+							period,
+						})
+					: await transferBetweenAccountsAction({
+							fromAccountId,
+							toAccountId,
+							amount,
+							date: new Date(date),
+							period,
+						});
 
 			if (result.success) {
 				toast.success(result.message);
 				setDialogOpen(false);
-				// Reset form
-				setToAccountId("");
-				setAmount("");
-				setDate(getTodayDateString());
-				setPeriod(currentPeriod);
+				if (!isEditMode) {
+					// Reset form (modo criação só — em modo edição o diálogo é
+					// remontado por item, então não precisa)
+					setToAccountId("");
+					setAmount("");
+					setDate(getTodayDateString());
+					setPeriod(currentPeriod);
+				}
 				return;
 			}
 
@@ -123,9 +157,13 @@ export function TransferDialog({
 			{trigger ? <DialogTrigger asChild>{trigger}</DialogTrigger> : null}
 			<DialogContent className="sm:max-w-xl">
 				<DialogHeader>
-					<DialogTitle>Transferir entre contas</DialogTitle>
+					<DialogTitle>
+						{isEditMode ? "Editar transferência" : "Transferir entre contas"}
+					</DialogTitle>
 					<DialogDescription>
-						Registre uma transferência de valores entre suas contas.
+						{isEditMode
+							? "Atualize o valor, a data ou a conta de destino dessa transferência."
+							: "Registre uma transferência de valores entre suas contas."}
 					</DialogDescription>
 				</DialogHeader>
 
@@ -248,7 +286,11 @@ export function TransferDialog({
 							type="submit"
 							disabled={isPending || availableAccounts.length === 0}
 						>
-							{isPending ? "Processando..." : "Confirmar transferência"}
+							{isPending
+								? "Processando..."
+								: isEditMode
+									? "Salvar"
+									: "Confirmar transferência"}
 						</Button>
 					</DialogFooter>
 				</form>

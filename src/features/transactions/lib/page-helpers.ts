@@ -605,6 +605,8 @@ type TransactionRowWithRelations = Partial<typeof transactions.$inferSelect> & {
 	costCenter?: CostCenterRow | null;
 	hasAttachments?: boolean;
 	isReconciled?: boolean;
+	isLoanLinked?: boolean;
+	transferCounterpartAccountId?: string | null;
 };
 
 export const mapTransactionsData = (
@@ -654,6 +656,8 @@ export const mapTransactionsData = (
 		splitGroupId: item.splitGroupId ?? null,
 		hasAttachments: item.hasAttachments ?? false,
 		isReconciled: item.isReconciled ?? false,
+		isLoanLinked: item.isLoanLinked ?? false,
+		transferCounterpartAccountId: item.transferCounterpartAccountId ?? null,
 		runningBalance:
 			item.id && runningBalanceById
 				? (runningBalanceById.get(item.id) ?? null)

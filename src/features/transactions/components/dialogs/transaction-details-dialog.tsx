@@ -357,9 +357,11 @@ export function TransactionDetailsDialog({
 							Fechar
 						</Button>
 					</DialogClose>
-					{onEdit && !transaction.readonly && (
-						<Button onClick={handleEdit}>Alterar</Button>
-					)}
+					{onEdit &&
+						!transaction.readonly &&
+						transaction.transactionType !== "Transferência" && (
+							<Button onClick={handleEdit}>Alterar</Button>
+						)}
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>

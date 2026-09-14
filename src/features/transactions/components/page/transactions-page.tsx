@@ -248,6 +248,8 @@ export function TransactionsPage({
 		useState<TransactionItem | null>(null);
 	const [transferToAccountId, setTransferToAccountId] = useState("");
 	const [transferConvertPending, setTransferConvertPending] = useState(false);
+	const [transactionToEditTransfer, setTransactionToEditTransfer] =
+		useState<TransactionItem | null>(null);
 	const [reconcileOpen, setReconcileOpen] = useState(false);
 	const [transactionToReconcile, setTransactionToReconcile] =
 		useState<TransactionItem | null>(null);
@@ -770,6 +772,10 @@ export function TransactionsPage({
 		}
 	};
 
+	const handleEditTransfer = (item: TransactionItem) => {
+		setTransactionToEditTransfer(item);
+	};
+
 	const parsedInstallmentCount = Number(installmentCount);
 	const installmentSummary =
 		transactionToConvert &&
@@ -945,6 +951,7 @@ export function TransactionsPage({
 				onConvertToInstallment={handleConvertToInstallment}
 				onConvertToRecurring={handleConvertToRecurring}
 				onConvertToTransfer={handleConvertToTransfer}
+				onEditTransfer={handleEditTransfer}
 				onReconcile={handleReconcile}
 				onDetail={handleDetail}
 				onUngroup={handleUngroup}
@@ -1300,6 +1307,30 @@ export function TransactionsPage({
 					</DialogFooter>
 				</DialogContent>
 			</Dialog>
+
+			{transactionToEditTransfer?.accountId && (
+				<TransferDialog
+					key={transactionToEditTransfer.id}
+					open
+					onOpenChange={(open) => {
+						if (!open) setTransactionToEditTransfer(null);
+					}}
+					accounts={accountOptions.map((option) => ({
+						id: option.value,
+						name: option.label,
+						logo: option.logo ?? null,
+					}))}
+					fromAccountId={transactionToEditTransfer.accountId}
+					currentPeriod={transactionToEditTransfer.period}
+					editTransactionId={transactionToEditTransfer.id}
+					initialToAccountId={
+						transactionToEditTransfer.transferCounterpartAccountId ?? undefined
+					}
+					initialAmount={Math.abs(transactionToEditTransfer.amount)}
+					initialDate={transactionToEditTransfer.purchaseDate}
+					initialPeriod={transactionToEditTransfer.period}
+				/>
+			)}
 
 			<BulkActionDialog
 				open={bulkDeleteOpen && !!pendingDeleteData}
