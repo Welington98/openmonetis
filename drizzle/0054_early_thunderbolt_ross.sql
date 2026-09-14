@@ -1,0 +1,3 @@
+ALTER TABLE "emprestimo_parcelas" ADD COLUMN "lancamento_juros_id" uuid;--> statement-breakpoint
+ALTER TABLE "emprestimo_parcelas" ADD CONSTRAINT "emprestimo_parcelas_lancamento_juros_id_lancamentos_id_fk" FOREIGN KEY ("lancamento_juros_id") REFERENCES "public"."lancamentos"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "emprestimo_parcelas_lancamento_juros_id_idx" ON "emprestimo_parcelas" USING btree ("lancamento_juros_id");

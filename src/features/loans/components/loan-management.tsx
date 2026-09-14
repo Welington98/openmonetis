@@ -65,6 +65,7 @@ export function LoanManagement({
 		<LoanAmortizationTable
 			loan={loan}
 			schedule={schedule}
+			paymentAccountOptions={paymentAccountOptions}
 			onEdit={() => setIsEditing(true)}
 		/>
 	);

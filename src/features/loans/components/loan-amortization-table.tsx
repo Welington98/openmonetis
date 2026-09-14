@@ -18,16 +18,21 @@ import {
 } from "@/shared/components/ui/popover";
 import { formatDateOnlyLabel } from "@/shared/utils/date";
 import { formatPercentage } from "@/shared/utils/percentage";
+import { PayInstallmentDialog } from "./pay-installment-dialog";
+
+type PaymentAccountOption = { id: string; name: string };
 
 type LoanAmortizationTableProps = {
 	loan: LoanSummary;
 	schedule: LoanInstallmentRow[];
+	paymentAccountOptions: PaymentAccountOption[];
 	onEdit: () => void;
 };
 
 export function LoanAmortizationTable({
 	loan,
 	schedule,
+	paymentAccountOptions,
 	onEdit,
 }: LoanAmortizationTableProps) {
 	const paidCount = schedule.filter((row) => row.isSettled).length;
@@ -103,9 +108,24 @@ export function LoanAmortizationTable({
 									<MoneyValues amount={row.remainingBalanceAfter} />
 								</td>
 								<td className="py-2 pr-3">
-									<Badge variant={row.isSettled ? "default" : "outline"}>
-										{row.isSettled ? "Pago" : "Pendente"}
-									</Badge>
+									<div className="flex items-center gap-2">
+										<Badge variant={row.isSettled ? "default" : "outline"}>
+											{row.isSettled ? "Pago" : "Pendente"}
+										</Badge>
+										{!row.isSettled && (
+											<PayInstallmentDialog
+												installmentId={row.id}
+												installmentLabel={`${row.installmentNumber}/${loan.installmentCount}`}
+												defaultPaymentAccountId={loan.paymentAccountId}
+												paymentAccountOptions={paymentAccountOptions}
+												trigger={
+													<Button type="button" size="sm" variant="outline">
+														Pagar
+													</Button>
+												}
+											/>
+										)}
+									</div>
 								</td>
 							</tr>
 						))}

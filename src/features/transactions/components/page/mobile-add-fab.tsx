@@ -7,8 +7,8 @@ import {
 	RiArrowRightUpLine,
 	RiSplitCellsHorizontal,
 } from "@remixicon/react";
-import Link from "next/link";
 import { useState } from "react";
+import { TransferDialog } from "@/features/accounts/components/transfer-dialog";
 import type { SelectOption } from "@/features/transactions/components/types";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -68,6 +68,8 @@ export function MobileAddFab({
 		null,
 	);
 	const [detailedOpen, setDetailedOpen] = useState(false);
+	const [transferOpen, setTransferOpen] = useState(false);
+	const transferFromAccountId = defaultAccountId ?? accountOptions[0]?.value;
 
 	return (
 		<>
@@ -100,11 +102,12 @@ export function MobileAddFab({
 							<RiArrowRightUpLine className="size-4 text-destructive" />
 							Nova despesa
 						</DropdownMenuItem>
-						<DropdownMenuItem asChild>
-							<Link href="/accounts">
-								<RiArrowLeftRightLine className="size-4 text-info" />
-								Transferência entre contas
-							</Link>
+						<DropdownMenuItem
+							disabled={!transferFromAccountId}
+							onSelect={() => setTransferOpen(true)}
+						>
+							<RiArrowLeftRightLine className="size-4 text-info" />
+							Transferência entre contas
 						</DropdownMenuItem>
 						<DropdownMenuItem onSelect={() => setDetailedOpen(true)}>
 							<RiSplitCellsHorizontal className="size-4 text-muted-foreground" />
@@ -122,6 +125,20 @@ export function MobileAddFab({
 				categoryOptions={categoryOptions}
 				costCenterOptions={costCenterOptions}
 			/>
+
+			{transferFromAccountId && (
+				<TransferDialog
+					open={transferOpen}
+					onOpenChange={setTransferOpen}
+					accounts={accountOptions.map((option) => ({
+						id: option.value,
+						name: option.label,
+						logo: option.logo ?? null,
+					}))}
+					fromAccountId={transferFromAccountId}
+					currentPeriod={defaultPeriod}
+				/>
+			)}
 
 			<TransactionDialog
 				mode="create"
