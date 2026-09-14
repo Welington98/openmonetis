@@ -139,6 +139,10 @@ export function TransactionsTable({
 	});
 	const [rowSelection, setRowSelection] = useState<RowSelectionState>({});
 	const isServerPaginated = Boolean(serverPagination);
+	const showRunningBalance = useMemo(
+		() => data.some((item) => item.runningBalance != null),
+		[data],
+	);
 
 	const columns = useMemo(
 		() =>
@@ -162,6 +166,7 @@ export function TransactionsTable({
 				isSettlementLoading: isSettlementLoading ?? (() => false),
 				showActions,
 				showDateGroups: groupTransactionsByDate,
+				showRunningBalance,
 				columnOrder: columnOrderPreference,
 			}),
 		[
@@ -169,6 +174,7 @@ export function TransactionsTable({
 			noteAsColumn,
 			columnOrderPreference,
 			groupTransactionsByDate,
+			showRunningBalance,
 			onEdit,
 			onCopy,
 			onImport,

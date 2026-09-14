@@ -9,6 +9,7 @@ import { AdjustBalanceDialog } from "@/features/accounts/components/adjust-balan
 import type { Account } from "@/features/accounts/components/types";
 import {
 	fetchAccountData,
+	fetchAccountRunningBalances,
 	fetchAccountSummary,
 	fetchAccountTransactionsPage,
 } from "@/features/accounts/statement-queries";
@@ -39,6 +40,7 @@ import {
 	buildCostCenterOptions,
 	fetchOrSeedCostCentersForUser,
 } from "@/shared/lib/cost-centers/queries";
+import { isLoanAccountType } from "@/shared/lib/loans/constants";
 import { loadLogoOptions } from "@/shared/lib/logo/options";
 import { getBusinessDateString } from "@/shared/utils/date";
 import { parsePeriodParam } from "@/shared/utils/period";
@@ -145,10 +147,34 @@ export default async function Page({ params, searchParams }: PageProps) {
 		false,
 	);
 
-	const transactionData = mapTransactionsData(transactionsPage.rows);
-
 	const { openingBalance, currentBalance, totalIncomes, totalExpenses } =
 		accountSummary;
+
+	// "Saldo do dia" só faz sentido pra uma conta comum (não empréstimo — o
+	// saldo dela é devedor/recebível, não soma de lançamentos), na aba
+	// Confirmados/Conciliados (isSettled=true — ver `activeStatus`), e sem
+	// filtro de data avançado sobrepondo o período (o saldo de abertura usado
+	// aqui é sempre o do período selecionado).
+	const canShowRunningBalance =
+		!isLoanAccountType(account.accountType) &&
+		(activeStatus === TRANSACTION_STATUS_VALUES.CONFIRMED ||
+			activeStatus === TRANSACTION_STATUS_VALUES.RECONCILED) &&
+		!searchFilters.dateStartFilter &&
+		!searchFilters.dateEndFilter;
+
+	const runningBalanceById = canShowRunningBalance
+		? await fetchAccountRunningBalances(
+				userId,
+				account.id,
+				selectedPeriod,
+				openingBalance,
+			)
+		: undefined;
+
+	const transactionData = mapTransactionsData(
+		transactionsPage.rows,
+		runningBalanceById,
+	);
 
 	const periodLabel = `${capitalize(monthName)} de ${year}`;
 	const defaultYieldDate = resolveDefaultYieldDate(selectedPeriod);

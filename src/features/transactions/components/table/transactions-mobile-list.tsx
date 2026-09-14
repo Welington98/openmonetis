@@ -22,6 +22,7 @@ import {
 	TooltipContent,
 	TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
+import { formatCurrency } from "@/shared/utils/currency";
 import { formatDate, formatDateGroupLabel } from "@/shared/utils/date";
 import { getConditionIcon, getPaymentMethodIcon } from "@/shared/utils/icons";
 import { cn } from "@/shared/utils/ui";
@@ -259,6 +260,11 @@ function TransactionMobileCard({
 									isTransfer && "text-info",
 								)}
 							/>
+							{item.runningBalance != null ? (
+								<p className="mt-0.5 whitespace-nowrap text-[11px] text-muted-foreground">
+									Saldo: {formatCurrency(item.runningBalance)}
+								</p>
+							) : null}
 						</div>
 					</div>
 

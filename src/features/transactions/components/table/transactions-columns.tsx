@@ -57,6 +57,7 @@ type BuildColumnsArgs = {
 	isSettlementLoading: (id: string) => boolean;
 	showActions: boolean;
 	showDateGroups: boolean;
+	showRunningBalance?: boolean;
 	columnOrder?: string[] | null;
 };
 
@@ -66,7 +67,7 @@ function getPaymentMethodTableLabel(method: string) {
 }
 
 const FIXED_START_IDS = ["select", "purchaseDate"];
-const FIXED_END_IDS = ["actions"];
+const FIXED_END_IDS = ["runningBalance", "actions"];
 
 function getColumnId(col: ColumnDef<TransactionItem>): string {
 	const c = col as { id?: string; accessorKey?: string };
@@ -125,6 +126,7 @@ function buildColumns({
 	isSettlementLoading,
 	showActions,
 	showDateGroups,
+	showRunningBalance,
 }: BuildColumnsArgs): ColumnDef<TransactionItem>[] {
 	const noop = () => undefined;
 	const handleEdit = onEdit ?? noop;
@@ -571,6 +573,26 @@ function buildColumns({
 			},
 		};
 		columns.splice(accountCardIndex, 0, noteColumn);
+	}
+
+	if (showRunningBalance) {
+		columns.push({
+			id: "runningBalance",
+			header: "Saldo do dia",
+			enableSorting: false,
+			cell: ({ row }) => {
+				const balance = row.original.runningBalance;
+				if (balance == null) {
+					return <span className="text-muted-foreground">—</span>;
+				}
+				return (
+					<MoneyValues
+						amount={balance}
+						className="whitespace-nowrap text-muted-foreground"
+					/>
+				);
+			},
+		});
 	}
 
 	if (showActions) {
