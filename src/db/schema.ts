@@ -962,9 +962,21 @@ export const loanInstallments = pgTable(
 		loanId: uuid("emprestimo_id")
 			.notNull()
 			.references((): AnyPgColumn => loans.id, { onDelete: "cascade" }),
+		// Perna de transferência-saída (principal) na conta de pagamento — é
+		// essa que `fetchLoanOutstandingBalances`/`fetchLoanBalanceAsOfPeriod`
+		// usam pra checar `isSettled`/`period`. A perna de transferência-entrada
+		// (na própria conta de empréstimo) é sempre encontrada via `transferId`
+		// compartilhado, sem precisar de outra coluna aqui.
 		transactionId: uuid("lancamento_id")
 			.notNull()
 			.references((): AnyPgColumn => transactions.id, { onDelete: "cascade" }),
+		// Lançamento de despesa/receita separado pros juros da parcela, quando
+		// há (nulo em parcelas sem juros, e em parcelas de empréstimos criados
+		// antes dessa coluna existir).
+		interestTransactionId: uuid("lancamento_juros_id").references(
+			(): AnyPgColumn => transactions.id,
+			{ onDelete: "cascade" },
+		),
 		userId: text("user_id")
 			.notNull()
 			.references(() => user.id, { onDelete: "cascade" }),
@@ -993,6 +1005,9 @@ export const loanInstallments = pgTable(
 		transactionIdIdx: index("emprestimo_parcelas_lancamento_id_idx").on(
 			table.transactionId,
 		),
+		interestTransactionIdIdx: index(
+			"emprestimo_parcelas_lancamento_juros_id_idx",
+		).on(table.interestTransactionId),
 		userIdIdx: index("emprestimo_parcelas_user_id_idx").on(table.userId),
 	}),
 );

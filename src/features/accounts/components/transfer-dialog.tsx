@@ -3,7 +3,6 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { transferBetweenAccountsAction } from "@/features/accounts/actions";
-import type { AccountData } from "@/features/accounts/queries";
 import { AccountCardSelectContent } from "@/features/transactions/components/select-items";
 import { PeriodPicker } from "@/shared/components/period-picker";
 import { Button } from "@/shared/components/ui/button";
@@ -29,9 +28,15 @@ import {
 import { useControlledState } from "@/shared/hooks/use-controlled-state";
 import { getTodayDateString } from "@/shared/utils/date";
 
+type TransferAccountOption = {
+	id: string;
+	name: string;
+	logo: string | null;
+};
+
 interface TransferDialogProps {
 	trigger?: React.ReactNode;
-	accounts: AccountData[];
+	accounts: TransferAccountOption[];
 	fromAccountId: string;
 	currentPeriod: string;
 	open?: boolean;

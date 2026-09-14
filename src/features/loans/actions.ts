@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { z } from "zod";
 import {
 	categories,
@@ -120,6 +120,17 @@ type UpdateLoanInstallmentDueDateInput = z.input<
 	typeof updateLoanInstallmentDueDateSchema
 >;
 
+const payLoanInstallmentSchema = z.object({
+	installmentId: uuidSchema("Parcela"),
+	paymentDate: z
+		.string({ message: "Informe a data do pagamento." })
+		.trim()
+		.min(1, "Informe a data do pagamento."),
+	paymentAccountId: uuidSchema("Conta de pagamento").optional(),
+});
+
+type PayLoanInstallmentInput = z.input<typeof payLoanInstallmentSchema>;
+
 async function resolveOrCreateLoanCategory(
 	tx: typeof db,
 	userId: string,
@@ -158,6 +169,7 @@ type InsertLoanScheduleParams = {
 	loanId: string;
 	userId: string;
 	accountName: string;
+	loanAccountId: string;
 	paymentAccountId: string;
 	isContratado: boolean;
 	principalCents: number;
@@ -171,15 +183,20 @@ type InsertLoanScheduleParams = {
 };
 
 /**
- * Gera a tabela de amortização e insere um `transactions` + `loanInstallments`
- * por parcela. Reaproveitado tanto na criação quanto na edição de um
- * empréstimo (edição sempre regera a tabela inteira do zero).
+ * Gera a tabela de amortização e insere, por parcela: uma transferência
+ * (principal) entre a conta de pagamento e a conta de empréstimo — mesmo
+ * padrão de `transferBetweenAccountsAction`, com `transactionId` da
+ * `loanInstallments` apontando pra perna da conta de pagamento — e, quando
+ * há juros, um lançamento de despesa/receita separado só com o valor dos
+ * juros (`interestTransactionId`). Reaproveitado tanto na criação quanto na
+ * edição de um empréstimo (edição sempre regera a tabela inteira do zero).
  */
 async function insertLoanSchedule({
 	tx,
 	loanId,
 	userId,
 	accountName,
+	loanAccountId,
 	paymentAccountId,
 	isContratado,
 	principalCents,
@@ -199,6 +216,11 @@ async function insertLoanSchedule({
 		startingInstallmentNumber,
 	});
 
+	// Pagamento de parcela: o dinheiro sai da conta de pagamento e "entra" na
+	// conta de empréstimo (reduzindo a dívida) — sentido oposto ao do
+	// desembolso, que sai da conta de empréstimo pra a conta de pagamento.
+	const paymentAccountSign = isContratado ? -1 : 1;
+
 	for (const row of schedule) {
 		const dueDate = addMonthsToDate(
 			firstDueDate,
@@ -208,39 +230,93 @@ async function insertLoanSchedule({
 		const period = derivePeriodFromDate(dueDateString);
 		const lastInstallmentNumber =
 			startingInstallmentNumber + installmentCount - 1;
+		const installmentLabel = `${row.installmentNumber}/${lastInstallmentNumber}`;
+		const transferId = crypto.randomUUID();
 
-		const [installmentTransaction] = await tx
+		const sharedTransferFields = {
+			condition: "À vista" as const,
+			paymentMethod: "Transferência bancária" as const,
+			note: null,
+			purchaseDate: dueDate,
+			dueDate,
+			transactionType: "Transferência" as const,
+			installmentCount: lastInstallmentNumber,
+			currentInstallment: row.installmentNumber,
+			period,
+			isSettled: false,
+			costCenterId: null,
+			userId,
+			categoryId: installmentCategoryId,
+			payerId: adminPayerId,
+			transferId,
+		};
+
+		const principalTransactionLegs = await tx
 			.insert(transactions)
-			.values({
-				condition: "À vista",
-				name: `Empréstimo — parcela ${row.installmentNumber}/${lastInstallmentNumber} (${accountName})`,
-				paymentMethod: "Transferência bancária",
-				note: null,
-				amount: centsToDecimalString(
-					isContratado ? -row.totalAmountCents : row.totalAmountCents,
-				),
-				purchaseDate: dueDate,
-				dueDate,
-				transactionType: isContratado ? "Despesa" : "Receita",
-				installmentCount: lastInstallmentNumber,
-				currentInstallment: row.installmentNumber,
-				period,
-				isSettled: false,
-				costCenterId: null,
-				userId,
-				accountId: paymentAccountId,
-				categoryId: installmentCategoryId,
-				payerId: adminPayerId,
-			})
-			.returning({ id: transactions.id });
+			.values([
+				{
+					...sharedTransferFields,
+					name: `Empréstimo — parcela ${installmentLabel} (${accountName})`,
+					amount: centsToDecimalString(
+						paymentAccountSign * row.principalAmountCents,
+					),
+					accountId: paymentAccountId,
+				},
+				{
+					...sharedTransferFields,
+					name: `Empréstimo — parcela ${installmentLabel} (${accountName})`,
+					amount: centsToDecimalString(
+						-paymentAccountSign * row.principalAmountCents,
+					),
+					accountId: loanAccountId,
+				},
+			])
+			.returning({ id: transactions.id, accountId: transactions.accountId });
 
-		if (!installmentTransaction) {
+		const paymentAccountLeg = principalTransactionLegs.find(
+			(leg) => leg.accountId === paymentAccountId,
+		);
+		if (!paymentAccountLeg) {
 			throw new Error("Não foi possível gerar as parcelas do empréstimo.");
+		}
+
+		let interestTransactionId: string | null = null;
+		if (row.interestAmountCents > 0) {
+			const [interestTransaction] = await tx
+				.insert(transactions)
+				.values({
+					condition: "À vista",
+					name: `Empréstimo — juros parcela ${installmentLabel} (${accountName})`,
+					paymentMethod: "Transferência bancária",
+					note: null,
+					amount: centsToDecimalString(
+						paymentAccountSign * row.interestAmountCents,
+					),
+					purchaseDate: dueDate,
+					dueDate,
+					transactionType: isContratado ? "Despesa" : "Receita",
+					installmentCount: lastInstallmentNumber,
+					currentInstallment: row.installmentNumber,
+					period,
+					isSettled: false,
+					costCenterId: null,
+					userId,
+					accountId: paymentAccountId,
+					categoryId: installmentCategoryId,
+					payerId: adminPayerId,
+				})
+				.returning({ id: transactions.id });
+
+			if (!interestTransaction) {
+				throw new Error("Não foi possível gerar os juros da parcela.");
+			}
+			interestTransactionId = interestTransaction.id;
 		}
 
 		await tx.insert(loanInstallments).values({
 			loanId,
-			transactionId: installmentTransaction.id,
+			transactionId: paymentAccountLeg.id,
+			interestTransactionId,
 			userId,
 			installmentNumber: row.installmentNumber,
 			principalAmount: centsToDecimalString(row.principalAmountCents),
@@ -340,30 +416,55 @@ export async function createLoanAction(
 
 			const isContratado = direction === "contratado";
 
-			// Lançamento de desembolso: sem isso a dívida/recebível "aparece do
-			// nada" sem nunca ter mexido em nenhuma conta real. Pulado quando o
-			// empréstimo já está em andamento (parcela inicial > 1) — o
-			// desembolso real já aconteceu no passado, fora do app.
+			// Lançamento de desembolso, modelado como uma transferência real entre
+			// a conta de empréstimo (origem) e a conta de pagamento (destino) —
+			// mesmo padrão de `transferBetweenAccountsAction`. Sem isso a dívida/
+			// recebível "aparece do nada" sem nunca ter mexido em nenhuma conta
+			// real. Pulado quando o empréstimo já está em andamento (parcela
+			// inicial > 1) — o desembolso real já aconteceu no passado, fora do
+			// app.
 			if (data.startingInstallmentNumber === 1) {
 				const { date: today, period: todayPeriod } = getBusinessTodayInfo();
+				const disbursementTransferId = crypto.randomUUID();
+				const disbursementCategoryId = isContratado
+					? receitaCategory.id
+					: despesaCategory.id;
+				const paymentAccountSign = isContratado ? 1 : -1;
 
-				await tx.insert(transactions).values({
-					condition: "À vista",
-					name: `Empréstimo — desembolso (${account.name})`,
-					paymentMethod: "Transferência bancária",
-					note: `${LOAN_DISBURSEMENT_NOTE_PREFIX}${data.accountId}`,
-					amount: centsToDecimalString(
-						isContratado ? principalCents : -principalCents,
-					),
-					purchaseDate: today,
-					transactionType: isContratado ? "Receita" : "Despesa",
-					period: todayPeriod,
-					isSettled: true,
-					userId: user.id,
-					accountId: data.paymentAccountId,
-					categoryId: isContratado ? receitaCategory.id : despesaCategory.id,
-					payerId: adminPayerId,
-				});
+				await tx.insert(transactions).values([
+					{
+						condition: "À vista",
+						name: `Empréstimo — desembolso (${account.name})`,
+						paymentMethod: "Transferência bancária",
+						note: `${LOAN_DISBURSEMENT_NOTE_PREFIX}${data.accountId}`,
+						amount: centsToDecimalString(paymentAccountSign * principalCents),
+						purchaseDate: today,
+						transactionType: "Transferência",
+						period: todayPeriod,
+						isSettled: true,
+						userId: user.id,
+						accountId: data.paymentAccountId,
+						categoryId: disbursementCategoryId,
+						payerId: adminPayerId,
+						transferId: disbursementTransferId,
+					},
+					{
+						condition: "À vista",
+						name: `Empréstimo — desembolso (${account.name})`,
+						paymentMethod: "Transferência bancária",
+						note: null,
+						amount: centsToDecimalString(-paymentAccountSign * principalCents),
+						purchaseDate: today,
+						transactionType: "Transferência",
+						period: todayPeriod,
+						isSettled: true,
+						userId: user.id,
+						accountId: data.accountId,
+						categoryId: disbursementCategoryId,
+						payerId: adminPayerId,
+						transferId: disbursementTransferId,
+					},
+				]);
 			}
 
 			await insertLoanSchedule({
@@ -371,6 +472,7 @@ export async function createLoanAction(
 				loanId: createdLoan.id,
 				userId: user.id,
 				accountName: account.name,
+				loanAccountId: account.id,
 				paymentAccountId: data.paymentAccountId,
 				isContratado,
 				principalCents,
@@ -462,9 +564,15 @@ export async function updateLoanConfigAction(
 			}
 
 			const existingInstallments = await tx.query.loanInstallments.findMany({
-				columns: { transactionId: true, installmentNumber: true },
+				columns: {
+					transactionId: true,
+					interestTransactionId: true,
+					installmentNumber: true,
+				},
 				where: eq(loanInstallments.loanId, data.loanId),
-				with: { transaction: { columns: { isSettled: true } } },
+				with: {
+					transaction: { columns: { isSettled: true, transferId: true } },
+				},
 			});
 
 			const settledInstallments = existingInstallments.filter(
@@ -485,12 +593,35 @@ export async function updateLoanConfigAction(
 				: data.startingInstallmentNumber;
 
 			if (unsettledInstallments.length > 0) {
-				await tx.delete(transactions).where(
-					inArray(
-						transactions.id,
-						unsettledInstallments.map((row) => row.transactionId),
-					),
-				);
+				// Cada parcela não liquidada tem até 3 linhas: a perna de
+				// transferência-saída (`transactionId`), a de transferência-entrada
+				// (mesmo `transferId`, na conta de empréstimo) e, quando há juros,
+				// uma despesa/receita separada (`interestTransactionId`). Apagar só
+				// `transactionId` deixaria as outras duas órfãs — o cascade de
+				// `loanInstallments` só some quando ELE é apagado, não os irmãos.
+				const transferIds = unsettledInstallments
+					.map((row) => row.transaction?.transferId)
+					.filter((id): id is string => Boolean(id));
+
+				const transferLegs =
+					transferIds.length > 0
+						? await tx.query.transactions.findMany({
+								columns: { id: true },
+								where: inArray(transactions.transferId, transferIds),
+							})
+						: [];
+
+				const transactionIdsToDelete = new Set<string>([
+					...unsettledInstallments.map((row) => row.transactionId),
+					...unsettledInstallments
+						.map((row) => row.interestTransactionId)
+						.filter((id): id is string => Boolean(id)),
+					...transferLegs.map((leg) => leg.id),
+				]);
+
+				await tx
+					.delete(transactions)
+					.where(inArray(transactions.id, [...transactionIdsToDelete]));
 			}
 
 			const principalCents = toCents(data.principalAmount);
@@ -531,6 +662,7 @@ export async function updateLoanConfigAction(
 				loanId: data.loanId,
 				userId: user.id,
 				accountName: account.name,
+				loanAccountId: account.id,
 				paymentAccountId: data.paymentAccountId,
 				isContratado,
 				principalCents,
@@ -616,6 +748,112 @@ export async function updateLoanInstallmentDueDateAction(
 		revalidateForEntity("transactions", user.id);
 
 		return { success: true, message: "Vencimento da parcela atualizado." };
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
+/**
+ * Liquida uma parcela pendente — settla junto as até 3 linhas que a formam
+ * (perna de transferência-saída, perna de transferência-entrada na conta de
+ * empréstimo, e a de juros quando existe), pra não deixar a transferência
+ * meio-liquidada. Não suporta pagar um valor diferente do combinado (v1) —
+ * quem precisar disso usa as ferramentas genéricas de ajuste depois.
+ */
+export async function payLoanInstallmentAction(
+	input: PayLoanInstallmentInput,
+): Promise<ActionResult> {
+	try {
+		const user = await getUser();
+		const data = payLoanInstallmentSchema.parse(input);
+
+		const paymentDate = new Date(`${data.paymentDate}T00:00:00`);
+		if (Number.isNaN(paymentDate.getTime())) {
+			throw new Error("Data de pagamento inválida.");
+		}
+		const period = derivePeriodFromDate(toLocalDateString(paymentDate));
+
+		await db.transaction(async (tx: typeof db) => {
+			const installment = await tx.query.loanInstallments.findFirst({
+				where: and(
+					eq(loanInstallments.id, data.installmentId),
+					eq(loanInstallments.userId, user.id),
+				),
+				with: {
+					loan: { columns: { paymentAccountId: true } },
+					transaction: {
+						columns: { id: true, isSettled: true, transferId: true },
+					},
+				},
+			});
+
+			if (!installment?.transaction || !installment.loan) {
+				throw new Error("Parcela não encontrada.");
+			}
+
+			if (installment.transaction.isSettled) {
+				throw new Error("Esta parcela já foi paga.");
+			}
+
+			const paymentAccountId =
+				data.paymentAccountId ?? installment.loan.paymentAccountId;
+
+			const paymentAccount = await tx.query.financialAccounts.findFirst({
+				columns: { id: true },
+				where: and(
+					eq(financialAccounts.id, paymentAccountId),
+					eq(financialAccounts.userId, user.id),
+				),
+			});
+			if (!paymentAccount) {
+				throw new Error("Conta de pagamento não encontrada.");
+			}
+
+			const transferInLeg = installment.transaction.transferId
+				? await tx.query.transactions.findFirst({
+						columns: { id: true },
+						where: and(
+							eq(transactions.transferId, installment.transaction.transferId),
+							ne(transactions.id, installment.transaction.id),
+						),
+					})
+				: null;
+
+			await tx
+				.update(transactions)
+				.set({
+					isSettled: true,
+					purchaseDate: paymentDate,
+					period,
+					accountId: paymentAccountId,
+				})
+				.where(eq(transactions.id, installment.transaction.id));
+
+			if (transferInLeg) {
+				await tx
+					.update(transactions)
+					.set({ isSettled: true, purchaseDate: paymentDate, period })
+					.where(eq(transactions.id, transferInLeg.id));
+			}
+
+			if (installment.interestTransactionId) {
+				await tx
+					.update(transactions)
+					.set({
+						isSettled: true,
+						purchaseDate: paymentDate,
+						period,
+						accountId: paymentAccountId,
+					})
+					.where(eq(transactions.id, installment.interestTransactionId));
+			}
+		});
+
+		revalidateForEntity("loans", user.id);
+		revalidateForEntity("accounts", user.id);
+		revalidateForEntity("transactions", user.id);
+
+		return { success: true, message: "Parcela paga com sucesso." };
 	} catch (error) {
 		return handleActionError(error);
 	}
