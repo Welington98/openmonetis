@@ -1,6 +1,7 @@
 "use client";
 import {
 	RiArrowLeftRightLine,
+	RiBankLine,
 	RiFileExcel2Line,
 	RiFlashlightFill,
 } from "@remixicon/react";
@@ -25,6 +26,12 @@ import type {
 import { EmptyState } from "@/shared/components/feedback/empty-state";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from "@/shared/components/ui/dropdown-menu";
 import {
 	Table,
 	TableBody,
@@ -391,22 +398,37 @@ export function TransactionsTable({
 									</TooltipContent>
 								</Tooltip>
 							) : null}
-							<Tooltip>
-								<TooltipTrigger asChild>
-									<Button
-										onClick={() => router.push("/transactions/import")}
-										variant="outline"
-										size="icon"
-										className="hidden size-9 sm:inline-flex"
+							<DropdownMenu>
+								<Tooltip>
+									<TooltipTrigger asChild>
+										<DropdownMenuTrigger asChild>
+											<Button
+												variant="outline"
+												size="icon"
+												className="hidden size-9 sm:inline-flex"
+											>
+												<RiFileExcel2Line className="size-4" />
+												<span className="sr-only">Importar extrato</span>
+											</Button>
+										</DropdownMenuTrigger>
+									</TooltipTrigger>
+									<TooltipContent>
+										<p>Importar extrato</p>
+									</TooltipContent>
+								</Tooltip>
+								<DropdownMenuContent align="end">
+									<DropdownMenuItem
+										onSelect={() => router.push("/transactions/import")}
 									>
 										<RiFileExcel2Line className="size-4" />
-										<span className="sr-only">Importar extrato</span>
-									</Button>
-								</TooltipTrigger>
-								<TooltipContent>
-									<p>Importar extrato</p>
-								</TooltipContent>
-							</Tooltip>
+										Importar arquivo (Excel, OFX, PDF)
+									</DropdownMenuItem>
+									<DropdownMenuItem onSelect={() => router.push("/bank-sync")}>
+										<RiBankLine className="size-4" />
+										Importar pelo Pluggy
+									</DropdownMenuItem>
+								</DropdownMenuContent>
+							</DropdownMenu>
 						</div>
 					) : (
 						<span className={showFilters ? "hidden sm:block" : ""} />
