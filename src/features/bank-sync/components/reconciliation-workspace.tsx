@@ -63,7 +63,11 @@ import {
 	TabsTrigger,
 } from "@/shared/components/ui/tabs";
 import { formatCurrency } from "@/shared/utils/currency";
-import { formatDateOnly, toDateOnlyString } from "@/shared/utils/date";
+import {
+	formatDateOnly,
+	toDateOnlyString,
+	toLocalDateString,
+} from "@/shared/utils/date";
 
 type FilterKey = "todos" | "pendentes" | "classificados" | "ia";
 
@@ -108,8 +112,22 @@ export function ReconciliationWorkspace({
 	const [syncDateFrom, setSyncDateFrom] = useState("");
 	const [syncDateTo, setSyncDateTo] = useState("");
 	const [syncFilterOpen, setSyncFilterOpen] = useState(false);
-	const [lineDateFrom, setLineDateFrom] = useState("");
-	const [lineDateTo, setLineDateTo] = useState("");
+	// Por padrão a lista mostra só o mês atual — mesmo critério do sync
+	// (ver `syncBankConnection`), pra não afogar quem entra na tela com um
+	// backlog de meses antigos. "Limpar" no filtro de período mostra tudo.
+	const [lineDateFrom, setLineDateFrom] = useState(() => {
+		const now = new Date();
+		return (
+			toLocalDateString(new Date(now.getFullYear(), now.getMonth(), 1)) ?? ""
+		);
+	});
+	const [lineDateTo, setLineDateTo] = useState(() => {
+		const now = new Date();
+		return (
+			toLocalDateString(new Date(now.getFullYear(), now.getMonth() + 1, 0)) ??
+			""
+		);
+	});
 	const [lineDateFilterOpen, setLineDateFilterOpen] = useState(false);
 	const [isSuggesting, startSuggest] = useTransition();
 	const [isBulkImporting, startBulkImport] = useTransition();
