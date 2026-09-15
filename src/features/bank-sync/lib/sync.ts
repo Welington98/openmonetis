@@ -1,14 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import {
-	bankConnections,
-	cards,
-	financialAccounts,
-	statementLines,
-} from "@/db/schema";
+import { bankConnections, statementLines } from "@/db/schema";
 import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
 import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
 import { db } from "@/shared/lib/db";
-import { toDateOnlyString } from "@/shared/utils/date";
+import { toLocalDateString } from "@/shared/utils/date";
 import {
 	fetchPluggyAccounts,
 	fetchPluggyItem,
@@ -39,10 +34,11 @@ function pluggyTypeToLocal(
  * direto). Dedup por `externalId` via `ON CONFLICT DO NOTHING` no índice
  * único — chamadas repetidas são idempotentes.
  *
- * `dateRange` permite filtrar manualmente por período (ex.: só reimportar um
- * mês específico); quando omitido, usa o comportamento padrão: histórico
- * completo na primeira sincronização, e uma janela incremental dos últimos
- * 30 dias nas seguintes.
+ * `dateRange` permite filtrar manualmente por período (ex.: reimportar um
+ * mês anterior específico); quando omitido, o padrão é sempre o mês atual
+ * (do dia 1 até hoje) — pra não importar de uma vez um histórico enorme que
+ * o usuário não pediu. Buscar meses anteriores é sempre uma ação manual do
+ * usuário (filtro de período na tela de sincronização).
  */
 export async function syncBankConnection(
 	connectionId: string,
@@ -67,38 +63,14 @@ export async function syncBankConnection(
 	const item = await fetchPluggyItem(connection.pluggyItemId);
 	const pluggyAccounts = await fetchPluggyAccounts(connection.pluggyItemId);
 
-	// Vincula contas/cartões locais já associados a esta conexão, para saber a
-	// partir de quando buscar transações incrementalmente (evita reprocessar
-	// tudo).
-	const [linkedAccounts, linkedCards] = await Promise.all([
-		db
-			.select({ id: financialAccounts.id })
-			.from(financialAccounts)
-			.where(
-				and(
-					eq(financialAccounts.userId, userId),
-					eq(financialAccounts.bankConnectionId, connectionId),
-				),
-			),
-		db
-			.select({ id: cards.id })
-			.from(cards)
-			.where(
-				and(eq(cards.userId, userId), eq(cards.bankConnectionId, connectionId)),
-			),
-	]);
-	const hasLinkedAccounts = linkedAccounts.length > 0 || linkedCards.length > 0;
-
 	let statementLinesCreated = 0;
 
-	// Um período explícito (filtro manual) sempre tem prioridade sobre a
-	// janela incremental padrão de 30 dias.
+	// Um período explícito (filtro manual) sempre tem prioridade sobre o
+	// padrão de mês atual.
+	const currentMonthStart = new Date();
+	currentMonthStart.setDate(1);
 	const dateFrom =
-		dateRange.dateFrom ??
-		(hasLinkedAccounts
-			? (toDateOnlyString(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) ??
-				undefined)
-			: undefined);
+		dateRange.dateFrom ?? toLocalDateString(currentMonthStart) ?? undefined;
 	const dateTo = dateRange.dateTo;
 
 	for (const account of pluggyAccounts) {
