@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.41.0](https://github.com/Welington98/openmonetis/compare/v2.40.0...v2.41.0) (2026-09-15)
+
+### Adicionado
+
+* **transactions:** opção de importar pelo Pluggy no botão de importar ([2675ce8](https://github.com/Welington98/openmonetis/commit/2675ce881182c2149966b1369b97f9517b69942c))
+
 ## [2.40.0](https://github.com/Welington98/openmonetis/compare/v2.39.0...v2.40.0) (2026-09-15)
 
 ### Adicionado
