@@ -379,6 +379,13 @@
       "when": 1789388423988,
       "tag": "0054_early_thunderbolt_ross",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1789692580886,
+      "tag": "0055_add_loan_installment_base_amount",
+      "breakpoints": true
     }
   ]
 }

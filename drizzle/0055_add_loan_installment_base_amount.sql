@@ -1,0 +1,1 @@
+ALTER TABLE "emprestimos" ADD COLUMN "saldo_base_parcelas" numeric(12, 2);
