@@ -61,7 +61,7 @@ export type PayerBoletoItem = {
 	name: string;
 	amount: number;
 	dueDate: string | null;
-	boletoPaymentDate: string | null;
+	paymentDate: string | null;
 	isSettled: boolean;
 	transactionType: string;
 };
@@ -321,7 +321,7 @@ export async function fetchPayerBoletoItems({
 			name: transactions.name,
 			amount: transactions.amount,
 			dueDate: transactions.dueDate,
-			boletoPaymentDate: transactions.boletoPaymentDate,
+			paymentDate: transactions.paymentDate,
 			isSettled: transactions.isSettled,
 			transactionType: transactions.transactionType,
 		})
@@ -350,7 +350,7 @@ export async function fetchPayerBoletoItems({
 			name: row.name,
 			amount: Math.abs(toNumber(row.amount)),
 			dueDate: toDateOnlyString(row.dueDate),
-			boletoPaymentDate: toDateOnlyString(row.boletoPaymentDate),
+			paymentDate: toDateOnlyString(row.paymentDate),
 			isSettled: Boolean(row.isSettled),
 			transactionType: row.transactionType,
 		});

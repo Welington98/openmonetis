@@ -133,12 +133,10 @@ export async function createTransactionAction(
 		const period = resolvePeriod(data.purchaseDate, data.period);
 		const purchaseDate = parseLocalDateString(data.purchaseDate);
 		const dueDate = data.dueDate ? parseLocalDateString(data.dueDate) : null;
-		const shouldSetBoletoPaymentDate =
-			data.paymentMethod === "Boleto" && (data.isSettled ?? false);
-		const boletoPaymentDate = shouldSetBoletoPaymentDate
-			? data.boletoPaymentDate
-				? parseLocalDateString(data.boletoPaymentDate)
-				: getBusinessTodayDate()
+		// Campo manual e independente de forma de pagamento/status — sem
+		// preenchimento automático, só o que o usuário digitou.
+		const paymentDate = data.paymentDate
+			? parseLocalDateString(data.paymentDate)
 			: null;
 
 		const amountSign: 1 | -1 = data.transactionType === "Despesa" ? -1 : 1;
@@ -172,7 +170,7 @@ export async function createTransactionAction(
 			shares,
 			amountSign,
 			shouldNullifySettled,
-			boletoPaymentDate,
+			paymentDate,
 			seriesId,
 		});
 
@@ -354,12 +352,10 @@ export async function updateTransactionAction(
 			data.paymentMethod === "Cartão de crédito"
 				? null
 				: (data.isSettled ?? false);
-		const shouldSetBoletoPaymentDate =
-			data.paymentMethod === "Boleto" && Boolean(normalizedSettled);
-		const boletoPaymentDateValue = shouldSetBoletoPaymentDate
-			? data.boletoPaymentDate
-				? parseLocalDateString(data.boletoPaymentDate)
-				: getBusinessTodayDate()
+		// Campo manual e independente de forma de pagamento/status — sem
+		// preenchimento automático, só o que o usuário digitou.
+		const paymentDateValue = data.paymentDate
+			? parseLocalDateString(data.paymentDate)
 			: null;
 		const targetCardId = data.cardId ?? existing.cardId;
 		const movedInvoice =
@@ -416,7 +412,7 @@ export async function updateTransactionAction(
 				installmentCount: data.installmentCount ?? null,
 				recurrenceCount: data.recurrenceCount ?? null,
 				dueDate: data.dueDate ? parseLocalDateString(data.dueDate) : null,
-				boletoPaymentDate: boletoPaymentDateValue,
+				paymentDate: paymentDateValue,
 				period,
 			})
 			.where(
@@ -637,7 +633,7 @@ export async function convertTransactionToInstallmentAction(
 			period: existing.period,
 			purchaseDate: existing.purchaseDate,
 			dueDate: existing.dueDate,
-			boletoPaymentDate: null,
+			paymentDate: null,
 			shares: [{ payerId: existing.payerId, amountCents: totalCents }],
 			amountSign,
 			shouldNullifySettled: true,
@@ -803,16 +799,14 @@ export async function convertTransactionToRecurringAction(
 				note: existing.note,
 				recurrenceCount: data.recurrenceCount,
 				dueDate: existing.dueDate?.toISOString().slice(0, 10),
-				boletoPaymentDate: existing.boletoPaymentDate
-					?.toISOString()
-					.slice(0, 10),
+				paymentDate: existing.paymentDate?.toISOString().slice(0, 10),
 				isSettled: existing.isSettled,
 			},
 			userId: user.id,
 			period: existing.period,
 			purchaseDate: existing.purchaseDate,
 			dueDate: existing.dueDate,
-			boletoPaymentDate: existing.boletoPaymentDate,
+			paymentDate: existing.paymentDate,
 			shares: [{ payerId: existing.payerId, amountCents: totalCents }],
 			amountSign,
 			shouldNullifySettled: isCreditCard,
@@ -878,7 +872,7 @@ export async function convertTransactionToRecurringAction(
 					purchaseDate: currentRow.purchaseDate,
 					dueDate: currentRow.dueDate,
 					isSettled: currentRow.isSettled,
-					boletoPaymentDate: currentRow.boletoPaymentDate,
+					paymentDate: currentRow.paymentDate,
 					seriesId,
 				})
 				.where(
@@ -1109,12 +1103,10 @@ export async function updateTransactionSplitPairAction(
 			data.paymentMethod === "Cartão de crédito"
 				? null
 				: (data.isSettled ?? false);
-		const shouldSetBoletoPaymentDate =
-			data.paymentMethod === "Boleto" && Boolean(normalizedSettled);
-		const boletoPaymentDateValue = shouldSetBoletoPaymentDate
-			? data.boletoPaymentDate
-				? parseLocalDateString(data.boletoPaymentDate)
-				: getBusinessTodayDate()
+		// Campo manual e independente de forma de pagamento/status — sem
+		// preenchimento automático, só o que o usuário digitou.
+		const paymentDateValue = data.paymentDate
+			? parseLocalDateString(data.paymentDate)
 			: null;
 		const targetCardId = data.cardId ?? existing.cardId;
 		const movedInvoice =
@@ -1153,7 +1145,7 @@ export async function updateTransactionSplitPairAction(
 			dueDate,
 			period,
 			isSettled: normalizedSettled,
-			boletoPaymentDate: boletoPaymentDateValue,
+			paymentDate: paymentDateValue,
 		};
 
 		await db.transaction(async (tx: typeof db) => {
@@ -1313,7 +1305,7 @@ export async function toggleTransactionSettlementAction(
 			data.value && data.paymentDate
 				? parseLocalDateString(data.paymentDate)
 				: null;
-		const boletoPaymentDate = data.value
+		const paymentDate = data.value
 			? (customPaymentDate ?? getBusinessTodayDate())
 			: null;
 
@@ -1339,12 +1331,12 @@ export async function toggleTransactionSettlementAction(
 
 		const updatePayload: {
 			isSettled: boolean;
-			boletoPaymentDate: Date | null;
+			paymentDate: Date | null;
 			accountId?: string | null;
 			amount?: string;
 		} = {
 			isSettled: data.value,
-			boletoPaymentDate,
+			paymentDate,
 		};
 
 		if (shouldUpdateAccount) {
@@ -1595,7 +1587,7 @@ export async function ungroupTransactionAction(
 						),
 						purchaseDate: existing.purchaseDate,
 						dueDate: existing.dueDate,
-						boletoPaymentDate: existing.boletoPaymentDate,
+						paymentDate: existing.paymentDate,
 						transactionType: item.transactionType,
 						period: existing.period,
 						isSettled: existing.isSettled,

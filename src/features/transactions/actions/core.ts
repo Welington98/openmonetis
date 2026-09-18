@@ -391,7 +391,7 @@ const baseFields = z.object({
 			message: "Informe uma data de vencimento válida.",
 		})
 		.optional(),
-	boletoPaymentDate: z
+	paymentDate: z
 		.string()
 		.trim()
 		.refine((value) => !value || isValidDateInput(value), {
@@ -828,7 +828,7 @@ type BuildTransactionRecordsParams = {
 	period: string;
 	purchaseDate: Date;
 	dueDate: Date | null;
-	boletoPaymentDate: Date | null;
+	paymentDate: Date | null;
 	shares: Share[];
 	amountSign: 1 | -1;
 	shouldNullifySettled: boolean;
@@ -843,7 +843,7 @@ export const buildTransactionRecords = ({
 	period,
 	purchaseDate,
 	dueDate,
-	boletoPaymentDate,
+	paymentDate,
 	shares,
 	amountSign,
 	shouldNullifySettled,
@@ -920,10 +920,7 @@ export const buildTransactionRecords = ({
 					recurrenceCount: null,
 					dueDate: installmentDueDate,
 					splitGroupId,
-					boletoPaymentDate:
-						data.paymentMethod === "Boleto" && settled
-							? boletoPaymentDate
-							: null,
+					paymentDate: settled ? paymentDate : null,
 				});
 			});
 		}
@@ -958,10 +955,7 @@ export const buildTransactionRecords = ({
 					recurrenceCount: recurrenceTotal,
 					dueDate: recurrenceDueDate,
 					splitGroupId,
-					boletoPaymentDate:
-						data.paymentMethod === "Boleto" && settled
-							? boletoPaymentDate
-							: null,
+					paymentDate: settled ? paymentDate : null,
 				});
 			});
 		}
@@ -982,8 +976,7 @@ export const buildTransactionRecords = ({
 			isSettled: settled,
 			dueDate,
 			splitGroupId,
-			boletoPaymentDate:
-				data.paymentMethod === "Boleto" && settled ? boletoPaymentDate : null,
+			paymentDate: settled ? paymentDate : null,
 		});
 	});
 
@@ -1077,7 +1070,7 @@ export const updateBulkSchema = z.object({
 		})
 		.optional()
 		.nullable(),
-	boletoPaymentDate: z
+	paymentDate: z
 		.string()
 		.trim()
 		.refine((value) => !value || isValidDateInput(value), {

@@ -88,7 +88,7 @@ export type TransactionFormState = {
 	useManualInstallmentAmount: boolean;
 	manualInstallmentAmount: string;
 	dueDate: string;
-	boletoPaymentDate: string;
+	paymentDate: string;
 	note: string;
 	isSettled: boolean | null;
 };
@@ -137,11 +137,7 @@ export function buildTransactionInitialState(
 		? (defaultPayerId ?? null)
 		: (transaction?.payerId ?? defaultPayerId ?? null);
 
-	const boletoPaymentDate =
-		transaction?.boletoPaymentDate ??
-		(paymentMethod === "Boleto" && (transaction?.isSettled ?? false)
-			? getTodayDateString()
-			: "");
+	const paymentDate = transaction?.paymentDate ?? "";
 
 	// Calcular o valor correto para importação de parcelados
 	let amountValue = overrides?.defaultAmount ?? "";
@@ -217,7 +213,7 @@ export function buildTransactionInitialState(
 		useManualInstallmentAmount: false,
 		manualInstallmentAmount: "",
 		dueDate: transaction?.dueDate ?? "",
-		boletoPaymentDate,
+		paymentDate,
 		note: transaction?.note ?? "",
 		isSettled:
 			paymentMethod === "Cartão de crédito"
@@ -365,20 +361,11 @@ export function applyFieldDependencies(
 			updates.period = derivePeriodFromDate(currentState.purchaseDate);
 		}
 
-		// Clear boleto-specific fields if not boleto
+		// Vencimento continua exclusivo de boleto — "Data de pagamento" hoje é
+		// um campo manual e independente, disponível pra qualquer forma de
+		// pagamento, então não é mexido aqui.
 		if (value !== "Boleto") {
 			updates.dueDate = "";
-			updates.boletoPaymentDate = "";
-		} else if (
-			currentState.isSettled ||
-			(updates.isSettled !== null && updates.isSettled !== undefined)
-		) {
-			// Set today's date for boleto payment if settled
-			const settled = updates.isSettled ?? currentState.isSettled;
-			if (settled) {
-				updates.boletoPaymentDate =
-					currentState.boletoPaymentDate || getTodayDateString();
-			}
 		}
 	}
 
@@ -442,16 +429,6 @@ export function applyFieldDependencies(
 					totalAmount - otherTotal,
 				).toFixed(2);
 			}
-		}
-	}
-
-	// When isSettled changes and payment method is Boleto
-	if (key === "isSettled" && currentState.paymentMethod === "Boleto") {
-		if (value === true) {
-			updates.boletoPaymentDate =
-				currentState.boletoPaymentDate || getTodayDateString();
-		} else if (value === false) {
-			updates.boletoPaymentDate = "";
 		}
 	}
 

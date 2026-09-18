@@ -47,7 +47,7 @@ export interface TransactionDialogProps {
 		cardId: string | undefined;
 		amount: number;
 		dueDate: string | null;
-		boletoPaymentDate: string | null;
+		paymentDate: string | null;
 		isSettled: boolean | null;
 		pendingDetachIds: string[];
 		pendingUploadFiles: File[];
@@ -69,7 +69,7 @@ export interface TransactionDialogProps {
 		cardId: string | undefined;
 		isSettled: boolean | null;
 		dueDate: string | null;
-		boletoPaymentDate: string | null;
+		paymentDate: string | null;
 		pendingDetachIds: string[];
 		pendingUploadFiles: File[];
 	}) => void;
@@ -113,9 +113,7 @@ export interface PaymentMethodSectionProps extends BaseFieldSectionProps {
 	showSettledToggle: boolean;
 }
 
-export interface BoletoFieldsSectionProps extends BaseFieldSectionProps {
-	showPaymentDate: boolean;
-}
+export type BoletoFieldsSectionProps = BaseFieldSectionProps;
 
 export interface ConditionSectionProps extends BaseFieldSectionProps {
 	showInstallments: boolean;

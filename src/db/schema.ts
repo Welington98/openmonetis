@@ -1032,6 +1032,8 @@ export const transactions = pgTable(
 		paymentMethod: text("forma_pagamento").notNull(),
 		note: text("anotacao"),
 		amount: numeric("valor", { precision: 12, scale: 2 }).notNull(),
+		// "Data de competência" na UI — data a que o lançamento pertence
+		// (define `period`), não necessariamente quando o dinheiro se moveu.
 		purchaseDate: date("data_compra", { mode: "date" }).notNull(),
 		transactionType: text("tipo_transacao").notNull(),
 		installmentCount: smallint("qtde_parcela"),
@@ -1043,7 +1045,10 @@ export const transactions = pgTable(
 		// gravado para referência futura.
 		installmentIntervalMonths: smallint("intervalo_meses").default(1),
 		dueDate: date("data_vencimento", { mode: "date" }),
-		boletoPaymentDate: date("dt_pagamento_boleto", { mode: "date" }),
+		// "Data de pagamento" na UI — quando o dinheiro efetivamente se moveu.
+		// Coluna no banco mantém o nome antigo (era exclusiva de boleto); o
+		// campo hoje é genérico, disponível pra qualquer lançamento.
+		paymentDate: date("dt_pagamento_boleto", { mode: "date" }),
 		isSettled: boolean("realizado").default(false),
 		isDivided: boolean("dividido").default(false),
 		isAnticipated: boolean("antecipado").default(false),

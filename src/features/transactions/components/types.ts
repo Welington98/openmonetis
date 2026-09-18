@@ -28,7 +28,7 @@ export type TransactionItem = {
 	recurrenceCount: number | null;
 	currentInstallment: number | null;
 	dueDate: string | null;
-	boletoPaymentDate: string | null;
+	paymentDate: string | null;
 	note: string | null;
 	isSettled: boolean | null;
 	isDivided: boolean;

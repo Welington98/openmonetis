@@ -108,7 +108,7 @@ const renderBoleto = (
 	);
 	const paymentDateLabel = isPaid
 		? formatFinancialDateLabel(
-				event.transaction.boletoPaymentDate,
+				event.transaction.paymentDate,
 				`${settlementLabel} em`,
 				DATE_FORMAT,
 			)

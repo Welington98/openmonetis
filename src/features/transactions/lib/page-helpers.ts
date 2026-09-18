@@ -643,8 +643,8 @@ export const mapTransactionsData = (
 		recurrenceCount: item.recurrenceCount ?? null,
 		currentInstallment: item.currentInstallment ?? null,
 		dueDate: item.dueDate ? item.dueDate.toISOString().slice(0, 10) : null,
-		boletoPaymentDate: item.boletoPaymentDate
-			? item.boletoPaymentDate.toISOString().slice(0, 10)
+		paymentDate: item.paymentDate
+			? item.paymentDate.toISOString().slice(0, 10)
 			: null,
 		note: item.note ?? null,
 		isSettled: item.isSettled ?? null,

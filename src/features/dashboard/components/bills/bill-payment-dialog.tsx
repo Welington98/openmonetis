@@ -91,10 +91,7 @@ export function BillPaymentDialog({
 		? formatBillDateLabel(displayBill.dueDate, "Vencimento:")
 		: null;
 	const paidLabel = displayBill
-		? formatBillDateLabel(
-				displayBill.boletoPaymentDate,
-				`${settlementLabel} em:`,
-			)
+		? formatBillDateLabel(displayBill.paymentDate, `${settlementLabel} em:`)
 		: null;
 	const isBillPending = displayBill ? !displayBill.isSettled : false;
 	const paymentDateValue = paymentDate.toISOString().split("T")[0] ?? "";
