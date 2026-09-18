@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.44.0](https://github.com/Welington98/openmonetis/compare/v2.43.0...v2.44.0) (2026-09-18)
+
+### Adicionado
+
+* **mcp:** adiciona tools update_transaction e delete_transaction ([7081235](https://github.com/Welington98/openmonetis/commit/70812354ffe88a37fb6b1b51d92378ddc647000f))
+
 ## [2.43.0](https://github.com/Welington98/openmonetis/compare/v2.42.0...v2.43.0) (2026-09-18)
 
 ### Adicionado
