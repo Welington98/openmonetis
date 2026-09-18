@@ -188,6 +188,7 @@ function buildColumns({
 					currentInstallment,
 					paymentMethod,
 					dueDate,
+					paymentDate,
 					note,
 					isDivided,
 					isAnticipated,
@@ -204,6 +205,9 @@ function buildColumns({
 				const isBoleto = paymentMethod === "Boleto" && dueDate;
 				const dueDateLabel =
 					isBoleto && dueDate ? `Venc. ${formatDate(dueDate)}` : null;
+				const paymentDateLabel = paymentDate
+					? `Pago em ${formatDate(paymentDate)}`
+					: null;
 				const hasNote = Boolean(note?.trim().length);
 				const isLastInstallment =
 					currentInstallment === installmentCount &&
@@ -219,6 +223,9 @@ function buildColumns({
 									{formatDate(purchaseDate)}
 									{dueDateLabel ? (
 										<span className="text-primary">{dueDateLabel}</span>
+									) : null}
+									{paymentDateLabel ? (
+										<span className="text-success">{paymentDateLabel}</span>
 									) : null}
 								</span>
 							)}
@@ -287,6 +294,15 @@ function buildColumns({
 										className="px-2 text-xs text-primary"
 									>
 										{dueDateLabel}
+									</Badge>
+								) : null}
+
+								{showDateGroups && paymentDateLabel ? (
+									<Badge
+										variant="outline"
+										className="px-2 text-xs text-success"
+									>
+										{paymentDateLabel}
 									</Badge>
 								) : null}
 

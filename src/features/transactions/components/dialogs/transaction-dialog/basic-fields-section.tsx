@@ -30,7 +30,7 @@ export function BasicFieldsSection({
 
 			<div className="flex w-full flex-col gap-2 md:flex-row">
 				<div className="w-full md:w-1/2 space-y-1">
-					<Label htmlFor="purchaseDate">Data</Label>
+					<Label htmlFor="purchaseDate">Data de competência</Label>
 					<DatePicker
 						id="purchaseDate"
 						value={formState.purchaseDate}
@@ -41,25 +41,35 @@ export function BasicFieldsSection({
 				</div>
 
 				<div className="w-full md:w-1/2 space-y-1">
-					<Label htmlFor="amount">Valor</Label>
-					<div className="relative">
-						<CurrencyInput
-							id="amount"
-							value={formState.amount}
-							onValueChange={(value) => onFieldChange("amount", value)}
-							placeholder="R$ 0,00"
-							required
-							className="pr-10"
-						/>
-						<CalculatorDialogButton
-							variant="ghost"
-							size="icon-sm"
-							className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
-							onSelectValue={(value) => onFieldChange("amount", value)}
-						>
-							<RiCalculatorLine className="h-4 w-4 text-muted-foreground" />
-						</CalculatorDialogButton>
-					</div>
+					<Label htmlFor="paymentDate">Data de pagamento</Label>
+					<DatePicker
+						id="paymentDate"
+						value={formState.paymentDate}
+						onChange={(value) => onFieldChange("paymentDate", value)}
+						placeholder="Quando foi pago (opcional)"
+					/>
+				</div>
+			</div>
+
+			<div className="w-full md:w-1/2 space-y-1">
+				<Label htmlFor="amount">Valor</Label>
+				<div className="relative">
+					<CurrencyInput
+						id="amount"
+						value={formState.amount}
+						onValueChange={(value) => onFieldChange("amount", value)}
+						placeholder="R$ 0,00"
+						required
+						className="pr-10"
+					/>
+					<CalculatorDialogButton
+						variant="ghost"
+						size="icon-sm"
+						className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2"
+						onSelectValue={(value) => onFieldChange("amount", value)}
+					>
+						<RiCalculatorLine className="h-4 w-4 text-muted-foreground" />
+					</CalculatorDialogButton>
 				</div>
 			</div>
 		</div>

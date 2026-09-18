@@ -292,7 +292,7 @@ export async function createInstallmentAnticipationAction(
 					seriesId: null,
 					transferId: null,
 					anticipationId: null,
-					boletoPaymentDate: null,
+					paymentDate: null,
 				})
 				.returning()) as Array<typeof transactions.$inferSelect>;
 

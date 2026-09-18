@@ -16,7 +16,7 @@ import {
 export type BillDialogState = PaymentDialogState;
 type BillStatusDateItem = Pick<
 	DashboardBill,
-	"dueDate" | "boletoPaymentDate" | "isSettled" | "transactionType"
+	"dueDate" | "paymentDate" | "isSettled" | "transactionType"
 >;
 
 export const isIncomeBill = (bill: Pick<DashboardBill, "transactionType">) => {
@@ -31,20 +31,20 @@ export const buildBillStatusLabel = (bill: BillStatusDateItem) => {
 	return buildFinancialStatusLabel({
 		isSettled: bill.isSettled,
 		dueDate: bill.dueDate,
-		paidAt: bill.boletoPaymentDate,
+		paidAt: bill.paymentDate,
 		paidPrefix: isIncomeBill(bill) ? "Recebido em" : "Pago em",
 	});
 };
 
 export const buildBillWidgetStatusLabel = (bill: BillStatusDateItem) => {
 	if (bill.isSettled && isIncomeBill(bill)) {
-		return formatRelativeFinancialDateLabel(bill.boletoPaymentDate, "received");
+		return formatRelativeFinancialDateLabel(bill.paymentDate, "received");
 	}
 
 	return buildRelativeFinancialStatusLabel({
 		isSettled: bill.isSettled,
 		dueDate: bill.dueDate,
-		paidAt: bill.boletoPaymentDate,
+		paidAt: bill.paymentDate,
 	});
 };
 
@@ -97,9 +97,9 @@ export const getBillStatusBadgeVariant = (
 
 export const markBillAsSettled = (
 	bill: DashboardBill,
-	boletoPaymentDate: string,
+	paymentDate: string,
 ): DashboardBill => ({
 	...bill,
 	isSettled: true,
-	boletoPaymentDate,
+	paymentDate,
 });

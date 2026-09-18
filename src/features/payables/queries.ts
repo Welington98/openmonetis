@@ -68,7 +68,7 @@ async function fetchPendingBills(
 		amount: Math.abs(toNumber(row.amount)),
 		purchaseDate: toDateOnlyString(row.purchaseDate),
 		dueDate: toDateOnlyString(row.dueDate),
-		boletoPaymentDate: null,
+		paymentDate: null,
 		isSettled: false,
 		accountId: row.accountId ?? null,
 		transactionType: row.transactionType,

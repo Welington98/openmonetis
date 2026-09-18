@@ -47,7 +47,7 @@ type CurrentPeriodTransactionRow = {
 	installmentCount: number | null;
 	recurrenceCount: number | null;
 	dueDate: Date | null;
-	boletoPaymentDate: Date | null;
+	paymentDate: Date | null;
 	isSettled: boolean | null;
 	transactionType: string;
 	note: string | null;
@@ -160,8 +160,8 @@ const buildBillsSnapshot = (
 				? row.purchaseDate.toISOString().slice(0, 10)
 				: null,
 			dueDate: row.dueDate ? row.dueDate.toISOString().slice(0, 10) : null,
-			boletoPaymentDate: row.boletoPaymentDate
-				? row.boletoPaymentDate.toISOString().slice(0, 10)
+			paymentDate: row.paymentDate
+				? row.paymentDate.toISOString().slice(0, 10)
 				: null,
 			isSettled: Boolean(row.isSettled),
 			accountId: row.accountId ?? null,
@@ -171,7 +171,7 @@ const buildBillsSnapshot = (
 	const bills = sortByFinancialUrgency(unsortedBills, {
 		isSettled: (bill) => bill.isSettled,
 		dueDate: (bill) => bill.dueDate,
-		settledDate: (bill) => bill.boletoPaymentDate,
+		settledDate: (bill) => bill.paymentDate,
 		amount: (bill) => bill.amount,
 		tieBreak: (a, b) => a.name.localeCompare(b.name, "pt-BR"),
 	});
@@ -513,7 +513,7 @@ export async function fetchDashboardCurrentPeriodOverview(
 			installmentCount: transactions.installmentCount,
 			recurrenceCount: transactions.recurrenceCount,
 			dueDate: transactions.dueDate,
-			boletoPaymentDate: transactions.boletoPaymentDate,
+			paymentDate: transactions.paymentDate,
 			isSettled: transactions.isSettled,
 			transactionType: transactions.transactionType,
 			note: transactions.note,

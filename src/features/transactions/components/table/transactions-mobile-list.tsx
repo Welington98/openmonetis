@@ -206,6 +206,9 @@ function TransactionMobileCard({
 	const isBoleto = item.paymentMethod === "Boleto" && item.dueDate;
 	const dueDateLabel =
 		isBoleto && item.dueDate ? `Venc. ${formatDate(item.dueDate)}` : null;
+	const paymentDateLabel = item.paymentDate
+		? `Pago em ${formatDate(item.paymentDate)}`
+		: null;
 	const hasNote = Boolean(item.note?.trim().length);
 	const isLastInstallment =
 		item.currentInstallment === item.installmentCount &&
@@ -255,6 +258,11 @@ function TransactionMobileCard({
 								{dueDateLabel ? (
 									<span className="font-medium text-primary">
 										{dueDateLabel}
+									</span>
+								) : null}
+								{paymentDateLabel ? (
+									<span className="font-medium text-success">
+										{paymentDateLabel}
 									</span>
 								) : null}
 								<span className="truncate">{payerDisplayName}</span>

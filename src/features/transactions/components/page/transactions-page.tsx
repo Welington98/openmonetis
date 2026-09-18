@@ -189,7 +189,7 @@ export function TransactionsPage({
 		note: string;
 		isSettled: boolean | null;
 		dueDate: string | null;
-		boletoPaymentDate: string | null;
+		paymentDate: string | null;
 		pendingDetachIds: string[];
 		pendingUploadFiles: File[];
 	} | null>(null);
@@ -206,7 +206,7 @@ export function TransactionsPage({
 		cardId: string | undefined;
 		amount: number;
 		dueDate: string | null;
-		boletoPaymentDate: string | null;
+		paymentDate: string | null;
 		isSettled: boolean | null;
 		pendingDetachIds: string[];
 		pendingUploadFiles: File[];
@@ -359,7 +359,7 @@ export function TransactionsPage({
 		cardId: string | undefined;
 		amount: number;
 		dueDate: string | null;
-		boletoPaymentDate: string | null;
+		paymentDate: string | null;
 		isSettled: boolean | null;
 		pendingDetachIds: string[];
 		pendingUploadFiles: File[];
@@ -395,7 +395,7 @@ export function TransactionsPage({
 			cardId: pendingEditData.cardId,
 			amount: pendingEditData.amount,
 			dueDate: pendingEditData.dueDate,
-			boletoPaymentDate: pendingEditData.boletoPaymentDate,
+			paymentDate: pendingEditData.paymentDate,
 			isSettled: pendingEditData.isSettled ?? undefined,
 		});
 
@@ -553,7 +553,7 @@ export function TransactionsPage({
 			note: pendingSplitEditData.note,
 			isSettled: pendingSplitEditData.isSettled,
 			dueDate: pendingSplitEditData.dueDate ?? undefined,
-			boletoPaymentDate: pendingSplitEditData.boletoPaymentDate ?? undefined,
+			paymentDate: pendingSplitEditData.paymentDate ?? undefined,
 			isSplit: false,
 		};
 

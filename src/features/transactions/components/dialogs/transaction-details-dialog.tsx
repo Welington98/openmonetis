@@ -150,6 +150,11 @@ export function TransactionDetailsDialog({
 									value={formatPeriod(transaction.period)}
 								/>
 
+								<DetailRow
+									label="Data de competência"
+									value={formatDate(transaction.purchaseDate)}
+								/>
+
 								<li className="flex items-center justify-between">
 									<span className="text-muted-foreground">
 										Forma de Pagamento
@@ -265,6 +270,13 @@ export function TransactionDetailsDialog({
 									<DetailRow
 										label="Vencimento"
 										value={formatDate(transaction.dueDate)}
+									/>
+								)}
+
+								{transaction.paymentDate && (
+									<DetailRow
+										label="Data de pagamento"
+										value={formatDate(transaction.paymentDate)}
 									/>
 								)}
 

@@ -376,12 +376,7 @@ export function TransactionDialog({
 				formState.paymentMethod === "Boleto" && formState.dueDate
 					? formState.dueDate
 					: undefined,
-			boletoPaymentDate:
-				mode === "update" &&
-				formState.paymentMethod === "Boleto" &&
-				formState.boletoPaymentDate
-					? formState.boletoPaymentDate
-					: undefined,
+			paymentDate: formState.paymentDate || undefined,
 			importFromTransactionId:
 				mode === "create" && isImporting && transaction?.id
 					? transaction.id
@@ -455,10 +450,7 @@ export function TransactionDialog({
 						formState.paymentMethod === "Boleto"
 							? formState.dueDate || null
 							: null,
-					boletoPaymentDate:
-						mode === "update" && formState.paymentMethod === "Boleto"
-							? formState.boletoPaymentDate || null
-							: null,
+					paymentDate: formState.paymentDate || null,
 					isSettled:
 						formState.paymentMethod === "Cartão de crédito"
 							? null
@@ -493,10 +485,7 @@ export function TransactionDialog({
 						formState.paymentMethod === "Boleto"
 							? formState.dueDate || null
 							: null,
-					boletoPaymentDate:
-						mode === "update" && formState.paymentMethod === "Boleto"
-							? formState.boletoPaymentDate || null
-							: null,
+					paymentDate: formState.paymentDate || null,
 					pendingDetachIds,
 					pendingUploadFiles,
 				});
@@ -580,7 +569,6 @@ export function TransactionDialog({
 	const showInstallments = formState.condition === "Parcelado";
 	const showRecurrence = formState.condition === "Fixa";
 	const showDueDate = formState.paymentMethod === "Boleto";
-	const showPaymentDate = mode === "update" && showDueDate;
 	const showSettledToggle = formState.paymentMethod !== "Cartão de crédito";
 	const isUpdateMode = mode === "update";
 	const disablePaymentMethod = Boolean(lockPaymentMethod && mode === "create");
@@ -655,7 +643,6 @@ export function TransactionDialog({
 								<BoletoFieldsSection
 									formState={formState}
 									onFieldChange={handleFieldChange}
-									showPaymentDate={showPaymentDate}
 								/>
 							) : null}
 						</div>

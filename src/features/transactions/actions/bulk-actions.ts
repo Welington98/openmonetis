@@ -255,7 +255,7 @@ export async function updateTransactionBulkAction(
 		}
 
 		const hasDueDateUpdate = data.dueDate !== undefined;
-		const hasBoletoPaymentDateUpdate = data.boletoPaymentDate !== undefined;
+		const hasPaymentDateUpdate = data.paymentDate !== undefined;
 		const hasPurchaseDateUpdate = data.purchaseDate !== undefined;
 		const hasPeriodUpdate = data.period !== undefined;
 
@@ -266,10 +266,10 @@ export async function updateTransactionBulkAction(
 					? null
 					: undefined;
 
-		const baseBoletoPaymentDate =
-			hasBoletoPaymentDateUpdate && data.boletoPaymentDate
-				? parseLocalDateString(data.boletoPaymentDate)
-				: hasBoletoPaymentDateUpdate
+		const basePaymentDate =
+			hasPaymentDateUpdate && data.paymentDate
+				? parseLocalDateString(data.paymentDate)
+				: hasPaymentDateUpdate
 					? null
 					: undefined;
 		const referencePurchaseDate = existing.purchaseDate ?? null;
@@ -419,8 +419,8 @@ export async function updateTransactionBulkAction(
 					perRecordPayload.dueDate = dueDateForRecord;
 				}
 
-				if (hasBoletoPaymentDateUpdate) {
-					perRecordPayload.boletoPaymentDate = baseBoletoPaymentDate ?? null;
+				if (hasPaymentDateUpdate) {
+					perRecordPayload.paymentDate = basePaymentDate ?? null;
 				}
 
 				const groupKey = [
@@ -428,9 +428,7 @@ export async function updateTransactionBulkAction(
 					periodForRecord ?? "undefined",
 					serializeDateKey(dueDateForRecord),
 					serializeDateKey(
-						hasBoletoPaymentDateUpdate
-							? (baseBoletoPaymentDate ?? null)
-							: undefined,
+						hasPaymentDateUpdate ? (basePaymentDate ?? null) : undefined,
 					),
 				].join("|");
 
@@ -718,7 +716,7 @@ export async function createMassTransactionsAction(
 				isSettled,
 				isDivided: false,
 				dueDate: null,
-				boletoPaymentDate: null,
+				paymentDate: null,
 				userId: user.id,
 				seriesId: null,
 			};
@@ -955,14 +953,14 @@ export async function settleTransactionsBulkAction(
 		const customPaymentDate = data.paymentDate
 			? parseLocalDateString(data.paymentDate)
 			: null;
-		const boletoPaymentDate = customPaymentDate ?? getBusinessTodayDate();
+		const paymentDate = customPaymentDate ?? getBusinessTodayDate();
 
 		await db.transaction(async (tx: typeof db) => {
 			await tx
 				.update(transactions)
 				.set({
 					isSettled: true,
-					boletoPaymentDate,
+					paymentDate,
 					...(data.paymentAccountId !== undefined && {
 						accountId: data.paymentAccountId,
 					}),

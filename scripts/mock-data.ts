@@ -406,7 +406,7 @@ function createTransactionRecords(
 					currentInstallment: installmentIndex + 1,
 					recurrenceCount: null,
 					dueDate: installmentDueDate,
-					boletoPaymentDate:
+					paymentDate:
 						input.paymentMethod === "Boleto" && isSettled
 							? (installmentDueDate ?? settlementReferenceDate)
 							: null,
@@ -447,7 +447,7 @@ function createTransactionRecords(
 					currentInstallment: null,
 					recurrenceCount: recurrenceTotal,
 					dueDate: recurrenceDueDate,
-					boletoPaymentDate:
+					paymentDate:
 						input.paymentMethod === "Boleto" && isSettled
 							? (recurrenceDueDate ?? recurrencePurchaseDate)
 							: null,
@@ -477,7 +477,7 @@ function createTransactionRecords(
 			currentInstallment: null,
 			recurrenceCount: null,
 			dueDate,
-			boletoPaymentDate:
+			paymentDate:
 				input.paymentMethod === "Boleto" && isSettled
 					? (dueDate ?? purchaseDate)
 					: null,
