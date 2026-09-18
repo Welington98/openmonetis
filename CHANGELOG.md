@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.42.0](https://github.com/Welington98/openmonetis/compare/v2.41.1...v2.42.0) (2026-09-18)
+
+### Adicionado
+
+* **loans:** permite informar um saldo base separado pro cálculo das parcelas ([b7ead3a](https://github.com/Welington98/openmonetis/commit/b7ead3a1b048c5189e6ddd0caac1efbd697e78ea))
+
 ## [2.41.1](https://github.com/Welington98/openmonetis/compare/v2.41.0...v2.41.1) (2026-09-15)
 
 ### Corrigido
