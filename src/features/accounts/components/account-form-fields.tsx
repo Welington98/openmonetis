@@ -31,6 +31,13 @@ interface AccountFormFieldsProps {
 		value: AccountFormValues[K],
 	) => void;
 	showInitialBalance?: boolean;
+	/**
+	 * A data só é usada para datar o lançamento "Saldo inicial" gerado na
+	 * CRIAÇÃO da conta. Ao editar uma conta existente, o saldo inicial é
+	 * atualizado direto na coluna (sem criar/redatar lançamento), então o
+	 * campo de data não se aplica e fica escondido.
+	 */
+	showInitialBalanceDate?: boolean;
 }
 
 export function AccountFormFields({
@@ -39,6 +46,7 @@ export function AccountFormFields({
 	accountStatuses,
 	onChange,
 	showInitialBalance = true,
+	showInitialBalanceDate = true,
 }: AccountFormFieldsProps) {
 	return (
 		<div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -107,7 +115,9 @@ export function AccountFormFields({
 			) : showInitialBalance ? (
 				<div className="flex flex-col gap-4 sm:col-span-2">
 					<div className="flex flex-col gap-2 sm:flex-row">
-						<div className="flex w-full flex-col gap-2 sm:w-1/2">
+						<div
+							className={`flex w-full flex-col gap-2 ${showInitialBalanceDate ? "sm:w-1/2" : ""}`}
+						>
 							<Label htmlFor="account-initial-balance">Saldo inicial</Label>
 							<CurrencyInput
 								id="account-initial-balance"
@@ -116,18 +126,26 @@ export function AccountFormFields({
 								placeholder="R$ 0,00"
 							/>
 						</div>
-						<div className="flex w-full flex-col gap-2 sm:w-1/2">
-							<Label htmlFor="account-initial-balance-date">
-								Data do saldo inicial
-							</Label>
-							<DatePicker
-								id="account-initial-balance-date"
-								value={values.initialBalanceDate}
-								onChange={(value) => onChange("initialBalanceDate", value)}
-								placeholder="Data"
-							/>
-						</div>
+						{showInitialBalanceDate ? (
+							<div className="flex w-full flex-col gap-2 sm:w-1/2">
+								<Label htmlFor="account-initial-balance-date">
+									Data do saldo inicial
+								</Label>
+								<DatePicker
+									id="account-initial-balance-date"
+									value={values.initialBalanceDate}
+									onChange={(value) => onChange("initialBalanceDate", value)}
+									placeholder="Data"
+								/>
+							</div>
+						) : null}
 					</div>
+					{!showInitialBalanceDate ? (
+						<p className="text-sm text-muted-foreground">
+							Ajustar o saldo inicial aqui atualiza diretamente o saldo da
+							conta, sem alterar nenhum lançamento existente.
+						</p>
+					) : null}
 
 					<RadioGroup
 						value={values.initialBalanceKind}
