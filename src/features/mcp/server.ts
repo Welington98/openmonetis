@@ -2,22 +2,31 @@ import type { BaseContext, McpServer } from "@modelcontextprotocol/server";
 import { and, eq, gte, ilike, lte } from "drizzle-orm";
 import { z } from "zod";
 import {
+	attachments,
 	categories,
 	costCenters,
 	financialAccounts,
+	transactionAttachments,
 	transactions,
 } from "@/db/schema";
 import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import { fetchCategoryReport } from "@/features/reports/lib/category-report-queries";
 import { validateDateRange } from "@/features/reports/lib/utils";
-import { resolvePeriod } from "@/features/transactions/actions/core";
+import { cleanupAttachmentsAfterTransactionDelete } from "@/features/transactions/actions/attachments";
+import {
+	isInitialBalanceTransaction,
+	resolvePeriod,
+	revalidate,
+} from "@/features/transactions/actions/core";
 import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
 import {
 	fetchTransactionsPageWithRelations,
 	fetchTransactionsWithRelations,
 } from "@/features/transactions/queries";
+import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
 import { fetchOrSeedCostCentersForUser } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
+import { findLoanInstallmentLegs } from "@/shared/lib/loans/settlement";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import {
@@ -103,8 +112,19 @@ function serializeTransaction(row: TransactionRow) {
  * Registra as tools MCP de consulta e escrita financeira. userId nunca vem
  * dos argumentos da tool — só do token Bearer verificado (ctx.http.authInfo),
  * então uma tool jamais pode ler ou escrever dados de outro usuário. Tools de
- * escrita (`create_transaction`) também exigem o escopo `finance:write` do
- * token, verificado em `requireWriteScope`.
+ * escrita (`create_transaction`, `update_transaction`, `delete_transaction`)
+ * também exigem o escopo `finance:write` do token, verificado em
+ * `requireWriteScope`.
+ *
+ * `update_transaction`/`delete_transaction` reaproveitam as mesmas guardas de
+ * proteção das Server Actions equivalentes (`updateTransactionAction`/
+ * `deleteTransactionAction` em `features/transactions/actions/single-actions.ts`)
+ * mas com escopo deliberadamente mais restrito: recusam lançamento de saldo
+ * inicial, pagamento automático de fatura, cartão de crédito, transferência,
+ * parcela de empréstimo, lançamento dividido ou detalhado — esses fluxos têm
+ * efeitos colaterais (outra perna ligada, geração de fatura, etc.) que não
+ * cabem numa tool MCP de escopo simples. Para esses casos a tool lança erro
+ * orientando o usuário a usar o app.
  */
 export function registerFinanceTools(server: McpServer) {
 	server.registerTool(
@@ -448,9 +468,316 @@ export function registerFinanceTools(server: McpServer) {
 				],
 			});
 
+			revalidate(userId);
+
 			return jsonResult({
 				message: "Lançamento criado com sucesso.",
 				transaction: row ? serializeTransaction(row) : { id: inserted.id },
+			});
+		},
+	);
+
+	server.registerTool(
+		"update_transaction",
+		{
+			title: "Editar lançamento",
+			description:
+				"Edita um lançamento existente (à vista) do usuário autenticado. Todos os campos além de `id` são opcionais — só os informados são alterados, o resto mantém o valor atual. Não cobre lançamentos de cartão de crédito, transferências, parcelas de empréstimo, lançamentos divididos ou detalhados, pagamentos automáticos de fatura nem saldo inicial — para esses casos, oriente o usuário a usar o app.",
+			inputSchema: z.object({
+				id: z
+					.string()
+					.uuid()
+					.describe("ID do lançamento (ver list_transactions)"),
+				name: z
+					.string()
+					.trim()
+					.min(1)
+					.optional()
+					.describe("Nova descrição/estabelecimento"),
+				amount: z
+					.number()
+					.positive()
+					.optional()
+					.describe(
+						"Novo valor, sempre positivo — o campo type (novo ou atual) define o sinal",
+					),
+				type: z
+					.enum(["despesa", "receita"])
+					.optional()
+					.describe(
+						"Novo tipo do lançamento — se alterado e a categoria atual não for compatível, informe também categoryId",
+					),
+				categoryId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe(
+						"Nova categoria (ver list_categories) — precisa ser do mesmo tipo resultante (despesa/receita)",
+					),
+				accountId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe("Nova conta financeira (ver list_accounts)"),
+				date: dateSchema
+					.optional()
+					.describe("Nova data de compra, formato YYYY-MM-DD"),
+				paymentMethod: z
+					.enum(WRITABLE_PAYMENT_METHODS)
+					.optional()
+					.describe(
+						"Nova forma de pagamento. Pagamento no cartão de crédito não é suportado aqui.",
+					),
+				note: z.string().trim().max(500).optional().describe("Nova anotação"),
+				isSettled: z
+					.boolean()
+					.optional()
+					.describe("Novo status: já foi pago/recebido?"),
+			}),
+		},
+		async (
+			{
+				id,
+				name,
+				amount,
+				type,
+				categoryId,
+				accountId,
+				date,
+				paymentMethod,
+				note,
+				isSettled,
+			},
+			ctx,
+		) => {
+			const userId = requireWriteScope(ctx);
+
+			const existing = await db.query.transactions.findFirst({
+				where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
+			});
+			if (!existing) throw new Error("Lançamento não encontrado.");
+
+			if (existing.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) {
+				throw new Error(
+					"Pagamentos automáticos de fatura não podem ser editados por aqui.",
+				);
+			}
+			if (isInitialBalanceTransaction(existing)) {
+				throw new Error("Lançamentos de saldo inicial não podem ser editados.");
+			}
+			if (existing.transactionType === "Transferência") {
+				throw new Error(
+					"Transferências não podem ser editadas por aqui — use o app.",
+				);
+			}
+			if (existing.paymentMethod === "Cartão de crédito") {
+				throw new Error(
+					"Lançamentos de cartão de crédito não podem ser editados por aqui — use o app.",
+				);
+			}
+			if (existing.splitGroupId || existing.isDivided) {
+				throw new Error(
+					"Lançamentos divididos não podem ser editados por aqui — use o app.",
+				);
+			}
+			if (existing.isItemized) {
+				throw new Error(
+					"Lançamentos detalhados não podem ser editados por aqui — use o app.",
+				);
+			}
+			const loanLegs = await findLoanInstallmentLegs(db, id);
+			if (loanLegs) {
+				throw new Error(
+					"Parcelas de empréstimo não podem ser editadas por aqui — use o app.",
+				);
+			}
+
+			const resolvedTypeLabel = type
+				? TRANSACTION_TYPE_LABEL[type]
+				: existing.transactionType;
+
+			let resolvedCategoryId = existing.categoryId;
+			if (categoryId) {
+				const category = await db.query.categories.findFirst({
+					where: and(
+						eq(categories.id, categoryId),
+						eq(categories.userId, userId),
+					),
+				});
+				if (!category) throw new Error("Categoria não encontrada.");
+				const categoryTypeLabel =
+					category.type === "despesa" ? "Despesa" : "Receita";
+				if (categoryTypeLabel !== resolvedTypeLabel) {
+					throw new Error(
+						`A categoria "${category.name}" é do tipo "${category.type}", mas o lançamento seria "${resolvedTypeLabel === "Despesa" ? "despesa" : "receita"}".`,
+					);
+				}
+				resolvedCategoryId = category.id;
+			} else if (type && existing.categoryId) {
+				const currentCategory = await db.query.categories.findFirst({
+					where: eq(categories.id, existing.categoryId),
+				});
+				const currentCategoryTypeLabel = currentCategory
+					? currentCategory.type === "despesa"
+						? "Despesa"
+						: "Receita"
+					: null;
+				if (currentCategory && currentCategoryTypeLabel !== resolvedTypeLabel) {
+					throw new Error(
+						`Alterar o tipo para "${type}" exige informar uma nova categoria (a atual, "${currentCategory.name}", é do tipo "${currentCategory.type}").`,
+					);
+				}
+			}
+
+			let resolvedAccountId = existing.accountId;
+			if (accountId) {
+				const account = await db.query.financialAccounts.findFirst({
+					where: and(
+						eq(financialAccounts.id, accountId),
+						eq(financialAccounts.userId, userId),
+					),
+				});
+				if (!account) throw new Error("Conta não encontrada.");
+				resolvedAccountId = account.id;
+			}
+
+			const amountMagnitude =
+				amount !== undefined ? amount : Math.abs(Number(existing.amount));
+			const amountSign = resolvedTypeLabel === "Despesa" ? -1 : 1;
+			const normalizedAmount = formatDecimalForDbRequired(
+				amountMagnitude * amountSign,
+			);
+
+			const purchaseDateString =
+				date ?? existing.purchaseDate.toISOString().slice(0, 10);
+			const resolvedPurchaseDate = date
+				? parseLocalDateString(date)
+				: existing.purchaseDate;
+			const resolvedPeriod = date
+				? resolvePeriod(purchaseDateString)
+				: existing.period;
+
+			await db
+				.update(transactions)
+				.set({
+					name: name?.trim() ?? existing.name,
+					purchaseDate: resolvedPurchaseDate,
+					transactionType: resolvedTypeLabel,
+					amount: normalizedAmount,
+					paymentMethod: paymentMethod ?? existing.paymentMethod,
+					accountId: resolvedAccountId,
+					categoryId: resolvedCategoryId,
+					note:
+						note !== undefined
+							? note.length > 0
+								? note
+								: null
+							: existing.note,
+					isSettled: isSettled ?? existing.isSettled,
+					period: resolvedPeriod,
+				})
+				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+			const [row] = await fetchTransactionsWithRelations({
+				filters: [eq(transactions.userId, userId), eq(transactions.id, id)],
+			});
+
+			revalidate(userId);
+
+			return jsonResult({
+				message: "Lançamento atualizado com sucesso.",
+				transaction: row ? serializeTransaction(row) : { id },
+			});
+		},
+	);
+
+	server.registerTool(
+		"delete_transaction",
+		{
+			title: "Excluir lançamento",
+			description:
+				"Exclui definitivamente um lançamento do usuário autenticado. Exige confirm=true. Não cobre lançamentos de cartão de crédito, transferências, parcelas de empréstimo, lançamentos divididos ou detalhados, pagamentos automáticos de fatura nem saldo inicial — para esses casos, oriente o usuário a usar o app.",
+			inputSchema: z.object({
+				id: z
+					.string()
+					.uuid()
+					.describe("ID do lançamento (ver list_transactions)"),
+				confirm: z
+					.literal(true)
+					.describe("Confirmação explícita e obrigatória da exclusão"),
+			}),
+		},
+		async ({ id }, ctx) => {
+			const userId = requireWriteScope(ctx);
+
+			const existing = await db.query.transactions.findFirst({
+				where: and(eq(transactions.id, id), eq(transactions.userId, userId)),
+			});
+			if (!existing) throw new Error("Lançamento não encontrado.");
+
+			const [rowBeforeDelete] = await fetchTransactionsWithRelations({
+				filters: [eq(transactions.userId, userId), eq(transactions.id, id)],
+			});
+
+			if (existing.note?.startsWith(ACCOUNT_AUTO_INVOICE_NOTE_PREFIX)) {
+				throw new Error(
+					"Pagamentos automáticos de fatura não podem ser removidos por aqui.",
+				);
+			}
+			if (isInitialBalanceTransaction(existing)) {
+				throw new Error(
+					"Lançamentos de saldo inicial não podem ser removidos.",
+				);
+			}
+			if (existing.paymentMethod === "Cartão de crédito") {
+				throw new Error(
+					"Lançamentos de cartão de crédito não podem ser removidos por aqui — use o app.",
+				);
+			}
+			if (existing.transactionType === "Transferência" || existing.transferId) {
+				throw new Error(
+					"Transferências não podem ser removidas por aqui — use o app.",
+				);
+			}
+			if (existing.splitGroupId || existing.isDivided) {
+				throw new Error(
+					"Lançamentos divididos não podem ser removidos por aqui — use o app.",
+				);
+			}
+			if (existing.isItemized) {
+				throw new Error(
+					"Lançamentos detalhados não podem ser removidos por aqui — use o app.",
+				);
+			}
+			const loanLegs = await findLoanInstallmentLegs(db, id);
+			if (loanLegs) {
+				throw new Error(
+					"Parcelas de empréstimo não podem ser removidas por aqui — use o app.",
+				);
+			}
+
+			const linkedAttachments = await db
+				.select({ id: attachments.id, fileKey: attachments.fileKey })
+				.from(transactionAttachments)
+				.innerJoin(
+					attachments,
+					eq(transactionAttachments.attachmentId, attachments.id),
+				)
+				.where(eq(transactionAttachments.transactionId, id));
+
+			await db
+				.delete(transactions)
+				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+
+			await cleanupAttachmentsAfterTransactionDelete(linkedAttachments);
+
+			revalidate(userId);
+
+			return jsonResult({
+				message: "Lançamento removido com sucesso.",
+				transaction: rowBeforeDelete
+					? serializeTransaction(rowBeforeDelete)
+					: { id },
 			});
 		},
 	);
