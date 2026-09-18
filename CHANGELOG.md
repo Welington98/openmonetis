@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.45.0](https://github.com/Welington98/openmonetis/compare/v2.44.0...v2.45.0) (2026-09-18)
+
+### Adicionado
+
+* **accounts:** permite editar saldo inicial de conta existente ([124179b](https://github.com/Welington98/openmonetis/commit/124179b7a6f18abb6167ba289f8a96b4acde7603))
+
 ## [2.44.0](https://github.com/Welington98/openmonetis/compare/v2.43.0...v2.44.0) (2026-09-18)
 
 ### Adicionado
