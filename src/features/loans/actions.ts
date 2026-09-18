@@ -40,6 +40,35 @@ const createLoanSchema = z
 		accountId: uuidSchema("Conta de empréstimo"),
 		paymentAccountId: uuidSchema("Conta de pagamento"),
 		principalAmount: requiredDecimalSchema("valor principal"),
+		// Opcional — saldo usado só pra calcular as parcelas, quando o banco
+		// parte de uma base diferente do valor desembolsado (ex.: juros de
+		// carência capitalizados antes da 1ª parcela). Em branco = usa
+		// `principalAmount`, igual ao comportamento anterior a esse campo.
+		installmentBaseAmount: z
+			.union([z.number(), z.string(), z.null(), z.undefined()])
+			.transform((value, ctx) => {
+				if (
+					value === null ||
+					value === undefined ||
+					(typeof value === "string" && value.trim().length === 0)
+				) {
+					return null;
+				}
+				const parsed =
+					typeof value === "number"
+						? value
+						: Number.parseFloat(value.replace(",", "."));
+				if (Number.isNaN(parsed) || parsed <= 0) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message:
+							"Informe um saldo base válido e maior que zero, ou deixe em branco.",
+					});
+					return z.NEVER;
+				}
+				return parsed;
+			})
+			.optional(),
 		interestRateMonthly: z
 			.union([
 				z.number(),
@@ -172,7 +201,7 @@ type InsertLoanScheduleParams = {
 	loanAccountId: string;
 	paymentAccountId: string;
 	isContratado: boolean;
-	principalCents: number;
+	installmentBaseCents: number;
 	interestRateMonthly: number;
 	installmentCount: number;
 	amortizationSystem: "price" | "sac";
@@ -199,7 +228,7 @@ async function insertLoanSchedule({
 	loanAccountId,
 	paymentAccountId,
 	isContratado,
-	principalCents,
+	installmentBaseCents,
 	interestRateMonthly,
 	installmentCount,
 	amortizationSystem,
@@ -209,7 +238,7 @@ async function insertLoanSchedule({
 	adminPayerId,
 }: InsertLoanScheduleParams) {
 	const schedule = generateAmortizationSchedule({
-		principalCents,
+		principalCents: installmentBaseCents,
 		monthlyRatePercent: interestRateMonthly,
 		installmentCount,
 		system: amortizationSystem,
@@ -388,6 +417,10 @@ export async function createLoanAction(
 			}
 
 			const principalCents = toCents(data.principalAmount);
+			const installmentBaseCents =
+				data.installmentBaseAmount != null
+					? toCents(data.installmentBaseAmount)
+					: principalCents;
 
 			const [despesaCategory, receitaCategory] = await Promise.all([
 				resolveOrCreateLoanCategory(tx, user.id, "despesa"),
@@ -401,6 +434,10 @@ export async function createLoanAction(
 					accountId: data.accountId,
 					direction,
 					principalAmount: centsToDecimalString(principalCents),
+					installmentBaseAmount:
+						data.installmentBaseAmount != null
+							? centsToDecimalString(installmentBaseCents)
+							: null,
 					interestRateMonthly: data.interestRateMonthly.toFixed(4),
 					installmentCount: data.installmentCount,
 					startingInstallmentNumber: data.startingInstallmentNumber,
@@ -475,7 +512,7 @@ export async function createLoanAction(
 				loanAccountId: account.id,
 				paymentAccountId: data.paymentAccountId,
 				isContratado,
-				principalCents,
+				installmentBaseCents,
 				interestRateMonthly: data.interestRateMonthly,
 				installmentCount: data.installmentCount,
 				amortizationSystem: data.amortizationSystem,
@@ -625,6 +662,10 @@ export async function updateLoanConfigAction(
 			}
 
 			const principalCents = toCents(data.principalAmount);
+			const installmentBaseCents =
+				data.installmentBaseAmount != null
+					? toCents(data.installmentBaseAmount)
+					: principalCents;
 			const isContratado = direction === "contratado";
 
 			// `installmentCount` guardado no empréstimo é sempre o total rastreado
@@ -640,6 +681,10 @@ export async function updateLoanConfigAction(
 				.update(loans)
 				.set({
 					principalAmount: centsToDecimalString(principalCents),
+					installmentBaseAmount:
+						data.installmentBaseAmount != null
+							? centsToDecimalString(installmentBaseCents)
+							: null,
 					interestRateMonthly: data.interestRateMonthly.toFixed(4),
 					installmentCount: totalInstallmentCount,
 					startingInstallmentNumber: hasSettledInstallments
@@ -665,7 +710,7 @@ export async function updateLoanConfigAction(
 				loanAccountId: account.id,
 				paymentAccountId: data.paymentAccountId,
 				isContratado,
-				principalCents,
+				installmentBaseCents,
 				interestRateMonthly: data.interestRateMonthly,
 				// A partir daqui, `data.installmentCount` significa "quantas
 				// parcelas regerar a partir da parcela efetiva" — não o total.

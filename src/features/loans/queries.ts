@@ -11,6 +11,8 @@ export type LoanSummary = {
 	accountId: string;
 	direction: LoanDirection;
 	principalAmount: number;
+	/** Saldo usado só pra calcular as parcelas, quando diferente de `principalAmount` — null quando não foi informado. */
+	installmentBaseAmount: number | null;
 	interestRateMonthly: number;
 	installmentCount: number;
 	startingInstallmentNumber: number;
@@ -38,6 +40,10 @@ export async function fetchLoanByAccountId(
 		accountId: loan.accountId,
 		direction: loan.direction as LoanDirection,
 		principalAmount: toNumber(loan.principalAmount),
+		installmentBaseAmount:
+			loan.installmentBaseAmount != null
+				? toNumber(loan.installmentBaseAmount)
+				: null,
 		interestRateMonthly: toNumber(loan.interestRateMonthly),
 		installmentCount: loan.installmentCount,
 		startingInstallmentNumber: loan.startingInstallmentNumber,

@@ -67,6 +67,11 @@ export function LoanSetupForm({
 		}
 		return loan ? loan.principalAmount.toFixed(2) : "";
 	});
+	const [installmentBaseAmount, setInstallmentBaseAmount] = useState(() =>
+		loan?.installmentBaseAmount != null
+			? loan.installmentBaseAmount.toFixed(2)
+			: "",
+	);
 	const [interestRateMonthly, setInterestRateMonthly] = useState(
 		loan ? loan.interestRateMonthly.toString() : "",
 	);
@@ -124,6 +129,7 @@ export function LoanSetupForm({
 				accountId,
 				paymentAccountId,
 				principalAmount: normalizeDecimalInput(principalAmount),
+				installmentBaseAmount: normalizeDecimalInput(installmentBaseAmount),
 				interestRateMonthly: normalizeDecimalInput(interestRateMonthly),
 				installmentCount,
 				amortizationSystem,
@@ -182,6 +188,25 @@ export function LoanSetupForm({
 							placeholder="R$ 0,00"
 							required
 						/>
+					</div>
+
+					<div className="flex flex-col gap-2 sm:col-span-2">
+						<Label htmlFor="loan-installment-base">
+							Saldo base para cálculo das parcelas (opcional)
+						</Label>
+						<CurrencyInput
+							id="loan-installment-base"
+							value={installmentBaseAmount}
+							onValueChange={setInstallmentBaseAmount}
+							placeholder="Deixe em branco pra usar o valor acima"
+						/>
+						<p className="text-xs text-muted-foreground">
+							Preencha só se o banco calculou as parcelas sobre um saldo
+							diferente do {hasSettledInstallments ? "saldo devedor" : "valor"}{" "}
+							acima — por exemplo, quando há juros de carência capitalizados
+							antes da 1ª parcela. Não muda o valor do desembolso registrado, só
+							a base usada pra gerar as parcelas.
+						</p>
 					</div>
 
 					<div className="flex flex-col gap-2">

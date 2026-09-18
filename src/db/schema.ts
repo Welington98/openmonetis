@@ -921,6 +921,15 @@ export const loans = pgTable(
 			precision: 12,
 			scale: 2,
 		}).notNull(),
+		// Saldo usado só pra calcular as parcelas, quando diferente do valor
+		// desembolsado (ex.: juros de carência que o banco capitaliza antes da
+		// 1ª parcela). Nulo = usa `principalAmount` como base, igual antes dessa
+		// coluna existir. Nunca afeta o lançamento de desembolso, que sempre usa
+		// `principalAmount` (é o valor que realmente entrou na conta).
+		installmentBaseAmount: numeric("saldo_base_parcelas", {
+			precision: 12,
+			scale: 2,
+		}),
 		interestRateMonthly: numeric("taxa_juros_mensal", {
 			precision: 7,
 			scale: 4,
