@@ -9,9 +9,6 @@ import {
 	REFUND_NOTE_PREFIX,
 } from "@/shared/lib/accounts/constants";
 import { db } from "@/shared/lib/db";
-import { isLoanAccountType } from "@/shared/lib/loans/constants";
-import { buildAccountTransactionCondition } from "@/shared/lib/loans/linked-transactions";
-import { fetchLoanBalanceAsOfPeriod } from "@/shared/lib/loans/outstanding-balance";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 
 type AccountSummaryData = {
@@ -127,7 +124,7 @@ export async function fetchAccountSummary(
 		.where(
 			and(
 				eq(transactions.userId, userId),
-				buildAccountTransactionCondition(accountId),
+				eq(transactions.accountId, accountId),
 				eq(transactions.period, selectedPeriod),
 				eq(transactions.payerId, adminPayerId),
 				...settledCondition,
@@ -152,7 +149,7 @@ export async function fetchAccountSummary(
 		.where(
 			and(
 				eq(transactions.userId, userId),
-				buildAccountTransactionCondition(accountId),
+				eq(transactions.accountId, accountId),
 				lt(transactions.period, selectedPeriod),
 				eq(transactions.payerId, adminPayerId),
 				...settledCondition,
@@ -166,30 +163,8 @@ export async function fetchAccountSummary(
 	const expenseNet = Number(periodSummary?.expenses ?? 0);
 	const totalExpenses = Math.max(0, -expenseNet);
 
-	// Conta de empréstimo: saldo não é a soma dos lançamentos (que incluem
-	// juros, e ficariam fora da amortização), e sim o saldo devedor/recebível
-	// derivado das parcelas — mesmo princípio de `fetchLoanOutstandingBalances`
-	// usado na listagem de contas, só que cortado no período navegado aqui.
-	let openingBalance = initialBalance + previousMovements;
-	let currentBalance = openingBalance + netAmount;
-
-	if (isLoanAccountType(account.accountType)) {
-		const [openingLoanBalance, closingLoanBalance] = await Promise.all([
-			fetchLoanBalanceAsOfPeriod(userId, accountId, selectedPeriod, {
-				inclusive: false,
-				settledOnly,
-			}),
-			fetchLoanBalanceAsOfPeriod(userId, accountId, selectedPeriod, {
-				inclusive: true,
-				settledOnly,
-			}),
-		]);
-
-		if (openingLoanBalance !== null && closingLoanBalance !== null) {
-			openingBalance = openingLoanBalance;
-			currentBalance = closingLoanBalance;
-		}
-	}
+	const openingBalance = initialBalance + previousMovements;
+	const currentBalance = openingBalance + netAmount;
 
 	return {
 		openingBalance,
@@ -202,10 +177,8 @@ export async function fetchAccountSummary(
 /**
  * Saldo da conta logo após cada lançamento confirmado do período — pra
  * mostrar "quanto tinha na conta naquele dia" no extrato. Só faz sentido
- * pra uma conta comum (não empréstimo, cujo "saldo" é devedor/recebível, não
- * soma de lançamentos — ver `fetchLoanBalanceAsOfPeriod`) e pras transações
- * realmente liquidadas (`isSettled`) — pendente/agendado ainda não afetou o
- * saldo de verdade.
+ * pras transações realmente liquidadas (`isSettled`) — pendente/agendado
+ * ainda não afetou o saldo de verdade.
  *
  * Calcula com uma soma cumulativa em janela SQL, ordenada cronologicamente
  * (independente da ordem de exibição da tabela, que é mais recente

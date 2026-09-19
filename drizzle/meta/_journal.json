@@ -386,6 +386,13 @@
       "when": 1789692580886,
       "tag": "0055_add_loan_installment_base_amount",
       "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1789845402383,
+      "tag": "0056_peaceful_the_watchers",
+      "breakpoints": true
     }
   ]
 }

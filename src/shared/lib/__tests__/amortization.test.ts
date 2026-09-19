@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { generateAmortizationSchedule } from "@/features/loans/lib/amortization";
+import { generateAmortizationSchedule } from "@/shared/lib/amortization";
 
 const sumPrincipal = (rows: ReturnType<typeof generateAmortizationSchedule>) =>
 	rows.reduce((total, row) => total + row.principalAmountCents, 0);

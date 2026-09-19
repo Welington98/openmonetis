@@ -4,7 +4,6 @@ import {
 	RiArrowLeftRightLine,
 	RiDeleteBin5Line,
 	RiFileList2Line,
-	RiFileList3Line,
 	RiInformationLine,
 	RiLink,
 	RiPencilLine,
@@ -35,7 +34,6 @@ interface AccountCardProps {
 	onRemove?: () => void;
 	onTransfer?: () => void;
 	onLinkPluggy?: () => void;
-	onManageLoan?: () => void;
 	className?: string;
 }
 
@@ -53,7 +51,6 @@ export function AccountCard({
 	onRemove,
 	onTransfer,
 	onLinkPluggy,
-	onManageLoan,
 	className,
 }: AccountCardProps) {
 	const isInactive = isAccountInactive(status);
@@ -82,12 +79,6 @@ export function AccountCard({
 			label: "transferir",
 			icon: <RiArrowLeftRightLine className="size-4" aria-hidden />,
 			onClick: onTransfer,
-			variant: "default" as const,
-		},
-		{
-			label: "empréstimo",
-			icon: <RiFileList3Line className="size-4" aria-hidden />,
-			onClick: onManageLoan,
 			variant: "default" as const,
 		},
 		{

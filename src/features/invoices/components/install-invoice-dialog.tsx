@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { installInvoiceAction } from "@/features/invoices/actions";
-import { generateAmortizationSchedule } from "@/features/loans/lib/amortization";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Dialog,
@@ -17,6 +16,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
+import { generateAmortizationSchedule } from "@/shared/lib/amortization";
 import { formatCurrency, normalizeDecimalInput } from "@/shared/utils/currency";
 
 type InstallInvoiceDialogProps = {
