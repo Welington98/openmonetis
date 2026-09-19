@@ -19,7 +19,6 @@ import {
 	TabsList,
 	TabsTrigger,
 } from "@/shared/components/ui/tabs";
-import { isLoanAccountType } from "@/shared/lib/loans/constants";
 import { resolveLogoSrc } from "@/shared/lib/logo";
 import { getCurrentPeriod } from "@/shared/utils/period";
 import { AccountDialog } from "./account-dialog";
@@ -172,11 +171,6 @@ export function AccountsPage({
 							onLinkPluggy={
 								bankConnections.length > 0
 									? () => setPluggyLinkAccount(account)
-									: undefined
-							}
-							onManageLoan={
-								isLoanAccountType(account.accountType)
-									? () => router.push(`/accounts/${account.id}/loan`)
 									: undefined
 							}
 						/>

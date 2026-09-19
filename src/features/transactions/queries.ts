@@ -16,7 +16,6 @@ import {
 	categories,
 	costCenters,
 	financialAccounts,
-	loanInstallments,
 	payers,
 	statementLines,
 	transactionAttachments,
@@ -84,7 +83,6 @@ const mapTransactionRows = (
 		costCenter: typeof costCenters.$inferSelect | null;
 		hasAttachments: boolean;
 		isReconciled: boolean;
-		isLoanLinked: boolean;
 		transferCounterpartAccountId: string | null;
 	}[],
 ) =>
@@ -97,7 +95,6 @@ const mapTransactionRows = (
 		costCenter: row.costCenter,
 		hasAttachments: row.hasAttachments,
 		isReconciled: row.isReconciled,
-		isLoanLinked: row.isLoanLinked,
 		transferCounterpartAccountId: row.transferCounterpartAccountId,
 	}));
 
@@ -123,14 +120,6 @@ async function selectTransactionsWithRelations({
 			isReconciled: sql<boolean>`EXISTS (
 				SELECT 1 FROM ${statementLines}
 				WHERE ${statementLines.matchedTransactionId} = ${transactions.id}
-			)`,
-			// Parcela/juros/desembolso de empréstimo — tem ferramentas de edição
-			// próprias (tela do empréstimo), então fica de fora da edição
-			// genérica de transferência.
-			isLoanLinked: sql<boolean>`EXISTS (
-				SELECT 1 FROM ${loanInstallments}
-				WHERE ${loanInstallments.transactionId} = ${transactions.id}
-					OR ${loanInstallments.interestTransactionId} = ${transactions.id}
 			)`,
 			transferCounterpartAccountId: sql<string | null>`(${db
 				.select({ accountId: transferCounterpart.accountId })

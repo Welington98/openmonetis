@@ -23,7 +23,6 @@ import {
 } from "@/shared/components/ui/dialog";
 import { useControlledState } from "@/shared/hooks/use-controlled-state";
 import { useFormState } from "@/shared/hooks/use-form-state";
-import { isLoanAccountType } from "@/shared/lib/loans/constants";
 import { getLogoDisplayName, normalizeLogo } from "@/shared/lib/logo";
 import {
 	formatInitialBalanceInput,
@@ -297,7 +296,6 @@ export function AccountDialog({
 							accountTypes={accountTypes}
 							accountStatuses={accountStatuses}
 							onChange={updateField}
-							showInitialBalance={!isLoanAccountType(formState.accountType)}
 							showInitialBalanceDate={mode === "create"}
 						/>
 

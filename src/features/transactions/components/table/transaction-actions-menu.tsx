@@ -77,7 +77,6 @@ export function TransactionActionsMenu({
 		isOwnData &&
 		isTransfer &&
 		item.amount < 0 &&
-		!item.isLoanLinked &&
 		!item.readonly &&
 		Boolean(onEditTransfer);
 	const canRefund =
