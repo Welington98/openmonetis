@@ -14,7 +14,6 @@ import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constant
 import { handleActionError } from "@/shared/lib/actions/helpers";
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
-import { findLoanInstallmentLegs } from "@/shared/lib/loans/settlement";
 import {
 	buildEntriesByPayer,
 	sendPayerAutoEmails,
@@ -25,9 +24,7 @@ import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import {
 	getBusinessTodayDate,
 	parseLocalDateString,
-	toLocalDateString,
 } from "@/shared/utils/date";
-import { derivePeriodFromDate } from "@/shared/utils/period";
 import { copyAttachmentsForImport } from "../lib/attachment-copy";
 import { detectInstallmentFromName } from "../lib/installment-detection";
 import { cleanupAttachmentsAfterTransactionDelete } from "./attachments";
@@ -72,8 +69,7 @@ const ADJUSTMENT_CATEGORY_ICON = "RiPercentLine";
 /**
  * Categoria usada pro item de ajuste gerado automaticamente ao liquidar um
  * lançamento com valor diferente do previsto (juros/multa/desconto) — ver
- * `toggleTransactionSettlementAction`. Mesmo padrão de
- * `resolveOrCreateLoanCategory` em `features/loans/actions.ts`.
+ * `toggleTransactionSettlementAction`.
  */
 async function resolveOrCreateAdjustmentCategory(
 	tx: typeof db,
@@ -1220,87 +1216,6 @@ export async function toggleTransactionSettlementAction(
 
 		const isIncome = existing.transactionType === "Receita";
 
-		// Lançamento ligado a uma parcela de empréstimo (perna de transferência
-		// ou de juros): liquida o conjunto inteiro junto, nunca só uma perna —
-		// senão a transferência fica pela metade e o saldo devedor do
-		// empréstimo fica incoerente. Não suporta ajuste de valor pago aqui
-		// (mesmo escopo de `payLoanInstallmentAction`).
-		const loanLegs = await findLoanInstallmentLegs(db, existing.id);
-		if (loanLegs) {
-			const customPaymentDate =
-				data.value && data.paymentDate
-					? parseLocalDateString(data.paymentDate)
-					: null;
-			const settlementDate = data.value
-				? (customPaymentDate ?? getBusinessTodayDate())
-				: null;
-			const settlementPeriod = settlementDate
-				? derivePeriodFromDate(toLocalDateString(settlementDate))
-				: null;
-
-			const newPaymentAccountId =
-				data.value && data.paymentAccountId ? data.paymentAccountId : null;
-			if (newPaymentAccountId) {
-				const paymentAccount = await db.query.financialAccounts.findFirst({
-					columns: { id: true },
-					where: and(
-						eq(financialAccounts.id, newPaymentAccountId),
-						eq(financialAccounts.userId, user.id),
-					),
-				});
-				if (!paymentAccount) {
-					return {
-						success: false,
-						error: `Conta de ${isIncome ? "recebimento" : "pagamento"} não encontrada.`,
-					};
-				}
-			}
-
-			await db.transaction(async (tx: typeof db) => {
-				const paymentSideIds = [
-					loanLegs.transferOutId,
-					loanLegs.interestId,
-				].filter((id): id is string => Boolean(id));
-
-				for (const legId of paymentSideIds) {
-					await tx
-						.update(transactions)
-						.set({
-							isSettled: data.value,
-							...(settlementDate && settlementPeriod
-								? { purchaseDate: settlementDate, period: settlementPeriod }
-								: {}),
-							...(newPaymentAccountId
-								? { accountId: newPaymentAccountId }
-								: {}),
-						})
-						.where(eq(transactions.id, legId));
-				}
-
-				// A perna na conta de empréstimo nunca muda de conta — só liquida
-				// e acompanha a data.
-				if (loanLegs.transferInId) {
-					await tx
-						.update(transactions)
-						.set({
-							isSettled: data.value,
-							...(settlementDate && settlementPeriod
-								? { purchaseDate: settlementDate, period: settlementPeriod }
-								: {}),
-						})
-						.where(eq(transactions.id, loanLegs.transferInId));
-				}
-			});
-
-			revalidate(user.id);
-
-			return {
-				success: true,
-				message: data.value
-					? "Parcela paga com sucesso."
-					: "Pagamento da parcela desfeito.",
-			};
-		}
 		const customPaymentDate =
 			data.value && data.paymentDate
 				? parseLocalDateString(data.paymentDate)

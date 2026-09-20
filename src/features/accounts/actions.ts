@@ -18,12 +18,6 @@ import {
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
 import { PERIOD_FORMAT_REGEX } from "@/shared/lib/invoices";
-import {
-	cleanupLoanBeforeAccountDeletion,
-	isAccountFundingActiveLoan,
-} from "@/shared/lib/loans/account-deletion";
-import { isLoanAccountType } from "@/shared/lib/loans/constants";
-import { findLoanInstallmentLegs } from "@/shared/lib/loans/settlement";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { noteSchema, uuidSchema } from "@/shared/lib/schemas/common";
 import {
@@ -121,16 +115,11 @@ export async function createAccountAction(
 
 		const logoFile = normalizeFilePath(data.logo);
 
-		// Contas de empréstimo nunca têm saldo inicial próprio — o saldo delas
-		// é sempre derivado da tabela de amortização (ver
-		// `shared/lib/loans/outstanding-balance.ts`), igual à dívida de cartão
-		// de crédito. Forçado aqui como defesa mesmo que o cliente mande outro
-		// valor.
 		// O sinal é preservado (positivo = credor, negativo = devedor) — vira
-		// Receita ou Despesa no lançamento de saldo inicial abaixo.
-		const normalizedInitialBalance = isLoanAccountType(data.accountType)
-			? 0
-			: data.initialBalance;
+		// Receita ou Despesa no lançamento de saldo inicial abaixo. Vale pra
+		// qualquer tipo de conta, inclusive empréstimo (que agora é uma conta
+		// comum — o saldo inicial negativo já representa a dívida).
+		const normalizedInitialBalance = data.initialBalance;
 		const hasInitialBalance = normalizedInitialBalance !== 0;
 		const adminPayerId = hasInitialBalance
 			? await getAdminPayerId(user.id)
@@ -274,17 +263,7 @@ export async function deleteAccountAction(
 		const user = await getUser();
 		const data = deleteAccountSchema.parse(input);
 
-		if (await isAccountFundingActiveLoan(user.id, data.id)) {
-			return {
-				success: false,
-				error:
-					"Esta conta é usada para pagar/receber um empréstimo. Configure outra conta de pagamento antes de excluir esta.",
-			};
-		}
-
 		const [deleted] = await db.transaction(async (tx: typeof db) => {
-			await cleanupLoanBeforeAccountDeletion(tx, user.id, data.id);
-
 			return tx
 				.delete(financialAccounts)
 				.where(
@@ -476,9 +455,7 @@ type UpdateTransferInput = z.input<typeof updateTransferSchema>;
 /**
  * Edita valor/data/conta de destino de uma transferência já existente — só a
  * partir da perna de SAÍDA (valor negativo); a conta de origem não muda por
- * aqui (mesma trava de UX do `TransferDialog` na criação). Bloqueado pra
- * parcelas/juros/desembolso de empréstimo, que têm suas próprias
- * ferramentas de edição na tela do empréstimo.
+ * aqui (mesma trava de UX do `TransferDialog` na criação).
  */
 export async function updateTransferAction(
 	input: UpdateTransferInput,
@@ -529,18 +506,6 @@ export async function updateTransferAction(
 			return {
 				success: false,
 				error: "Não foi possível localizar a outra perna dessa transferência.",
-			};
-		}
-
-		const [existingLoanLink, siblingLoanLink] = await Promise.all([
-			findLoanInstallmentLegs(db, existing.id),
-			findLoanInstallmentLegs(db, sibling.id),
-		]);
-		if (existingLoanLink || siblingLoanLink) {
-			return {
-				success: false,
-				error:
-					"Parcelas de empréstimo têm ferramentas próprias de edição — use a tela do empréstimo.",
 			};
 		}
 

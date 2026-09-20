@@ -9,7 +9,6 @@ import {
 	invoices,
 	transactions,
 } from "@/db/schema";
-import { generateAmortizationSchedule } from "@/features/loans/lib/amortization";
 import {
 	buildCarryOverNote,
 	buildInstallmentInvoiceName,
@@ -20,6 +19,7 @@ import {
 	INVOICE_ADJUSTMENT_NAME,
 } from "@/shared/lib/accounts/constants";
 import { revalidateForEntity } from "@/shared/lib/actions/helpers";
+import { generateAmortizationSchedule } from "@/shared/lib/amortization";
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
 import {
