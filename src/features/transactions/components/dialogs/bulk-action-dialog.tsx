@@ -20,7 +20,7 @@ type BulkActionDialogProps = {
 	open: boolean;
 	onOpenChange: (open: boolean) => void;
 	actionType: "edit" | "delete";
-	seriesType: "installment" | "recurring";
+	seriesType: "installment" | "recurring" | "transfer-installment";
 	currentNumber?: number;
 	totalCount?: number;
 	onConfirm: (scope: BulkActionScope) => void;
@@ -126,29 +126,31 @@ export function BulkActionDialog({
 							</div>
 						</div>
 
-						<div className="flex items-start space-x-3">
-							<RadioGroupItem value="period" id="period" className="mt-0.5" />
-							<div className="flex-1">
-								<Label
-									htmlFor="period"
-									className="text-sm cursor-pointer font-medium"
-								>
-									{getPeriodLabel()}
-								</Label>
-								<p className="text-xs text-muted-foreground">
-									{getPeriodDescription()}
-								</p>
-								{scope === "period" && actionType === "edit" && (
-									<div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-										<RiErrorWarningLine className="mt-0.5 size-3.5 shrink-0" />
-										<p className="text-xs">
-											Atenção: os valores individuais de cada pessoa serão
-											substituídos pelos valores deste lançamento.
-										</p>
-									</div>
-								)}
+						{seriesType !== "transfer-installment" && (
+							<div className="flex items-start space-x-3">
+								<RadioGroupItem value="period" id="period" className="mt-0.5" />
+								<div className="flex-1">
+									<Label
+										htmlFor="period"
+										className="text-sm cursor-pointer font-medium"
+									>
+										{getPeriodLabel()}
+									</Label>
+									<p className="text-xs text-muted-foreground">
+										{getPeriodDescription()}
+									</p>
+									{scope === "period" && actionType === "edit" && (
+										<div className="mt-1.5 flex items-start gap-1.5 rounded-md bg-amber-50 px-2 py-1.5 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+											<RiErrorWarningLine className="mt-0.5 size-3.5 shrink-0" />
+											<p className="text-xs">
+												Atenção: os valores individuais de cada pessoa serão
+												substituídos pelos valores deste lançamento.
+											</p>
+										</div>
+									)}
+								</div>
 							</div>
-						</div>
+						)}
 
 						<div className="flex items-start space-x-3">
 							<RadioGroupItem value="future" id="future" className="mt-0.5" />

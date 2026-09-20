@@ -38,11 +38,12 @@ import {
 	formatDecimalForDbRequired,
 } from "@/shared/utils/currency";
 import {
+	addMonthsToDate,
 	getBusinessTodayDate,
 	getTodayInfo,
 	parseLocalDateString,
 } from "@/shared/utils/date";
-import { derivePeriodFromDate } from "@/shared/utils/period";
+import { addMonthsToPeriod, derivePeriodFromDate } from "@/shared/utils/period";
 import { normalizeFilePath } from "@/shared/utils/string";
 
 const ACCOUNT_YIELD_CATEGORY_NAME = "Rendimentos";
@@ -315,27 +316,138 @@ export async function deleteAccountAction(
 }
 
 // Transfer between accounts
-const transferSchema = z.object({
-	fromAccountId: uuidSchema("Conta de origem"),
-	toAccountId: uuidSchema("Conta de destino"),
-	amount: z
-		.string()
-		.trim()
-		.transform((value) => (value.length === 0 ? "0" : value.replace(",", ".")))
-		.refine(
-			(value) => !Number.isNaN(Number.parseFloat(value)),
-			"Informe um valor válido.",
-		)
-		.transform((value) => Number.parseFloat(value))
-		.refine((value) => value > 0, "O valor deve ser maior que zero."),
-	date: z.coerce.date({ message: "Informe uma data válida." }),
-	period: z
-		.string({ message: "Informe o período." })
-		.trim()
-		.min(1, "Informe o período."),
-});
+const transferSchema = z
+	.object({
+		fromAccountId: uuidSchema("Conta de origem"),
+		toAccountId: uuidSchema("Conta de destino"),
+		amount: z
+			.string()
+			.trim()
+			.transform((value) =>
+				value.length === 0 ? "0" : value.replace(",", "."),
+			)
+			.refine(
+				(value) => !Number.isNaN(Number.parseFloat(value)),
+				"Informe um valor válido.",
+			)
+			.transform((value) => Number.parseFloat(value))
+			.refine((value) => value > 0, "O valor deve ser maior que zero."),
+		date: z.coerce.date({ message: "Informe uma data válida." }),
+		period: z
+			.string({ message: "Informe o período." })
+			.trim()
+			.min(1, "Informe o período."),
+		condition: z.enum(["À vista", "Parcelado"]).default("À vista"),
+		installmentCount: z
+			.union([z.number(), z.string()])
+			.transform((value) =>
+				typeof value === "number" ? value : Number.parseInt(value, 10),
+			)
+			.refine(
+				(value) => Number.isInteger(value) && value >= 1 && value <= 420,
+				"Informe um número de parcelas entre 1 e 420.",
+			)
+			.default(1),
+	})
+	.refine(
+		(data) => data.condition !== "Parcelado" || data.installmentCount >= 2,
+		{
+			message: "Uma transferência parcelada precisa de pelo menos 2 parcelas.",
+			path: ["installmentCount"],
+		},
+	);
 
 type TransferInput = z.input<typeof transferSchema>;
+
+const TRANSFER_INSTALLMENT_INTERVAL_MONTHS = 1;
+
+type TransferInstallmentBatchParams = {
+	fromAccountId: string;
+	fromAccountName: string;
+	toAccountId: string;
+	toAccountName: string;
+	amount: number;
+	firstDate: Date;
+	firstPeriod: string;
+	installmentCount: number;
+	userId: string;
+	adminPayerId: string;
+	transferCategoryId: string;
+};
+
+/**
+ * Gera as linhas de uma transferência parcelada: um par saída/entrada por
+ * parcela (cada par com seu próprio `transferId`), todos ligados pelo mesmo
+ * `seriesId` — mesmo padrão de série usado em despesas/receitas parceladas
+ * (`buildTransactionRecords`). Com `installmentCount === 1` gera o mesmo par
+ * único que uma transferência à vista.
+ */
+export function buildTransferInstallmentBatches({
+	fromAccountId,
+	fromAccountName,
+	toAccountId,
+	toAccountName,
+	amount,
+	firstDate,
+	firstPeriod,
+	installmentCount,
+	userId,
+	adminPayerId,
+	transferCategoryId,
+}: TransferInstallmentBatchParams) {
+	const seriesId = installmentCount > 1 ? crypto.randomUUID() : null;
+	const amountValue = formatDecimalForDbRequired(Math.abs(amount));
+	const negativeAmountValue = formatDecimalForDbRequired(-Math.abs(amount));
+
+	const rows: (typeof transactions.$inferInsert)[] = [];
+
+	for (let index = 0; index < installmentCount; index += 1) {
+		const installmentDate = addMonthsToDate(
+			firstDate,
+			index * TRANSFER_INSTALLMENT_INTERVAL_MONTHS,
+		);
+		const installmentPeriod = addMonthsToPeriod(
+			firstPeriod,
+			index * TRANSFER_INSTALLMENT_INTERVAL_MONTHS,
+		);
+		const transferId = crypto.randomUUID();
+		const currentInstallment = index + 1;
+
+		const sharedFields = {
+			condition:
+				installmentCount > 1 ? ("Parcelado" as const) : TRANSFER_CONDITION,
+			paymentMethod: TRANSFER_PAYMENT_METHOD,
+			note: `de ${fromAccountName} -> ${toAccountName}`,
+			purchaseDate: installmentDate,
+			transactionType: "Transferência" as const,
+			period: installmentPeriod,
+			isSettled: true,
+			userId,
+			categoryId: transferCategoryId,
+			payerId: adminPayerId,
+			transferId,
+			seriesId,
+			installmentCount: installmentCount > 1 ? installmentCount : null,
+			currentInstallment: installmentCount > 1 ? currentInstallment : null,
+			installmentIntervalMonths: TRANSFER_INSTALLMENT_INTERVAL_MONTHS,
+		};
+
+		rows.push({
+			...sharedFields,
+			name: TRANSFER_ESTABLISHMENT_SAIDA,
+			amount: negativeAmountValue,
+			accountId: fromAccountId,
+		});
+		rows.push({
+			...sharedFields,
+			name: TRANSFER_ESTABLISHMENT_ENTRADA,
+			amount: amountValue,
+			accountId: toAccountId,
+		});
+	}
+
+	return rows;
+}
 
 export async function transferBetweenAccountsAction(
 	input: TransferInput,
@@ -352,8 +464,6 @@ export async function transferBetweenAccountsAction(
 			};
 		}
 
-		// Generate a unique transfer ID to link both transactions
-		const transferId = crypto.randomUUID();
 		const adminPayerId = await getAdminPayerId(user.id);
 
 		if (!adminPayerId) {
@@ -406,37 +516,23 @@ export async function transferBetweenAccountsAction(
 				);
 			}
 
-			const transferNote = `de ${fromAccount.name} -> ${toAccount.name}`;
-
-			const sharedFields = {
-				condition: TRANSFER_CONDITION,
-				paymentMethod: TRANSFER_PAYMENT_METHOD,
-				note: transferNote,
-				purchaseDate: data.date,
-				transactionType: "Transferência" as const,
-				period: data.period,
-				isSettled: true,
+			const rows = buildTransferInstallmentBatches({
+				fromAccountId: fromAccount.id,
+				fromAccountName: fromAccount.name,
+				toAccountId: toAccount.id,
+				toAccountName: toAccount.name,
+				amount: data.amount,
+				firstDate: data.date,
+				firstPeriod: data.period,
+				installmentCount:
+					data.condition === "Parcelado" ? data.installmentCount : 1,
 				userId: user.id,
-				categoryId: transferCategory.id,
-				payerId: adminPayerId,
-				transferId,
-			};
+				adminPayerId,
+				transferCategoryId: transferCategory.id,
+			});
 
-			// Create both transactions in a single batch insert
-			await tx.insert(transactions).values([
-				{
-					...sharedFields,
-					name: TRANSFER_ESTABLISHMENT_SAIDA,
-					amount: formatDecimalForDbRequired(-Math.abs(data.amount)),
-					accountId: fromAccount.id,
-				},
-				{
-					...sharedFields,
-					name: TRANSFER_ESTABLISHMENT_ENTRADA,
-					amount: formatDecimalForDbRequired(Math.abs(data.amount)),
-					accountId: toAccount.id,
-				},
-			]);
+			// Create all transaction legs (1 par por parcela) em um único batch insert
+			await tx.insert(transactions).values(rows);
 		});
 
 		revalidateForEntity("accounts", user.id);
