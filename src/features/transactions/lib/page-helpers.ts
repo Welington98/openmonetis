@@ -212,6 +212,21 @@ export const extractTransactionSearchFilters = (
 	dateEndFilter: parseDateFilterParam(getSingleParam(params, DATE_END_PARAM)),
 });
 
+/**
+ * O agrupamento de compras de cartão numa linha de fatura só faz sentido
+ * quando a lista mostra a fatura inteira — um filtro de categoria, pessoa ou
+ * busca recorta a fatura, então as compras voltam a aparecer individualmente.
+ */
+export const isInvoiceGroupingEligible = (
+	filters: Pick<
+		TransactionSearchFilters,
+		"categoryFilters" | "payerFilters" | "searchFilter"
+	>,
+): boolean =>
+	filters.categoryFilters.length === 0 &&
+	filters.payerFilters.length === 0 &&
+	!filters.searchFilter;
+
 export const resolveTransactionPagination = (
 	params: ResolvedSearchParams,
 ): {

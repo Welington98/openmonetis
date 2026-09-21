@@ -1,4 +1,5 @@
 import { connection } from "next/server";
+import { fetchInvoiceTotalsByCard } from "@/features/invoices/queries";
 import { fetchUserPreferences } from "@/features/settings/queries";
 import { TransactionsPage } from "@/features/transactions/components/page/transactions-page";
 import {
@@ -8,6 +9,7 @@ import {
 	buildTransactionWhere,
 	extractTransactionSearchFilters,
 	getSingleParam,
+	isInvoiceGroupingEligible,
 	mapTransactionsData,
 	type ResolvedSearchParams,
 	resolveTransactionPagination,
@@ -70,6 +72,21 @@ export default async function Page({ searchParams }: PageProps) {
 	]);
 	const transactionData = mapTransactionsData(transactionsPage.rows);
 
+	const groupingEligible = isInvoiceGroupingEligible(searchFilters);
+	const cardIdsOnPage = groupingEligible
+		? Array.from(
+				new Set(
+					transactionData
+						.map((transaction) => transaction.cardId)
+						.filter((cardId): cardId is string => Boolean(cardId)),
+				),
+			)
+		: [];
+	const invoiceTotalsByCardMap = groupingEligible
+		? await fetchInvoiceTotalsByCard(userId, selectedPeriod, cardIdsOnPage)
+		: new Map<string, number>();
+	const invoiceTotalsByCard = Object.fromEntries(invoiceTotalsByCardMap);
+
 	const {
 		payerOptions,
 		splitPayerOptions,
@@ -109,6 +126,8 @@ export default async function Page({ searchParams }: PageProps) {
 					accountCardFilterOptions={accountCardFilterOptions}
 					selectedPeriod={selectedPeriod}
 					estabelecimentos={estabelecimentos}
+					searchFilters={searchFilters}
+					invoiceTotalsByCard={invoiceTotalsByCard}
 					pagination={{
 						page: transactionsPage.page,
 						pageSize: transactionsPage.pageSize,

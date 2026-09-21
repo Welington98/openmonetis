@@ -1,6 +1,7 @@
 "use client";
 import {
 	RiArrowLeftRightLine,
+	RiBankCard2Line,
 	RiBankLine,
 	RiFileExcel2Line,
 	RiFlashlightFill,
@@ -24,6 +25,11 @@ import type {
 	TransactionsPaginationState,
 } from "@/features/transactions/lib/export-types";
 import { EmptyState } from "@/shared/components/feedback/empty-state";
+import {
+	Avatar,
+	AvatarFallback,
+	AvatarImage,
+} from "@/shared/components/ui/avatar";
 import { Button } from "@/shared/components/ui/button";
 import { Card, CardContent } from "@/shared/components/ui/card";
 import {
@@ -46,7 +52,13 @@ import {
 	TooltipProvider,
 	TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
-import { formatDateGroupLabel } from "@/shared/utils/date";
+import { resolveLogoSrc } from "@/shared/lib/logo";
+import { formatCurrency } from "@/shared/utils/currency";
+import {
+	buildDateOnlyStringFromPeriodDay,
+	formatDateGroupLabel,
+} from "@/shared/utils/date";
+import { displayPeriod } from "@/shared/utils/period";
 import { cn } from "@/shared/utils/ui";
 import { TransactionsExport } from "../transactions-export";
 import type {
@@ -60,6 +72,25 @@ import { TransactionsFilters } from "./transactions-filters";
 import { TransactionsMobileList } from "./transactions-mobile-list";
 import { TransactionsPagination } from "./transactions-pagination";
 
+type InvoiceSummaryDisplayRow = {
+	kind: "invoice-summary";
+	key: string;
+	cardId: string;
+	period: string;
+	total: number;
+	cardName: string;
+	cardLogo: string | null;
+	dateGroupKey: string;
+};
+
+type TransactionDisplayRow = {
+	kind: "transaction";
+	row: Row<TransactionItem>;
+	dateGroupKey: string;
+};
+
+type DisplayRow = TransactionDisplayRow | InvoiceSummaryDisplayRow;
+
 type TransactionsTableProps = {
 	data: TransactionItem[];
 	currentUserId: string;
@@ -71,6 +102,9 @@ type TransactionsTableProps = {
 	selectedPeriod?: string;
 	pagination?: TransactionsPaginationState;
 	exportContext?: TransactionsExportContext;
+	isInvoiceGroupingEligible?: boolean;
+	invoiceTotalsByCard?: Record<string, number>;
+	cardDueDayById?: Record<string, string | null>;
 	createSlot?: ReactNode;
 	onMassAdd?: () => void;
 	onEdit?: (item: TransactionItem) => void;
@@ -109,6 +143,9 @@ export function TransactionsTable({
 	selectedPeriod,
 	pagination: serverPagination,
 	exportContext,
+	isInvoiceGroupingEligible = false,
+	invoiceTotalsByCard = {},
+	cardDueDayById = {},
 	createSlot,
 	onMassAdd,
 	onEdit,
@@ -233,20 +270,79 @@ export function TransactionsTable({
 
 	const rowModel = table.getRowModel();
 	const hasRows = rowModel.rows.length > 0;
-	const groupedRows = rowModel.rows.reduce<
-		Array<{ date: string; label: string; rows: Row<TransactionItem>[] }>
-	>((acc, row) => {
-		const date = row.original.purchaseDate?.slice(0, 10) ?? "";
+
+	const displayRows = useMemo<DisplayRow[]>(() => {
+		const toTransactionDisplayRow = (row: Row<TransactionItem>) => ({
+			kind: "transaction" as const,
+			row,
+			dateGroupKey: row.original.purchaseDate?.slice(0, 10) ?? "",
+		});
+
+		if (!isInvoiceGroupingEligible) {
+			return rowModel.rows.map(toTransactionDisplayRow);
+		}
+
+		const seenCardIds = new Set<string>();
+		const items: DisplayRow[] = [];
+
+		for (const row of rowModel.rows) {
+			const { cardId, paymentMethod, period } = row.original;
+			const total = cardId ? invoiceTotalsByCard[cardId] : undefined;
+			const isGroupableCardPurchase =
+				paymentMethod === CREDIT_CARD_PAYMENT_METHOD &&
+				Boolean(cardId) &&
+				total !== undefined;
+
+			if (!isGroupableCardPurchase || !cardId) {
+				items.push(toTransactionDisplayRow(row));
+				continue;
+			}
+
+			if (seenCardIds.has(cardId)) {
+				continue;
+			}
+			seenCardIds.add(cardId);
+
+			const dueDay = cardDueDayById[cardId];
+			const dateGroupKey =
+				(dueDay ? buildDateOnlyStringFromPeriodDay(period, dueDay) : null) ??
+				row.original.purchaseDate?.slice(0, 10) ??
+				"";
+
+			items.push({
+				kind: "invoice-summary",
+				key: `invoice-summary-${cardId}-${period}`,
+				cardId,
+				period,
+				total: total as number,
+				cardName: row.original.cartaoName ?? "Cartão",
+				cardLogo: row.original.cartaoLogo,
+				dateGroupKey,
+			});
+		}
+
+		return items;
+	}, [
+		rowModel.rows,
+		isInvoiceGroupingEligible,
+		invoiceTotalsByCard,
+		cardDueDayById,
+	]);
+
+	const groupedRows = displayRows.reduce<
+		Array<{ date: string; label: string; rows: DisplayRow[] }>
+	>((acc, item) => {
+		const date = item.dateGroupKey;
 		const existingGroup = acc.find((group) => group.date === date);
 		if (existingGroup) {
-			existingGroup.rows.push(row);
+			existingGroup.rows.push(item);
 			return acc;
 		}
 
 		acc.push({
 			date,
-			label: formatDateGroupLabel(row.original.purchaseDate),
-			rows: [row],
+			label: formatDateGroupLabel(date),
+			rows: [item],
 		});
 		return acc;
 	}, []);
@@ -370,6 +466,58 @@ export function TransactionsTable({
 			))}
 		</TableRow>
 	);
+
+	const goToInvoice = (item: InvoiceSummaryDisplayRow) => {
+		router.push(`/cards/${item.cardId}/invoice?period=${item.period}`);
+	};
+
+	const renderInvoiceSummaryRow = (item: InvoiceSummaryDisplayRow) => {
+		const logoSrc = resolveLogoSrc(item.cardLogo);
+		return (
+			<TableRow
+				key={item.key}
+				role="button"
+				tabIndex={0}
+				onClick={() => goToInvoice(item)}
+				onKeyDown={(event) => {
+					if (event.key === "Enter" || event.key === " ") {
+						event.preventDefault();
+						goToInvoice(item);
+					}
+				}}
+				className="cursor-pointer bg-primary/5 hover:bg-primary/10"
+			>
+				<TableCell colSpan={visibleColumnCount} className="py-3">
+					<div className="flex items-center gap-3">
+						<Avatar className="size-8">
+							{logoSrc ? (
+								<AvatarImage src={logoSrc} alt={`Logo de ${item.cardName}`} />
+							) : null}
+							<AvatarFallback className="text-xs font-medium uppercase">
+								<RiBankCard2Line className="size-4" />
+							</AvatarFallback>
+						</Avatar>
+						<div className="flex min-w-0 flex-col">
+							<span className="truncate font-medium text-sm">
+								Fatura {item.cardName}
+							</span>
+							<span className="text-muted-foreground text-xs">
+								{displayPeriod(item.period)}
+							</span>
+						</div>
+						<span className="ml-auto shrink-0 font-semibold text-sm">
+							{formatCurrency(item.total)}
+						</span>
+					</div>
+				</TableCell>
+			</TableRow>
+		);
+	};
+
+	const renderDisplayRow = (item: DisplayRow) =>
+		item.kind === "transaction"
+			? renderTransactionRow(item.row)
+			: renderInvoiceSummaryRow(item);
 
 	return (
 		<TooltipProvider>
@@ -545,10 +693,10 @@ export function TransactionsTable({
 																{group.label}
 															</TableCell>
 														</TableRow>
-														{group.rows.map(renderTransactionRow)}
+														{group.rows.map(renderDisplayRow)}
 													</Fragment>
 												))
-											: rowModel.rows.map(renderTransactionRow)}
+											: displayRows.map(renderDisplayRow)}
 									</TableBody>
 								</Table>
 							</div>
