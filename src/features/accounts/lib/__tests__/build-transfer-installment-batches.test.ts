@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildTransferInstallmentBatches } from "../../actions";
+import { buildTransferInstallmentBatches } from "../build-transfer-installment-batches";
 
 const baseParams = {
 	fromAccountId: "acc-from",
