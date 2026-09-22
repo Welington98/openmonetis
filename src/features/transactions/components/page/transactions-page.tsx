@@ -1,7 +1,7 @@
 "use client";
 
 import { RiAddFill } from "@remixicon/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { TransferDialog } from "@/features/accounts/components/transfer-dialog";
 import { ReconcileTransactionDialog } from "@/features/bank-sync/components/reconcile-transaction-dialog";
@@ -26,6 +26,10 @@ import {
 	getPresignedUploadUrlAction,
 } from "@/features/transactions/actions/attachments";
 import { detectInstallmentFromName } from "@/features/transactions/lib/installment-detection";
+import {
+	isInvoiceGroupingEligible,
+	type TransactionSearchFilters,
+} from "@/features/transactions/lib/page-helpers";
 import { ConfirmActionDialog } from "@/shared/components/confirm-action-dialog";
 import { Button } from "@/shared/components/ui/button";
 import {
@@ -107,6 +111,8 @@ interface TransactionsPageProps {
 	pagination?: TransactionsPaginationState;
 	exportContext?: TransactionsExportContext;
 	attachmentMaxSizeMb?: number;
+	searchFilters?: TransactionSearchFilters;
+	invoiceTotalsByCard?: Record<string, number>;
 	// Opções específicas para o dialog de importação (quando visualizando dados de outro usuário)
 	importPayerOptions?: SelectOption[];
 	importSplitPayerOptions?: SelectOption[];
@@ -146,6 +152,8 @@ export function TransactionsPage({
 	pagination,
 	exportContext,
 	attachmentMaxSizeMb,
+	searchFilters,
+	invoiceTotalsByCard,
 	importPayerOptions,
 	importSplitPayerOptions,
 	importDefaultPayerId,
@@ -776,6 +784,18 @@ export function TransactionsPage({
 		setTransactionToEditTransfer(item);
 	};
 
+	const invoiceGroupingEligible = searchFilters
+		? isInvoiceGroupingEligible(searchFilters)
+		: false;
+
+	const cardDueDayById = useMemo(
+		() =>
+			Object.fromEntries(
+				cardOptions.map((option) => [option.value, option.dueDay ?? null]),
+			),
+		[cardOptions],
+	);
+
 	const parsedInstallmentCount = Number(installmentCount);
 	const installmentSummary =
 		transactionToConvert &&
@@ -937,6 +957,9 @@ export function TransactionsPage({
 				selectedPeriod={selectedPeriod}
 				pagination={pagination}
 				exportContext={exportContext}
+				isInvoiceGroupingEligible={invoiceGroupingEligible}
+				invoiceTotalsByCard={invoiceTotalsByCard}
+				cardDueDayById={cardDueDayById}
 				createSlot={createSlot}
 				onMassAdd={allowCreate ? handleMassAdd : undefined}
 				onEdit={handleEdit}

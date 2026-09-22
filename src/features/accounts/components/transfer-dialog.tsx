@@ -29,7 +29,18 @@ import {
 	SelectValue,
 } from "@/shared/components/ui/select";
 import { useControlledState } from "@/shared/hooks/use-controlled-state";
-import { getTodayDateString } from "@/shared/utils/date";
+import { formatCurrency } from "@/shared/utils/currency";
+import {
+	addMonthsToDate,
+	formatDate,
+	getTodayDateString,
+	parseLocalDateString,
+} from "@/shared/utils/date";
+
+const TRANSFER_INSTALLMENT_OPTIONS = Array.from(
+	{ length: 23 },
+	(_, index) => index + 2,
+);
 
 type TransferAccountOption = {
 	id: string;
@@ -87,6 +98,11 @@ export function TransferDialog({
 	);
 	const [date, setDate] = useState(initialDate ?? getTodayDateString());
 	const [period, setPeriod] = useState(initialPeriod ?? currentPeriod);
+	const [condition, setCondition] = useState<"À vista" | "Parcelado">(
+		"À vista",
+	);
+	const [installmentCount, setInstallmentCount] = useState("2");
+	const isParcelado = condition === "Parcelado" && !isEditMode;
 
 	// Available destination accounts (exclude source account)
 	const availableAccounts = accounts.filter(
@@ -131,6 +147,10 @@ export function TransferDialog({
 							amount,
 							date: new Date(date),
 							period,
+							condition,
+							installmentCount: isParcelado
+								? Number.parseInt(installmentCount, 10)
+								: 1,
 						});
 
 			if (result.success) {
@@ -143,6 +163,8 @@ export function TransferDialog({
 					setAmount("");
 					setDate(getTodayDateString());
 					setPeriod(currentPeriod);
+					setCondition("À vista");
+					setInstallmentCount("2");
 				}
 				return;
 			}
@@ -198,6 +220,73 @@ export function TransferDialog({
 								required
 							/>
 						</div>
+
+						{!isEditMode && (
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="transfer-condition">Condição</Label>
+								<Select
+									value={condition}
+									onValueChange={(value) =>
+										setCondition(value as "À vista" | "Parcelado")
+									}
+								>
+									<SelectTrigger id="transfer-condition" className="w-full">
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										<SelectItem value="À vista">À vista</SelectItem>
+										<SelectItem value="Parcelado">Parcelado</SelectItem>
+									</SelectContent>
+								</Select>
+							</div>
+						)}
+
+						{isParcelado && (
+							<div className="flex flex-col gap-2">
+								<Label htmlFor="transfer-installment-count">
+									Quantidade de parcelas
+								</Label>
+								<Select
+									value={installmentCount}
+									onValueChange={setInstallmentCount}
+								>
+									<SelectTrigger
+										id="transfer-installment-count"
+										className="w-full"
+									>
+										<SelectValue />
+									</SelectTrigger>
+									<SelectContent>
+										{TRANSFER_INSTALLMENT_OPTIONS.map((count) => (
+											<SelectItem key={count} value={String(count)}>
+												{count}x
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						)}
+
+						{isParcelado &&
+							amount &&
+							Number.parseFloat(amount.replace(",", ".")) > 0 && (
+								<div className="sm:col-span-2">
+									<p className="text-sm text-muted-foreground">
+										{installmentCount}x de R${" "}
+										{formatCurrency(
+											Number.parseFloat(amount.replace(",", ".")),
+										)}
+										, primeira em {formatDate(parseLocalDateString(date))},
+										última em{" "}
+										{formatDate(
+											addMonthsToDate(
+												parseLocalDateString(date),
+												Number.parseInt(installmentCount, 10) - 1,
+											),
+										)}
+									</p>
+								</div>
+							)}
 
 						<div className="flex flex-col gap-2 sm:col-span-2">
 							<Label htmlFor="from-account">Conta de origem</Label>

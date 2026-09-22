@@ -1,4 +1,4 @@
-import { and, eq, type SQL, sum } from "drizzle-orm";
+import { and, eq, inArray, type SQL, sum } from "drizzle-orm";
 import { cards, invoices, transactions } from "@/db/schema";
 import { fetchTransactionsWithRelations } from "@/features/transactions/queries";
 import { buildInvoicePaymentNote } from "@/shared/lib/accounts/constants";
@@ -117,4 +117,43 @@ export async function fetchInvoiceData(
 
 export async function fetchCardTransactions(filters: SQL[]) {
 	return fetchTransactionsWithRelations({ filters });
+}
+
+/**
+ * Mesma agregação usada em `fetchInvoiceData` (soma de `transactions.amount`
+ * por cartão/período), mas para vários cartões de uma vez — usado pela lista
+ * geral de lançamentos para mostrar o total de cada fatura numa linha
+ * resumida, sem depender da paginação client-side das compras individuais.
+ */
+export async function fetchInvoiceTotalsByCard(
+	userId: string,
+	period: string,
+	cardIds: string[],
+): Promise<Map<string, number>> {
+	if (cardIds.length === 0) {
+		return new Map();
+	}
+
+	const rows = await db
+		.select({
+			cardId: transactions.cardId,
+			totalAmount: sum(transactions.amount),
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				eq(transactions.period, period),
+				inArray(transactions.cardId, cardIds),
+			),
+		)
+		.groupBy(transactions.cardId);
+
+	return new Map(
+		rows
+			.filter((row): row is typeof row & { cardId: string } =>
+				Boolean(row.cardId),
+			)
+			.map((row) => [row.cardId, toNumber(row.totalAmount)]),
+	);
 }

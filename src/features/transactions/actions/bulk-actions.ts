@@ -91,6 +91,7 @@ export async function deleteTransactionBulkAction(
 				transactionType: true,
 				paymentMethod: true,
 				note: true,
+				transferId: true,
 			},
 			where: and(
 				eq(transactions.id, data.id),
@@ -116,11 +117,16 @@ export async function deleteTransactionBulkAction(
 			};
 		}
 
+		const isTransferSeries = existing.transactionType === "Transferência";
+
 		let scopeFilter: ReturnType<typeof and>;
 		let successMessage: string;
 
 		if (data.scope === "current") {
-			scopeFilter = eq(transactions.id, data.id);
+			scopeFilter =
+				isTransferSeries && existing.transferId
+					? eq(transactions.transferId, existing.transferId)
+					: eq(transactions.id, data.id);
 			successMessage = "Lançamento removido com sucesso.";
 		} else if (data.scope === "period") {
 			scopeFilter = and(
@@ -210,6 +216,7 @@ export async function updateTransactionBulkAction(
 				payerId: true,
 				cardId: true,
 				note: true,
+				transferId: true,
 			},
 			where: and(
 				eq(transactions.id, data.id),
@@ -234,6 +241,8 @@ export async function updateTransactionBulkAction(
 				error: "Lançamentos protegidos não podem ser atualizados em massa.",
 			};
 		}
+
+		const isTransferSeries = existing.transactionType === "Transferência";
 
 		const baseUpdatePayload: Record<string, unknown> = {
 			name: data.name,
@@ -460,13 +469,33 @@ export async function updateTransactionBulkAction(
 		};
 
 		if (data.scope === "current") {
-			const currentRecords = [
-				{
-					id: data.id,
-					purchaseDate: existing.purchaseDate ?? null,
-					period: existing.period,
-				},
-			];
+			let currentRecords: Array<{
+				id: string;
+				purchaseDate: Date | null;
+				period: string;
+			}>;
+
+			if (isTransferSeries && existing.transferId) {
+				// Transferência parcelada: busca ambas as pernas da parcela pelo transferId
+				currentRecords = await db.query.transactions.findMany({
+					columns: { id: true, purchaseDate: true, period: true },
+					where: and(
+						eq(transactions.transferId, existing.transferId),
+						eq(transactions.userId, user.id),
+					),
+					orderBy: asc(transactions.purchaseDate),
+				});
+			} else {
+				// Lançamento simples ou série não-transferência
+				currentRecords = [
+					{
+						id: data.id,
+						purchaseDate: existing.purchaseDate ?? null,
+						period: existing.period,
+					},
+				];
+			}
+
 			const invoiceError = await ensureTargetInvoicesAreOpen(currentRecords);
 			if (invoiceError) {
 				return { success: false, error: invoiceError };
