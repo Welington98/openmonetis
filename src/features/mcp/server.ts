@@ -26,7 +26,6 @@ import {
 import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
 import { fetchOrSeedCostCentersForUser } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
-import { findLoanInstallmentLegs } from "@/shared/lib/loans/settlement";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import {
@@ -585,12 +584,6 @@ export function registerFinanceTools(server: McpServer) {
 					"Lançamentos detalhados não podem ser editados por aqui — use o app.",
 				);
 			}
-			const loanLegs = await findLoanInstallmentLegs(db, id);
-			if (loanLegs) {
-				throw new Error(
-					"Parcelas de empréstimo não podem ser editadas por aqui — use o app.",
-				);
-			}
 
 			const resolvedTypeLabel = type
 				? TRANSACTION_TYPE_LABEL[type]
@@ -747,12 +740,6 @@ export function registerFinanceTools(server: McpServer) {
 			if (existing.isItemized) {
 				throw new Error(
 					"Lançamentos detalhados não podem ser removidos por aqui — use o app.",
-				);
-			}
-			const loanLegs = await findLoanInstallmentLegs(db, id);
-			if (loanLegs) {
-				throw new Error(
-					"Parcelas de empréstimo não podem ser removidas por aqui — use o app.",
 				);
 			}
 

@@ -46,7 +46,6 @@ const revalidateConfig = {
 	],
 	googleCalendar: ["/settings", "/calendar"],
 	dailyBudget: ["/daily-budget", "/diary", "/dashboard"],
-	loans: ["/accounts", "/transactions", "/payables", "/dashboard"],
 } as const;
 
 /** Entities whose mutations should invalidate the dashboard cache */
@@ -64,7 +63,6 @@ const DASHBOARD_ENTITIES: ReadonlySet<string> = new Set([
 	"bankSync",
 	"diary",
 	"dailyBudget",
-	"loans",
 ]);
 
 /**

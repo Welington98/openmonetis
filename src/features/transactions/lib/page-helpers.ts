@@ -41,7 +41,6 @@ import {
 	INITIAL_BALANCE_PAYMENT_METHOD,
 	INITIAL_BALANCE_TRANSACTION_TYPES,
 } from "@/shared/lib/accounts/constants";
-import { buildAccountTransactionCondition } from "@/shared/lib/loans/linked-transactions";
 import {
 	PAYER_ROLE_ADMIN,
 	PAYER_ROLE_THIRD_PARTY,
@@ -465,7 +464,7 @@ export const buildTransactionWhere = ({
 	}
 
 	if (accountId) {
-		where.push(buildAccountTransactionCondition(accountId));
+		where.push(eq(transactions.accountId, accountId));
 	}
 
 	const typeValue = typeSlugToValue[filters.transactionFilter ?? ""] ?? null;
@@ -620,7 +619,6 @@ type TransactionRowWithRelations = Partial<typeof transactions.$inferSelect> & {
 	costCenter?: CostCenterRow | null;
 	hasAttachments?: boolean;
 	isReconciled?: boolean;
-	isLoanLinked?: boolean;
 	transferCounterpartAccountId?: string | null;
 };
 
@@ -671,7 +669,6 @@ export const mapTransactionsData = (
 		splitGroupId: item.splitGroupId ?? null,
 		hasAttachments: item.hasAttachments ?? false,
 		isReconciled: item.isReconciled ?? false,
-		isLoanLinked: item.isLoanLinked ?? false,
 		transferCounterpartAccountId: item.transferCounterpartAccountId ?? null,
 		runningBalance:
 			item.id && runningBalanceById
