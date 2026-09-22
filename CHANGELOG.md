@@ -5,6 +5,22 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.46.0](https://github.com/Welington98/openmonetis/compare/v2.45.0...v2.46.0) (2026-09-22)
+
+### Adicionado
+
+* agrupar compras de cartão em linha de fatura na lista geral ([539f9ee](https://github.com/Welington98/openmonetis/commit/539f9eefe804418d1be308718e74eaeb0673557f))
+* implementar transferência parcelada com edição em lote ([f9cffc5](https://github.com/Welington98/openmonetis/commit/f9cffc5f9339092cc48032ef0d3be7d208702e73))
+
+### Corrigido
+
+* **accounts:** move helper de parcelamento de transferência para lib ([077a2cc](https://github.com/Welington98/openmonetis/commit/077a2cc8deb8029e6a90ff55c9e084f321ba340b))
+* **transactions:** remove guarda órfã de parcelas de empréstimo ([e6c5d46](https://github.com/Welington98/openmonetis/commit/e6c5d46f54294a6cdb2d9a45628b988734652c2c))
+
+### Alterado
+
+* **loans:** simplifica conta de empréstimo para transferência comum ([6038c51](https://github.com/Welington98/openmonetis/commit/6038c512893118b62c92ef63e2f4a7789c5f5b5d))
+
 ## [2.45.0](https://github.com/Welington98/openmonetis/compare/v2.44.0...v2.45.0) (2026-09-18)
 
 ### Adicionado
