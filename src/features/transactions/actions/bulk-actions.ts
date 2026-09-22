@@ -17,7 +17,6 @@ import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constant
 import { handleActionError } from "@/shared/lib/actions/helpers";
 import { getUser } from "@/shared/lib/auth/server";
 import { db } from "@/shared/lib/db";
-import { findLoanInstallmentLegs } from "@/shared/lib/loans/settlement";
 import {
 	buildEntriesByPayer,
 	sendPayerAutoEmails,
@@ -115,17 +114,6 @@ export async function deleteTransactionBulkAction(
 			return {
 				success: false,
 				error: "Lançamentos protegidos não podem ser removidos em massa.",
-			};
-		}
-
-		if (
-			existing.transactionType === "Transferência" &&
-			(await findLoanInstallmentLegs(db, existing.id))
-		) {
-			return {
-				success: false,
-				error:
-					"Parcelas de empréstimo têm ferramentas próprias de edição — use a tela do empréstimo.",
 			};
 		}
 
@@ -251,17 +239,6 @@ export async function updateTransactionBulkAction(
 			return {
 				success: false,
 				error: "Lançamentos protegidos não podem ser atualizados em massa.",
-			};
-		}
-
-		if (
-			existing.transactionType === "Transferência" &&
-			(await findLoanInstallmentLegs(db, existing.id))
-		) {
-			return {
-				success: false,
-				error:
-					"Parcelas de empréstimo têm ferramentas próprias de edição — use a tela do empréstimo.",
 			};
 		}
 
