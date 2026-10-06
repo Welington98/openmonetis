@@ -1,4 +1,4 @@
-import type { BaseContext, McpServer } from "@modelcontextprotocol/server";
+import type { McpServer } from "@modelcontextprotocol/server";
 import { and, eq, gte, ilike, lte } from "drizzle-orm";
 import { z } from "zod";
 import {
@@ -10,6 +10,15 @@ import {
 	transactions,
 } from "@/db/schema";
 import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
+import {
+	dateSchema,
+	jsonResult,
+	periodSchema,
+	requireUserId,
+	requireWriteScope,
+} from "@/features/mcp/lib/helpers";
+import { registerReadTools } from "@/features/mcp/tools/read-tools";
+import { registerWriteTools } from "@/features/mcp/tools/write-tools";
 import { fetchCategoryReport } from "@/features/reports/lib/category-report-queries";
 import { validateDateRange } from "@/features/reports/lib/utils";
 import { cleanupAttachmentsAfterTransactionDelete } from "@/features/transactions/actions/attachments";
@@ -33,34 +42,9 @@ import {
 	parseLocalDateString,
 } from "@/shared/utils/date";
 
-const periodSchema = z
-	.string()
-	.regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Formato esperado: YYYY-MM");
-
-const dateSchema = z
-	.string()
-	.regex(/^\d{4}-\d{2}-\d{2}$/, "Formato esperado: YYYY-MM-DD");
-
 type TransactionRow = Awaited<
 	ReturnType<typeof fetchTransactionsWithRelations>
 >[number];
-
-function requireUserId(ctx: BaseContext): string {
-	const userId = ctx.http?.authInfo?.extra?.userId;
-	if (typeof userId !== "string" || !userId) {
-		throw new Error("Não autenticado.");
-	}
-	return userId;
-}
-
-function requireWriteScope(ctx: BaseContext): string {
-	const userId = requireUserId(ctx);
-	const scopes = ctx.http?.authInfo?.scopes ?? [];
-	if (!scopes.includes("finance:write")) {
-		throw new Error("Token sem permissão de escrita (finance:write).");
-	}
-	return userId;
-}
 
 const TRANSACTION_TYPE_LABEL = {
 	despesa: "Despesa",
@@ -70,12 +54,6 @@ const TRANSACTION_TYPE_LABEL = {
 const WRITABLE_PAYMENT_METHODS = PAYMENT_METHODS.filter(
 	(method) => method !== "Cartão de crédito",
 ) as [(typeof PAYMENT_METHODS)[number], ...(typeof PAYMENT_METHODS)[number][]];
-
-function jsonResult(data: unknown) {
-	return {
-		content: [{ type: "text" as const, text: JSON.stringify(data, null, 2) }],
-	};
-}
 
 function serializeTransaction(row: TransactionRow) {
 	return {
@@ -768,4 +746,7 @@ export function registerFinanceTools(server: McpServer) {
 			});
 		},
 	);
+
+	registerReadTools(server);
+	registerWriteTools(server);
 }

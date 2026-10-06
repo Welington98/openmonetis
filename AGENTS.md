@@ -317,7 +317,8 @@ Rota: `src/app/api/mcp/route.ts`. Tools: `src/features/mcp/server.ts` (`register
 
 - Auth via Bearer token `opm_xxx` (mesma tabela `apiTokens` do Companion) — `verifyOpmApiToken()` em `src/shared/lib/auth/api-token.ts`, chamado pelo `verifyToken` do `withMcpAuth` na rota.
 - Regra critica ao adicionar uma tool nova: o `userId` usado nas queries **sempre** vem de `ctx.http.authInfo.extra.userId` (helper `requireUserId(ctx)`), **nunca** de um argumento da tool — senao qualquer chamador autenticado poderia ler dados de outro usuario.
-- Tools sao somente-leitura por design. Uma tool de escrita exige revisao de seguranca antes de entrar (confirmacao explicita, escopo de dano, etc.).
+- Tools ficam em `src/features/mcp/`: `server.ts` (lancamentos + registro), `tools/read-tools.ts` (consultas das demais features), `tools/write-tools.ts` (escrita de baixo risco) e `lib/helpers.ts` (`requireUserId`, `requireWriteScope`, `jsonResult`). Testes em `lib/__tests__/`.
+- Tools de escrita exigem o escopo `finance:write` (`requireWriteScope`) e revisao de seguranca antes de entrar (confirmacao explicita, escopo de dano, etc.). Nunca expor pagamento de fatura, transferencia ou exclusao de conta/cartao.
 - Reaproveitar as queries que ja existem nas features (`fetchTransactionsPageWithRelations`, `fetchDashboardAccounts`, `fetchCategoryReport`, etc.) em vez de duplicar logica de negocio.
 - Sem rate limiting implementado (diferente do inbox — ver Security Rules abaixo). Considerar antes de expor a rota publicamente sem proxy/WAF na frente.
 
