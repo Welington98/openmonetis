@@ -434,17 +434,40 @@ O token **nunca chega ao cliente**. O servidor constrói a URL `https://img.logo
 
 ## 🔌 Servidor MCP
 
-O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model Context Protocol) somente-leitura em `/api/mcp`, para que um assistente de IA consulte seus dados financeiros diretamente — sem copiar e colar extratos ou planilhas.
+O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model Context Protocol) em `/api/mcp`, para que um assistente de IA consulte (e, de forma restrita, registre) seus dados financeiros diretamente — sem copiar e colar extratos ou planilhas.
 
 ### Tools disponíveis
+
+**Consulta**
 
 - **`list_transactions`** — lista lançamentos com filtros de data, tipo, categoria e busca por nome
 - **`get_transaction`** — detalha um lançamento específico pelo ID
 - **`list_categories`** — lista as categorias cadastradas
 - **`list_accounts`** — lista contas com saldo atual calculado e saldo total consolidado
+- **`account_statement`** — extrato de uma conta, com filtro de datas
 - **`category_summary`** — soma receitas/despesas por categoria em um intervalo de meses, com comparação mês a mês
+- **`list_budgets`** — orçamentos por categoria no período, com gasto, saldo restante e % consumido
+- **`list_cards`** — cartões com limite, limite em uso/disponível e fatura atual
+- **`get_invoice`** — fatura de um cartão em um período: total, status de pagamento e compras
+- **`list_payables`** — contas a pagar (despesas pendentes e faturas) e valores a receber
+- **`get_daily_budget`** — orçamento diário: cota de hoje, gasto, ritmo, economia acumulada e projeção
+- **`get_balance_projection`** — projeção de saldo dia a dia
+- **`list_savings_goals`** — metas de economia com progresso e aporte mensal sugerido
+- **`list_payers`** — pessoas cadastradas
+- **`cards_report`** — relatório de uso dos cartões (uso vs limite, categorias, maiores gastos)
+- **`balance_sheet`** — balanço patrimonial (ativos, passivos e patrimônio líquido)
+- **`list_inbox`** — itens do inbox (notificações do Companion e comprovantes) por status
+- **`list_notes`** — anotações e listas de tarefas
 
-Nenhuma tool escreve dados — é só consulta.
+**Escrita** (exigem o escopo `finance:write`)
+
+- **`create_transaction`**, **`update_transaction`**, **`delete_transaction`** — lançamentos à vista (não cobrem cartão, transferência, parcelas, divisão nem saldo inicial)
+- **`create_category`** — cria categoria de receita ou despesa
+- **`create_budget`** — cria o orçamento de uma categoria de despesa em um período
+- **`create_savings_goal`** — cria uma meta de economia
+- **`process_inbox_item`** / **`discard_inbox_item`** — triagem de itens pendentes do inbox
+
+Por segurança, nenhuma tool paga fatura, faz transferência entre contas ou exclui contas e cartões — esses fluxos ficam só no app.
 
 ### Como gerar um token
 
