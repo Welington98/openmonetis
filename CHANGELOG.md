@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.49.0](https://github.com/Welington98/openmonetis/compare/v2.48.0...v2.49.0) (2026-10-09)
+
+### Adicionado
+
+* **accounts:** permite informar manualmente a quantidade de parcelas na transferência ([03f1c36](https://github.com/Welington98/openmonetis/commit/03f1c36e92c75849534d585aafe05b52b79bc3d3))
+
 ## [2.48.0](https://github.com/Welington98/openmonetis/compare/v2.47.0...v2.48.0) (2026-10-09)
 
 ### Adicionado
