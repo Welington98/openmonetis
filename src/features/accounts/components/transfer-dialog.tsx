@@ -20,6 +20,7 @@ import {
 	DialogTitle,
 	DialogTrigger,
 } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import {
 	Select,
@@ -37,10 +38,8 @@ import {
 	parseLocalDateString,
 } from "@/shared/utils/date";
 
-const TRANSFER_INSTALLMENT_OPTIONS = Array.from(
-	{ length: 23 },
-	(_, index) => index + 2,
-);
+const MIN_TRANSFER_INSTALLMENTS = 2;
+const MAX_TRANSFER_INSTALLMENTS = 420;
 
 type TransferAccountOption = {
 	id: string;
@@ -103,6 +102,11 @@ export function TransferDialog({
 	);
 	const [installmentCount, setInstallmentCount] = useState("2");
 	const isParcelado = condition === "Parcelado" && !isEditMode;
+	const parsedInstallmentCount = Number(installmentCount);
+	const isInstallmentCountValid =
+		Number.isInteger(parsedInstallmentCount) &&
+		parsedInstallmentCount >= MIN_TRANSFER_INSTALLMENTS &&
+		parsedInstallmentCount <= MAX_TRANSFER_INSTALLMENTS;
 
 	// Available destination accounts (exclude source account)
 	const availableAccounts = accounts.filter(
@@ -131,6 +135,13 @@ export function TransferDialog({
 			return;
 		}
 
+		if (isParcelado && !isInstallmentCountValid) {
+			setErrorMessage(
+				`Informe entre ${MIN_TRANSFER_INSTALLMENTS} e ${MAX_TRANSFER_INSTALLMENTS} parcelas.`,
+			);
+			return;
+		}
+
 		startTransition(async () => {
 			const result =
 				isEditMode && editTransactionId
@@ -148,9 +159,7 @@ export function TransferDialog({
 							date: new Date(date),
 							period,
 							condition,
-							installmentCount: isParcelado
-								? Number.parseInt(installmentCount, 10)
-								: 1,
+							installmentCount: isParcelado ? parsedInstallmentCount : 1,
 						});
 
 			if (result.success) {
@@ -246,28 +255,21 @@ export function TransferDialog({
 								<Label htmlFor="transfer-installment-count">
 									Quantidade de parcelas
 								</Label>
-								<Select
+								<Input
+									id="transfer-installment-count"
+									type="number"
+									inputMode="numeric"
+									min={MIN_TRANSFER_INSTALLMENTS}
+									max={MAX_TRANSFER_INSTALLMENTS}
+									step={1}
 									value={installmentCount}
-									onValueChange={setInstallmentCount}
-								>
-									<SelectTrigger
-										id="transfer-installment-count"
-										className="w-full"
-									>
-										<SelectValue />
-									</SelectTrigger>
-									<SelectContent>
-										{TRANSFER_INSTALLMENT_OPTIONS.map((count) => (
-											<SelectItem key={count} value={String(count)}>
-												{count}x
-											</SelectItem>
-										))}
-									</SelectContent>
-								</Select>
+									onChange={(event) => setInstallmentCount(event.target.value)}
+								/>
 							</div>
 						)}
 
 						{isParcelado &&
+							isInstallmentCountValid &&
 							amount &&
 							Number.parseFloat(amount.replace(",", ".")) > 0 && (
 								<div className="sm:col-span-2">
@@ -281,7 +283,7 @@ export function TransferDialog({
 										{formatDate(
 											addMonthsToDate(
 												parseLocalDateString(date),
-												Number.parseInt(installmentCount, 10) - 1,
+												parsedInstallmentCount - 1,
 											),
 										)}
 									</p>
