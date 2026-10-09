@@ -458,6 +458,9 @@ O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model C
 - **`balance_sheet`** — balanço patrimonial (ativos, passivos e patrimônio líquido)
 - **`list_inbox`** — itens do inbox (notificações do Companion e comprovantes) por status
 - **`list_notes`** — anotações e listas de tarefas
+- **`list_bank_connections`** — conexões bancárias do Pluggy (status e última sincronização)
+- **`list_statement_lines`** — linhas de extrato do banco, por padrão as pendentes de conciliação
+- **`reconciliation_overview`** — saldo local vs. saldo declarado pelo banco por conta, com linhas pendentes
 
 **Escrita** (exigem o escopo `finance:write`)
 
@@ -466,8 +469,9 @@ O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model C
 - **`create_budget`** — cria o orçamento de uma categoria de despesa em um período
 - **`create_savings_goal`** — cria uma meta de economia
 - **`process_inbox_item`** / **`discard_inbox_item`** — triagem de itens pendentes do inbox
+- **`ignore_statement_line`** / **`match_statement_line`** / **`set_statement_line_category`** — triagem de linhas de extrato pendentes da conciliação bancária (Pluggy)
 
-Por segurança, nenhuma tool paga fatura, faz transferência entre contas ou exclui contas e cartões — esses fluxos ficam só no app.
+Por segurança, nenhuma tool paga fatura, faz transferência entre contas, exclui contas e cartões ou conecta, sincroniza e remove conexões bancárias — esses fluxos ficam só no app.
 
 ### Como gerar um token
 

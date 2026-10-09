@@ -17,6 +17,7 @@ import {
 	requireUserId,
 	requireWriteScope,
 } from "@/features/mcp/lib/helpers";
+import { registerBankSyncTools } from "@/features/mcp/tools/bank-sync-tools";
 import { registerReadTools } from "@/features/mcp/tools/read-tools";
 import { registerWriteTools } from "@/features/mcp/tools/write-tools";
 import { fetchCategoryReport } from "@/features/reports/lib/category-report-queries";
@@ -749,4 +750,5 @@ export function registerFinanceTools(server: McpServer) {
 
 	registerReadTools(server);
 	registerWriteTools(server);
+	registerBankSyncTools(server);
 }
