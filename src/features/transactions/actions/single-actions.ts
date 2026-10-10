@@ -602,7 +602,11 @@ export async function convertTransactionToInstallmentAction(
 				? detected.name
 				: existing.name;
 		const amountSign: 1 | -1 = existing.transactionType === "Despesa" ? -1 : 1;
-		const totalCents = Math.round(Math.abs(Number(existing.amount)) * 100);
+		const existingCents = Math.round(Math.abs(Number(existing.amount)) * 100);
+		const totalCents =
+			data.amountMode === "each"
+				? existingCents * data.installmentCount
+				: existingCents;
 		const seriesId = randomUUID();
 		const records = buildTransactionRecords({
 			data: {
@@ -621,7 +625,7 @@ export async function convertTransactionToInstallmentAction(
 				costCenterId: existing.costCenterId,
 				note: existing.note,
 				installmentCount: data.installmentCount,
-				startInstallment: 1,
+				startInstallment: data.startInstallment,
 				dueDate: existing.dueDate?.toISOString().slice(0, 10),
 				isSettled: null,
 			},

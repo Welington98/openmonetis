@@ -245,6 +245,10 @@ export function TransactionsPage({
 	const [transactionToConvert, setTransactionToConvert] =
 		useState<TransactionItem | null>(null);
 	const [installmentCount, setInstallmentCount] = useState("2");
+	const [installmentStart, setInstallmentStart] = useState("1");
+	const [installmentAmountMode, setInstallmentAmountMode] = useState<
+		"total" | "each"
+	>("total");
 	const [installmentPending, setInstallmentPending] = useState(false);
 	const [convertRecurringOpen, setConvertRecurringOpen] = useState(false);
 	const [transactionToConvertRecurring, setTransactionToConvertRecurring] =
@@ -670,6 +674,9 @@ export function TransactionsPage({
 		const detectedInstallment = detectInstallmentFromName(item.name);
 		setTransactionToConvert(item);
 		setInstallmentCount(String(detectedInstallment?.installmentCount ?? 2));
+		setInstallmentStart(String(detectedInstallment?.currentInstallment ?? 1));
+		// Nome com "02/04" indica que o valor já é o de uma parcela.
+		setInstallmentAmountMode(detectedInstallment ? "each" : "total");
 		setConvertInstallmentOpen(true);
 	};
 
@@ -684,11 +691,21 @@ export function TransactionsPage({
 			return;
 		}
 
+		const start = Number(installmentStart);
+		if (!Number.isInteger(start) || start < 1 || start > count) {
+			toast.error(
+				"A parcela inicial deve estar entre 1 e o total de parcelas.",
+			);
+			return;
+		}
+
 		try {
 			setInstallmentPending(true);
 			const result = await convertTransactionToInstallmentAction({
 				id: transactionToConvert.id,
 				installmentCount: count,
+				startInstallment: start,
+				amountMode: installmentAmountMode,
 			});
 
 			if (!result.success) {
@@ -797,18 +814,30 @@ export function TransactionsPage({
 	);
 
 	const parsedInstallmentCount = Number(installmentCount);
+	const parsedInstallmentStart = Number(installmentStart);
 	const installmentSummary =
 		transactionToConvert &&
 		Number.isInteger(parsedInstallmentCount) &&
 		parsedInstallmentCount >= 2 &&
-		parsedInstallmentCount <= 60
+		parsedInstallmentCount <= 60 &&
+		Number.isInteger(parsedInstallmentStart) &&
+		parsedInstallmentStart >= 1 &&
+		parsedInstallmentStart <= parsedInstallmentCount
 			? {
-					total: formatCurrency(Math.abs(transactionToConvert.amount)),
+					mode: installmentAmountMode,
+					total: formatCurrency(
+						installmentAmountMode === "each"
+							? Math.abs(transactionToConvert.amount) * parsedInstallmentCount
+							: Math.abs(transactionToConvert.amount),
+					),
 					installmentValue: formatCurrency(
-						Math.abs(transactionToConvert.amount) / parsedInstallmentCount,
+						installmentAmountMode === "each"
+							? Math.abs(transactionToConvert.amount)
+							: Math.abs(transactionToConvert.amount) / parsedInstallmentCount,
 					),
 					count: parsedInstallmentCount,
-					createdCount: parsedInstallmentCount - 1,
+					start: parsedInstallmentStart,
+					createdCount: parsedInstallmentCount - parsedInstallmentStart,
 				}
 			: null;
 
@@ -1151,12 +1180,51 @@ export function TransactionsPage({
 						<p className="text-muted-foreground text-sm">
 							Use o total de parcelas da série, incluindo este lançamento.
 						</p>
+						<Label htmlFor="installmentStart">Parcela inicial</Label>
+						<Input
+							id="installmentStart"
+							type="number"
+							min={1}
+							max={
+								Number.isInteger(parsedInstallmentCount)
+									? parsedInstallmentCount
+									: undefined
+							}
+							value={installmentStart}
+							onChange={(event) => setInstallmentStart(event.target.value)}
+						/>
+						<p className="text-muted-foreground text-sm">
+							Número da parcela que este lançamento representa. As anteriores
+							não são criadas.
+						</p>
+						<Label htmlFor="installmentAmountMode">O valor atual é</Label>
+						<Select
+							value={installmentAmountMode}
+							onValueChange={(value) =>
+								setInstallmentAmountMode(value as "total" | "each")
+							}
+						>
+							<SelectTrigger id="installmentAmountMode" className="w-full">
+								<SelectValue />
+							</SelectTrigger>
+							<SelectContent>
+								<SelectItem value="total">
+									O total a parcelar (será dividido)
+								</SelectItem>
+								<SelectItem value="each">O valor de cada parcela</SelectItem>
+							</SelectContent>
+						</Select>
 						{installmentSummary ? (
 							<p className="rounded-md border bg-muted/40 px-3 py-2 text-muted-foreground text-sm">
-								Resumo: {installmentSummary.total} será dividido em{" "}
-								{installmentSummary.count} parcelas de aproximadamente{" "}
+								Resumo: {installmentSummary.total}{" "}
+								{installmentSummary.mode === "each"
+									? "no total, em"
+									: "será dividido em"}{" "}
+								{installmentSummary.count} parcelas de{" "}
+								{installmentSummary.mode === "each" ? "" : "aproximadamente "}
 								{installmentSummary.installmentValue}. Este lançamento vira a
-								primeira parcela e {installmentSummary.createdCount}{" "}
+								parcela {installmentSummary.start} e{" "}
+								{installmentSummary.createdCount}{" "}
 								{pluralize(
 									installmentSummary.createdCount,
 									"nova parcela será criada",
