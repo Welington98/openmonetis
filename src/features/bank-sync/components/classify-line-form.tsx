@@ -30,6 +30,26 @@ interface ClassifyLineFormProps {
 	onDone: (transactionId: string) => void;
 }
 
+const MIN_INSTALLMENTS = 2;
+const MAX_INSTALLMENTS = 60;
+
+// Bancos costumam sufixar a descrição com "02/04" (parcela atual/total).
+function detectInstallments(description: string) {
+	const match = description.match(/(\d{1,2})\/(\d{1,2})\s*$/);
+	if (!match) return null;
+	const current = Number(match[1]);
+	const total = Number(match[2]);
+	if (
+		total < MIN_INSTALLMENTS ||
+		total > MAX_INSTALLMENTS ||
+		current < 1 ||
+		current > total
+	) {
+		return null;
+	}
+	return { current, total };
+}
+
 const categorySourceLabel: Record<string, string> = {
 	mapping: "Sugerido pelo histórico",
 	ai: "Sugerido pela IA",
@@ -64,6 +84,16 @@ export function ClassifyLineForm({
 	const [costCenterId, setCostCenterId] = useState<string | null>(null);
 	const [payerId, setPayerId] = useState<string | null>(defaultPayerId);
 	const [paymentMethod, setPaymentMethod] = useState("Pix");
+	const detected = detectInstallments(line.description);
+	const [condition, setCondition] = useState<"À vista" | "Parcelado">(
+		detected ? "Parcelado" : "À vista",
+	);
+	const [installmentCount, setInstallmentCount] = useState(
+		String(detected?.total ?? MIN_INSTALLMENTS),
+	);
+	const [currentInstallment, setCurrentInstallment] = useState(
+		String(detected?.current ?? 1),
+	);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset do formulário quando a linha selecionada muda
 	useEffect(() => {
@@ -77,6 +107,10 @@ export function ClassifyLineForm({
 		setCostCenterId(null);
 		setPayerId(defaultPayerId);
 		setPaymentMethod("Pix");
+		const next = detectInstallments(line.description);
+		setCondition(next ? "Parcelado" : "À vista");
+		setInstallmentCount(String(next?.total ?? MIN_INSTALLMENTS));
+		setCurrentInstallment(String(next?.current ?? 1));
 	}, [line.id]);
 
 	const filteredCategoryOptions = categoryOptions.filter(
@@ -88,7 +122,20 @@ export function ClassifyLineForm({
 		? categorySourceLabel[line.categorySource]
 		: null;
 
+	const isParcelado = condition === "Parcelado";
+	const totalInstallments = Number(installmentCount);
+	const startInstallment = Number(currentInstallment);
+	const areInstallmentsValid =
+		!isParcelado ||
+		(Number.isInteger(totalInstallments) &&
+			Number.isInteger(startInstallment) &&
+			totalInstallments >= MIN_INSTALLMENTS &&
+			totalInstallments <= MAX_INSTALLMENTS &&
+			startInstallment >= 1 &&
+			startInstallment <= totalInstallments);
+
 	const canSave =
+		areInstallmentsValid &&
 		!!(isCardLine ? cardId : accountId) &&
 		!!categoryId &&
 		(transactionType !== "Despesa" || !!costCenterId) &&
@@ -105,11 +152,21 @@ export function ClassifyLineForm({
 			const result = await createTransactionAction({
 				name: description,
 				transactionType,
-				amount: Number(amount),
+				// A action divide o valor pelo total de parcelas; o valor do
+				// extrato é o de UMA parcela, então multiplica de volta.
+				amount: isParcelado
+					? Math.round(Number(amount) * totalInstallments * 100) / 100
+					: Number(amount),
 				paymentMethod: isCardLine
 					? "Cartão de crédito"
 					: (paymentMethod as (typeof PAYMENT_METHODS)[number]),
-				condition: "À vista",
+				condition,
+				...(isParcelado
+					? {
+							installmentCount: totalInstallments,
+							startInstallment,
+						}
+					: {}),
 				purchaseDate,
 				accountId: isCardLine ? null : accountId,
 				cardId: isCardLine ? cardId : null,
@@ -200,6 +257,58 @@ export function ClassifyLineForm({
 					)}
 				</div>
 			</div>
+
+			<div className="grid grid-cols-2 gap-4">
+				<div className="space-y-1.5">
+					<Label>Condição</Label>
+					<Select
+						value={condition}
+						onValueChange={(v) => setCondition(v as "À vista" | "Parcelado")}
+					>
+						<SelectTrigger className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="À vista">À vista</SelectItem>
+							<SelectItem value="Parcelado">Parcelado</SelectItem>
+						</SelectContent>
+					</Select>
+				</div>
+				{isParcelado && (
+					<div className="grid grid-cols-2 gap-4">
+						<div className="space-y-1.5">
+							<Label>Parcela atual</Label>
+							<Input
+								type="number"
+								inputMode="numeric"
+								min={1}
+								max={MAX_INSTALLMENTS}
+								step={1}
+								value={currentInstallment}
+								onChange={(e) => setCurrentInstallment(e.target.value)}
+							/>
+						</div>
+						<div className="space-y-1.5">
+							<Label>Total de parcelas</Label>
+							<Input
+								type="number"
+								inputMode="numeric"
+								min={MIN_INSTALLMENTS}
+								max={MAX_INSTALLMENTS}
+								step={1}
+								value={installmentCount}
+								onChange={(e) => setInstallmentCount(e.target.value)}
+							/>
+						</div>
+					</div>
+				)}
+			</div>
+			{isParcelado && areInstallmentsValid && (
+				<p className="text-muted-foreground text-xs">
+					O valor acima é o de cada parcela. Serão criadas as parcelas{" "}
+					{startInstallment} a {totalInstallments}, uma por mês.
+				</p>
+			)}
 
 			<div className="space-y-1.5">
 				<Label>Descrição</Label>
