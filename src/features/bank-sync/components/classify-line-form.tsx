@@ -1,9 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { matchStatementLineAction } from "@/features/bank-sync/actions";
-import { createTransactionAction } from "@/features/transactions/actions/single-actions";
 import type { SelectOption } from "@/features/transactions/components/types";
 import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
 import { Badge } from "@/shared/components/ui/badge";
@@ -19,6 +18,12 @@ import {
 } from "@/shared/components/ui/select";
 import { formatCurrency } from "@/shared/utils/currency";
 import { formatDateOnly, toDateOnlyString } from "@/shared/utils/date";
+import {
+	detectInstallments,
+	type LineDraft,
+	MAX_INSTALLMENTS,
+	MIN_INSTALLMENTS,
+} from "../lib/line-draft";
 import type { StatementLineWithCategory } from "../queries";
 
 interface ClassifyLineFormProps {
@@ -29,29 +34,14 @@ interface ClassifyLineFormProps {
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
 	costCenterOptions: SelectOption[];
-	onDone: (transactionId: string) => void;
+	/** Rascunho já salvo para esta linha (reidrata o formulário). */
+	draft?: LineDraft;
+	/** Guarda a classificação na tela; a importação acontece em lote depois. */
+	onStage: (draft: LineDraft) => void;
+	/** Descarta a classificação guardada. */
+	onUnstage: () => void;
 	/** Chamado depois de vincular a linha ao lançamento já existente sugerido. */
 	onMatchedExisting?: () => void;
-}
-
-const MIN_INSTALLMENTS = 2;
-const MAX_INSTALLMENTS = 60;
-
-// Bancos costumam sufixar a descrição com "02/04" (parcela atual/total).
-function detectInstallments(description: string) {
-	const match = description.match(/(\d{1,2})\/(\d{1,2})\s*$/);
-	if (!match) return null;
-	const current = Number(match[1]);
-	const total = Number(match[2]);
-	if (
-		total < MIN_INSTALLMENTS ||
-		total > MAX_INSTALLMENTS ||
-		current < 1 ||
-		current > total
-	) {
-		return null;
-	}
-	return { current, total };
 }
 
 const categorySourceLabel: Record<string, string> = {
@@ -68,57 +58,56 @@ export function ClassifyLineForm({
 	cardOptions,
 	categoryOptions,
 	costCenterOptions,
-	onDone,
+	draft,
+	onStage,
+	onUnstage,
 	onMatchedExisting,
 }: ClassifyLineFormProps) {
 	const isCardLine = line.pluggyAccountType === "CREDIT";
-	const [isSaving, setIsSaving] = useState(false);
 	const [isLinking, setIsLinking] = useState(false);
 	const possibleDuplicate = line.possibleDuplicate ?? null;
+	const detected = detectInstallments(line.description);
 	const [transactionType, setTransactionType] = useState<"Despesa" | "Receita">(
-		line.type === "receita" ? "Receita" : "Despesa",
+		draft?.transactionType ?? (line.type === "receita" ? "Receita" : "Despesa"),
 	);
-	const [amount, setAmount] = useState(String(Math.abs(Number(line.amount))));
-	const [description, setDescription] = useState(line.description);
+	const [amount, setAmount] = useState(
+		String(draft?.amount ?? Math.abs(Number(line.amount))),
+	);
+	const [description, setDescription] = useState(
+		draft?.name ?? line.description,
+	);
 	const [purchaseDate, setPurchaseDate] = useState(
-		toDateOnlyString(line.date) ?? "",
+		draft?.purchaseDate ?? toDateOnlyString(line.date) ?? "",
 	);
 	const [accountId, setAccountId] = useState<string | null>(
-		line.linkedFinancialAccountId,
+		draft ? draft.accountId : line.linkedFinancialAccountId,
 	);
-	const [cardId, setCardId] = useState<string | null>(line.linkedCardId);
-	const [categoryId, setCategoryId] = useState<string | null>(line.categoryId);
-	const [costCenterId, setCostCenterId] = useState<string | null>(null);
-	const [payerId, setPayerId] = useState<string | null>(defaultPayerId);
-	const [paymentMethod, setPaymentMethod] = useState("Pix");
-	const detected = detectInstallments(line.description);
+	const [cardId, setCardId] = useState<string | null>(
+		draft ? draft.cardId : line.linkedCardId,
+	);
+	const [categoryId, setCategoryId] = useState<string | null>(
+		draft?.categoryId ?? line.categoryId,
+	);
+	const [costCenterId, setCostCenterId] = useState<string | null>(
+		draft?.costCenterId ?? null,
+	);
+	const [payerId, setPayerId] = useState<string | null>(
+		draft ? draft.payerId : defaultPayerId,
+	);
+	const [paymentMethod, setPaymentMethod] = useState(
+		draft?.paymentMethod ?? "Pix",
+	);
 	const [condition, setCondition] = useState<"À vista" | "Parcelado">(
-		detected ? "Parcelado" : "À vista",
+		draft?.condition ?? (detected ? "Parcelado" : "À vista"),
 	);
 	const [installmentCount, setInstallmentCount] = useState(
-		String(detected?.total ?? MIN_INSTALLMENTS),
+		String(draft?.installmentCount ?? detected?.total ?? MIN_INSTALLMENTS),
 	);
 	const [currentInstallment, setCurrentInstallment] = useState(
-		String(detected?.current ?? 1),
+		String(draft?.startInstallment ?? detected?.current ?? 1),
 	);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: reset do formulário quando a linha selecionada muda
-	useEffect(() => {
-		setTransactionType(line.type === "receita" ? "Receita" : "Despesa");
-		setAmount(String(Math.abs(Number(line.amount))));
-		setDescription(line.description);
-		setPurchaseDate(toDateOnlyString(line.date) ?? "");
-		setAccountId(line.linkedFinancialAccountId);
-		setCardId(line.linkedCardId);
-		setCategoryId(line.categoryId);
-		setCostCenterId(null);
-		setPayerId(defaultPayerId);
-		setPaymentMethod("Pix");
-		const next = detectInstallments(line.description);
-		setCondition(next ? "Parcelado" : "À vista");
-		setInstallmentCount(String(next?.total ?? MIN_INSTALLMENTS));
-		setCurrentInstallment(String(next?.current ?? 1));
-	}, [line.id]);
+	// O componente é montado com `key={line.id}` no workspace, então o estado
+	// inicial já reidrata do rascunho ao trocar de linha.
 
 	const filteredCategoryOptions = categoryOptions.filter(
 		(opt) =>
@@ -168,54 +157,27 @@ export function ClassifyLineForm({
 		}
 	};
 
-	const handleSubmit = async () => {
+	const handleSubmit = () => {
 		if (!canSave || !categoryId) return;
 		if (isCardLine && !cardId) return;
 		if (!isCardLine && !accountId) return;
 		if (transactionType === "Despesa" && !costCenterId) return;
-		setIsSaving(true);
-		try {
-			const result = await createTransactionAction({
-				name: description,
-				transactionType,
-				// A action divide o valor pelo total de parcelas; o valor do
-				// extrato é o de UMA parcela, então multiplica de volta.
-				amount: isParcelado
-					? Math.round(Number(amount) * totalInstallments * 100) / 100
-					: Number(amount),
-				paymentMethod: isCardLine
-					? "Cartão de crédito"
-					: (paymentMethod as (typeof PAYMENT_METHODS)[number]),
-				condition,
-				...(isParcelado
-					? {
-							installmentCount: totalInstallments,
-							startInstallment,
-						}
-					: {}),
-				purchaseDate,
-				accountId: isCardLine ? null : accountId,
-				cardId: isCardLine ? cardId : null,
-				categoryId,
-				costCenterId: transactionType === "Despesa" ? costCenterId : null,
-				payerId,
-				isSettled: true,
-				isSplit: false,
-				note: null,
-			});
-
-			if (!result.success || !result.data) {
-				toast.error(
-					!result.success ? result.error : "Falha ao criar lançamento.",
-				);
-				return;
-			}
-
-			toast.success("Lançamento criado.");
-			onDone(result.data.ids[0]);
-		} finally {
-			setIsSaving(false);
-		}
+		onStage({
+			name: description.trim(),
+			transactionType,
+			amount: Number(amount),
+			paymentMethod: isCardLine ? "Cartão de crédito" : paymentMethod,
+			condition,
+			...(isParcelado
+				? { installmentCount: totalInstallments, startInstallment }
+				: {}),
+			purchaseDate,
+			accountId: isCardLine ? null : accountId,
+			cardId: isCardLine ? cardId : null,
+			categoryId,
+			costCenterId: transactionType === "Despesa" ? costCenterId : null,
+			payerId,
+		});
 	};
 
 	return (
@@ -234,7 +196,7 @@ export function ClassifyLineForm({
 							size="sm"
 							variant="outline"
 							onClick={handleLinkExisting}
-							disabled={isLinking || isSaving}
+							disabled={isLinking}
 						>
 							{isLinking ? "Vinculando..." : "Vincular a este lançamento"}
 						</Button>
@@ -462,13 +424,19 @@ export function ClassifyLineForm({
 				</Select>
 			</div>
 
-			<Button
-				onClick={handleSubmit}
-				disabled={!canSave || isSaving}
-				className="mt-2"
-			>
-				{isSaving ? "Salvando..." : "Confirmar e avançar"}
-			</Button>
+			<div className="mt-2 flex gap-2">
+				<Button onClick={handleSubmit} disabled={!canSave} className="flex-1">
+					{draft ? "Atualizar classificação" : "Classificar e avançar"}
+				</Button>
+				{draft && (
+					<Button type="button" variant="outline" onClick={onUnstage}>
+						Remover classificação
+					</Button>
+				)}
+			</div>
+			<p className="text-muted-foreground text-xs">
+				O lançamento só é criado quando você clicar em "Importar classificados".
+			</p>
 		</div>
 	);
 }

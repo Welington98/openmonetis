@@ -2,10 +2,7 @@
 
 import { useState } from "react";
 import { toast } from "sonner";
-import {
-	type BulkClassifySummary,
-	bulkClassifyStatementLinesAction,
-} from "@/features/bank-sync/actions";
+import type { BulkOverrides } from "@/features/bank-sync/lib/line-draft";
 import type { StatementLineWithCategory } from "@/features/bank-sync/queries";
 import type { SelectOption } from "@/features/transactions/components/types";
 import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
@@ -29,7 +26,8 @@ interface BulkClassifyPanelProps {
 	cardOptions: SelectOption[];
 	categoryOptions: SelectOption[];
 	costCenterOptions: SelectOption[];
-	onDone: (summary: BulkClassifySummary) => void;
+	/** Aplica os valores aos rascunhos das linhas; devolve quantas ficaram prontas. */
+	onApply: (overrides: BulkOverrides) => { staged: number; skipped: number };
 	onCancel: () => void;
 }
 
@@ -40,10 +38,9 @@ export function BulkClassifyPanel({
 	cardOptions,
 	categoryOptions,
 	costCenterOptions,
-	onDone,
+	onApply,
 	onCancel,
 }: BulkClassifyPanelProps) {
-	const [isSaving, setIsSaving] = useState(false);
 	const [categoryId, setCategoryId] = useState<string | null>(null);
 	const [costCenterId, setCostCenterId] = useState<string | null>(null);
 	const [accountId, setAccountId] = useState<string | null>(null);
@@ -63,30 +60,22 @@ export function BulkClassifyPanel({
 		0,
 	);
 
-	const handleSubmit = async () => {
-		setIsSaving(true);
-		try {
-			const result = await bulkClassifyStatementLinesAction({
-				statementLineIds: selectedLines.map((line) => line.id),
-				categoryId,
-				costCenterId,
-				accountId,
-				cardId,
-				payerId,
-				paymentMethod: paymentMethod ?? undefined,
-			});
-
-			if (!result.success || !result.data) {
-				toast.error(
-					!result.success ? result.error : "Falha ao conciliar em massa.",
-				);
-				return;
-			}
-
-			toast.success(result.message);
-			onDone(result.data);
-		} finally {
-			setIsSaving(false);
+	const handleSubmit = () => {
+		const { staged, skipped } = onApply({
+			categoryId,
+			costCenterId,
+			accountId,
+			cardId,
+			payerId,
+			paymentMethod,
+		});
+		if (staged > 0) {
+			toast.success(`${staged} linha(s) classificada(s).`);
+		}
+		if (skipped > 0) {
+			toast.warning(
+				`${skipped} linha(s) ainda incompleta(s) (categoria, conta/cartão ou centro de custo).`,
+			);
 		}
 	};
 
@@ -152,7 +141,7 @@ export function BulkClassifyPanel({
 					</Select>
 					<p className="text-muted-foreground text-xs">
 						Obrigatório para despesas — linhas de despesa sem centro de custo
-						selecionado são ignoradas.
+						selecionado ficam sem classificar.
 					</p>
 				</div>
 				{hasBankLines && (
@@ -252,10 +241,8 @@ export function BulkClassifyPanel({
 				)}
 			</div>
 
-			<Button onClick={handleSubmit} disabled={isSaving} className="mt-2">
-				{isSaving
-					? "Conciliando..."
-					: `Conciliar ${selectedLines.length} selecionado(s)`}
+			<Button onClick={handleSubmit} className="mt-2">
+				Classificar {selectedLines.length} selecionado(s)
 			</Button>
 		</div>
 	);
