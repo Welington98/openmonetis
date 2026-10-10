@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { createTransactionAction } from "@/features/transactions/actions/single-actions";
 import type { SelectOption } from "@/features/transactions/components/types";
 import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
+import { detectInstallmentFromName } from "@/features/transactions/lib/installment-detection";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -34,23 +35,6 @@ interface ClassifyLineFormProps {
 const MIN_INSTALLMENTS = 2;
 const MAX_INSTALLMENTS = 60;
 
-// Bancos costumam sufixar a descrição com "02/04" (parcela atual/total).
-function detectInstallments(description: string) {
-	const match = description.match(/(\d{1,2})\/(\d{1,2})\s*$/);
-	if (!match) return null;
-	const current = Number(match[1]);
-	const total = Number(match[2]);
-	if (
-		total < MIN_INSTALLMENTS ||
-		total > MAX_INSTALLMENTS ||
-		current < 1 ||
-		current > total
-	) {
-		return null;
-	}
-	return { current, total };
-}
-
 const categorySourceLabel: Record<string, string> = {
 	mapping: "Sugerido pelo histórico",
 	ai: "Sugerido pela IA",
@@ -73,7 +57,11 @@ export function ClassifyLineForm({
 		line.type === "receita" ? "Receita" : "Despesa",
 	);
 	const [amount, setAmount] = useState(String(Math.abs(Number(line.amount))));
-	const [description, setDescription] = useState(line.description);
+	const detected = detectInstallmentFromName(line.description);
+	// "Casa Do Oleo (2/4)" → nome "Casa Do Oleo", parcela 2 de 4.
+	const [description, setDescription] = useState(
+		detected?.name ?? line.description,
+	);
 	const [purchaseDate, setPurchaseDate] = useState(
 		toDateOnlyString(line.date) ?? "",
 	);
@@ -85,15 +73,14 @@ export function ClassifyLineForm({
 	const [costCenterId, setCostCenterId] = useState<string | null>(null);
 	const [payerId, setPayerId] = useState<string | null>(defaultPayerId);
 	const [paymentMethod, setPaymentMethod] = useState("Pix");
-	const detected = detectInstallments(line.description);
 	const [condition, setCondition] = useState<"À vista" | "Parcelado">(
 		detected ? "Parcelado" : "À vista",
 	);
 	const [installmentCount, setInstallmentCount] = useState(
-		String(detected?.total ?? MIN_INSTALLMENTS),
+		String(detected?.installmentCount ?? MIN_INSTALLMENTS),
 	);
 	const [currentInstallment, setCurrentInstallment] = useState(
-		String(detected?.current ?? 1),
+		String(detected?.currentInstallment ?? 1),
 	);
 	// "each": o valor é o de cada parcela (caso típico do extrato, que traz só
 	// uma parcela). "total": o valor é o total da compra e será dividido.
@@ -105,7 +92,8 @@ export function ClassifyLineForm({
 	useEffect(() => {
 		setTransactionType(line.type === "receita" ? "Receita" : "Despesa");
 		setAmount(String(Math.abs(Number(line.amount))));
-		setDescription(line.description);
+		const next = detectInstallmentFromName(line.description);
+		setDescription(next?.name ?? line.description);
 		setPurchaseDate(toDateOnlyString(line.date) ?? "");
 		setAccountId(line.linkedFinancialAccountId);
 		setCardId(line.linkedCardId);
@@ -113,10 +101,9 @@ export function ClassifyLineForm({
 		setCostCenterId(null);
 		setPayerId(defaultPayerId);
 		setPaymentMethod("Pix");
-		const next = detectInstallments(line.description);
 		setCondition(next ? "Parcelado" : "À vista");
-		setInstallmentCount(String(next?.total ?? MIN_INSTALLMENTS));
-		setCurrentInstallment(String(next?.current ?? 1));
+		setInstallmentCount(String(next?.installmentCount ?? MIN_INSTALLMENTS));
+		setCurrentInstallment(String(next?.currentInstallment ?? 1));
 		setAmountMode(next ? "each" : "total");
 	}, [line.id]);
 
