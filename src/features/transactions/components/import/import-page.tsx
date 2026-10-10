@@ -22,12 +22,14 @@ import {
 import { ImportSteps } from "@/features/transactions/components/import/import-steps";
 import { ImportSummary } from "@/features/transactions/components/import/import-summary";
 import {
+	isInstallmentValid,
 	type ReviewRow,
 	ReviewTable,
 } from "@/features/transactions/components/import/review-table";
 import { UploadZone } from "@/features/transactions/components/import/upload-zone";
 import type { SelectOption } from "@/features/transactions/components/types";
 import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
+import { detectInstallmentFromName } from "@/features/transactions/lib/installment-detection";
 import { Button } from "@/shared/components/ui/button";
 import {
 	Card,
@@ -117,7 +119,12 @@ export function ImportPage({
 								rows: stmt.transactions,
 							})
 						: Promise.resolve({ success: true as const, rows: [] }),
-					fetchCategoryMappings(stmt.transactions.map((t) => t.description)),
+					fetchCategoryMappings(
+						stmt.transactions.map(
+							(t) =>
+								detectInstallmentFromName(t.description)?.name ?? t.description,
+						),
+					),
 				]);
 				if (requestId !== duplicateCheckRequestId.current) return;
 				if (!duplicateResult.success) {
@@ -126,8 +133,11 @@ export function ImportPage({
 
 				setRows(
 					stmt.transactions.map((t, index) => {
+						// "Casa Do Oleo (2/4)" → parcela 2 de 4 e nome "Casa Do Oleo".
+						const installment = detectInstallmentFromName(t.description);
+						const description = installment?.name ?? t.description;
 						let mappedCategoryId =
-							categoryMappings[normalizeDescriptionKey(t.description)] ?? null;
+							categoryMappings[normalizeDescriptionKey(description)] ?? null;
 						const existingTransactionId = duplicateResult.success
 							? (duplicateResult.rows[index]?.existingTransactionId ?? null)
 							: null;
@@ -144,6 +154,9 @@ export function ImportPage({
 
 						return {
 							...t,
+							description,
+							installmentCurrent: installment?.currentInstallment ?? null,
+							installmentTotal: installment?.installmentCount ?? null,
 							reviewId: createClientSafeId(),
 							existingTransactionId,
 							isDuplicate: existingTransactionId !== null,
@@ -275,6 +288,23 @@ export function ImportPage({
 		);
 	};
 
+	const handleInstallmentChange = (
+		index: number,
+		installment: { current: number | null; total: number | null },
+	) => {
+		setRows((prev) =>
+			prev.map((r, i) =>
+				i === index
+					? {
+							...r,
+							installmentCurrent: installment.current,
+							installmentTotal: installment.total,
+						}
+					: r,
+			),
+		);
+	};
+
 	const handleBulkCategoryChange = (categoryId: string) => {
 		setRows((prev) =>
 			prev.map((r) =>
@@ -299,6 +329,7 @@ export function ImportPage({
 		duplicateCount,
 		uncategorizedCount,
 		withoutPayerCount,
+		invalidInstallmentCount,
 		selectedTotal,
 	} = useMemo(() => {
 		const selected = rows.filter((r) => r.selected);
@@ -307,6 +338,8 @@ export function ImportPage({
 			duplicateCount: rows.filter((r) => r.isDuplicate).length,
 			uncategorizedCount: selected.filter((r) => !r.categoryId).length,
 			withoutPayerCount: selected.filter((r) => !r.payerId).length,
+			invalidInstallmentCount: selected.filter((r) => !isInstallmentValid(r))
+				.length,
 			selectedTotal: selected.reduce(
 				(sum, r) =>
 					sum + (r.transactionType === "expense" ? -r.amount : r.amount),
@@ -320,6 +353,7 @@ export function ImportPage({
 		!!accountCardValue &&
 		uncategorizedCount === 0 &&
 		withoutPayerCount === 0 &&
+		invalidInstallmentCount === 0 &&
 		(!isCard || !!invoicePeriod) &&
 		!isPending;
 
@@ -348,6 +382,10 @@ export function ImportPage({
 					transactionType: r.transactionType,
 					categoryId: r.categoryId,
 					payerId: r.payerId,
+					installmentCount: r.installmentTotal,
+					currentInstallment: r.installmentTotal
+						? (r.installmentCurrent ?? 1)
+						: null,
 				})),
 				payerId,
 				accountId,
@@ -470,6 +508,7 @@ export function ImportPage({
 								onPayerChange={handlePayerChange}
 								onCategoryChange={handleCategoryChange}
 								onDescriptionChange={handleDescriptionChange}
+								onInstallmentChange={handleInstallmentChange}
 								onUndoDuplicate={handleUndoDuplicate}
 							/>
 
@@ -497,6 +536,13 @@ export function ImportPage({
 											<p className="text-muted-foreground text-sm">
 												{uncategorizedCount} lançamento
 												{uncategorizedCount !== 1 ? "s" : ""} sem categoria.
+											</p>
+										) : invalidInstallmentCount > 0 ? (
+											<p className="text-muted-foreground text-sm">
+												{invalidInstallmentCount} parcelamento
+												{invalidInstallmentCount !== 1 ? "s" : ""} inválido
+												{invalidInstallmentCount !== 1 ? "s" : ""} (total de 2 a
+												60; atual até o total).
 											</p>
 										) : isCard && !invoicePeriod ? (
 											<p className="text-muted-foreground text-sm">
