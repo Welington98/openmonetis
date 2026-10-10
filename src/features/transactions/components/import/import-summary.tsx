@@ -11,6 +11,7 @@ interface ImportSummaryProps {
 	selected: number;
 	selectedTotal: number;
 	duplicates: number;
+	possibleDuplicates: number;
 	uncategorized: number;
 	withoutPayer: number;
 }
@@ -21,6 +22,7 @@ export function ImportSummary({
 	selected,
 	selectedTotal,
 	duplicates,
+	possibleDuplicates,
 	uncategorized,
 	withoutPayer,
 }: ImportSummaryProps) {
@@ -63,6 +65,14 @@ export function ImportSummary({
 				{duplicates > 0 && (
 					<span className="text-amber-600 dark:text-amber-400">
 						{duplicates} duplicata{duplicates !== 1 ? "s" : ""}
+					</span>
+				)}
+
+				{possibleDuplicates > 0 && (
+					<span className="text-amber-600 dark:text-amber-400">
+						{possibleDuplicates} possível
+						{possibleDuplicates !== 1 ? "is duplicatas" : " duplicata"}{" "}
+						(confira)
 					</span>
 				)}
 

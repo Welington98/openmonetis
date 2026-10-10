@@ -2,6 +2,7 @@
 
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { useRef } from "react";
+import type { PossibleDuplicate } from "@/features/transactions/actions/import-action";
 import {
 	CategorySelectContent,
 	PayerSelectContent,
@@ -32,6 +33,7 @@ import {
 	TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
 import type { ImportedTransaction } from "@/shared/lib/import/types";
+import { formatCurrency } from "@/shared/utils/currency";
 import { formatDate } from "@/shared/utils/date";
 
 const categoryGroupByTransactionType: Record<
@@ -46,6 +48,8 @@ export type ReviewRow = ImportedTransaction & {
 	reviewId: string;
 	selected: boolean;
 	isDuplicate: boolean;
+	// Parece com um lançamento já existente (sem match exato): só sugestão.
+	possibleDuplicate: PossibleDuplicate | null;
 	existingTransactionId: string | null;
 	categoryId: string | null;
 	payerId: string | null;
@@ -176,7 +180,9 @@ export function ReviewTable({
 								<TableRow
 									key={row.reviewId}
 									className={
-										row.isDuplicate && !row.selected ? "opacity-50" : ""
+										(row.isDuplicate || row.possibleDuplicate) && !row.selected
+											? "opacity-50"
+											: ""
 									}
 								>
 									<TableCell>
@@ -198,6 +204,28 @@ export function ReviewTable({
 											}
 											className="w-full bg-transparent text-sm outline-none focus:rounded focus:ring-1 focus:ring-ring"
 										/>
+										{row.possibleDuplicate && (
+											<div className="mt-0.5">
+												<Tooltip>
+													<TooltipTrigger asChild>
+														<span className="cursor-default rounded-sm bg-amber-500/15 px-1.5 py-0.5 text-amber-700 text-xs dark:text-amber-400">
+															Possível duplicata
+														</span>
+													</TooltipTrigger>
+													<TooltipContent>
+														<p>
+															Parece com "{row.possibleDuplicate.name}" (
+															{formatDate(row.possibleDuplicate.purchaseDate)},{" "}
+															{formatCurrency(
+																Math.abs(row.possibleDuplicate.amount),
+															)}
+															) já lançado. Marque a linha para importar mesmo
+															assim.
+														</p>
+													</TooltipContent>
+												</Tooltip>
+											</div>
+										)}
 										{row.isDuplicate && (
 											<div className="mt-0.5 flex items-center gap-1">
 												<Tooltip>

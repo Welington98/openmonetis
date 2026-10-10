@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { z } from "zod";
 import { transactions } from "@/db/schema";
 import {
@@ -18,9 +18,14 @@ import {
 	type OfxIdentityRow,
 	type OfxImportDestination,
 } from "@/shared/lib/import/ofx-identity";
+import { matchLinesToTransactions } from "@/shared/lib/matching/transaction-matching";
 import { uuidSchema } from "@/shared/lib/schemas/common";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
-import { parseLocalDateString, toDateOnlyString } from "@/shared/utils/date";
+import {
+	addDays,
+	parseLocalDateString,
+	toDateOnlyString,
+} from "@/shared/utils/date";
 import { addMonthsToPeriod } from "@/shared/utils/period";
 
 const ofxIdentityRowSchema = z.object({
@@ -37,11 +42,19 @@ const ofxImportDestinationSchema = z.discriminatedUnion("type", [
 	z.object({ type: z.literal("card"), id: uuidSchema("Cartão") }),
 ]);
 
+const duplicateCheckRowSchema = ofxIdentityRowSchema.extend({
+	// Descrição já limpa (sem o sufixo de parcela) e parcela detectada, usadas só
+	// na busca por possíveis duplicatas entre lançamentos já existentes.
+	description: z.string().optional(),
+	installmentCurrent: z.number().int().nullable().optional(),
+	installmentTotal: z.number().int().nullable().optional(),
+});
+
 const duplicateCheckSchema = z.object({
 	source: z.string().min(1),
 	accountNumber: z.string().nullable(),
 	destination: ofxImportDestinationSchema,
-	rows: z.array(ofxIdentityRowSchema),
+	rows: z.array(duplicateCheckRowSchema),
 });
 
 const importRowSchema = ofxIdentityRowSchema
@@ -84,10 +97,20 @@ type ImportResult =
 	| { success: true; imported: number; skipped: number; importBatchId: string }
 	| { success: false; error: string };
 
+export type PossibleDuplicate = {
+	transactionId: string;
+	name: string;
+	purchaseDate: string;
+	amount: number;
+};
+
 type ImportMatch = {
 	fingerprint: string | null;
 	existingTransactionId: string | null;
+	possibleDuplicate?: PossibleDuplicate | null;
 };
+
+const POSSIBLE_DUPLICATE_WINDOW_DAYS = 3;
 
 type LegacyImportCandidate = {
 	id: string;
@@ -265,16 +288,153 @@ export async function checkDuplicateOfxTransactions(
 		return { success: false, error: "Conta ou cartão não encontrado." };
 	}
 
+	const matches = await findExistingImports(
+		userId,
+		source,
+		accountNumber,
+		destination,
+		rows,
+	);
+	const possibleDuplicates = await findPossibleDuplicates(
+		userId,
+		destination,
+		rows,
+		matches,
+	);
+
 	return {
 		success: true,
-		rows: await findExistingImports(
-			userId,
-			source,
-			accountNumber,
-			destination,
-			rows,
-		),
+		rows: matches.map((match, index) => ({
+			...match,
+			possibleDuplicate: possibleDuplicates[index] ?? null,
+		})),
 	};
+}
+
+type DuplicateCheckRow = z.infer<typeof duplicateCheckRowSchema>;
+
+/**
+ * Linhas sem match exato (fingerprint) que parecem lançamentos já existentes na
+ * mesma conta/cartão — lançados à mão, via Pluggy ou de outra importação.
+ * Só sugere: quem decide é o usuário na revisão.
+ */
+async function findPossibleDuplicates(
+	userId: string,
+	destination: OfxImportDestination,
+	rows: DuplicateCheckRow[],
+	exactMatches: ImportMatch[],
+): Promise<(PossibleDuplicate | null)[]> {
+	const pendingIndexes = rows.flatMap((_, index) =>
+		exactMatches[index]?.existingTransactionId ? [] : [index],
+	);
+	if (pendingIndexes.length === 0) return rows.map(() => null);
+
+	const pendingRows = pendingIndexes.map(
+		(index) => rows[index] as DuplicateCheckRow,
+	);
+	const dates = pendingRows.map((row) => parseLocalDateString(row.date));
+	const sortedDates = pendingRows.map((row) => row.date).sort();
+	const minDate = sortedDates[0] as string;
+	const maxDate = sortedDates[sortedDates.length - 1] as string;
+	const signedAmounts = [
+		...new Set(
+			pendingRows.map((row) =>
+				formatDecimalForDbRequired(
+					row.transactionType === "expense" ? -row.amount : row.amount,
+				),
+			),
+		),
+	];
+
+	const destinationFilter =
+		destination.type === "card"
+			? eq(transactions.cardId, destination.id)
+			: eq(transactions.accountId, destination.id);
+
+	const candidates = await db
+		.select({
+			id: transactions.id,
+			name: transactions.name,
+			amount: transactions.amount,
+			purchaseDate: transactions.purchaseDate,
+			transactionType: transactions.transactionType,
+			installmentCount: transactions.installmentCount,
+			currentInstallment: transactions.currentInstallment,
+		})
+		.from(transactions)
+		.where(
+			and(
+				eq(transactions.userId, userId),
+				destinationFilter,
+				inArray(transactions.amount, signedAmounts),
+				or(
+					and(
+						gte(
+							transactions.purchaseDate,
+							parseLocalDateString(
+								addDays(minDate, -POSSIBLE_DUPLICATE_WINDOW_DAYS),
+							),
+						),
+						lte(
+							transactions.purchaseDate,
+							parseLocalDateString(
+								addDays(maxDate, POSSIBLE_DUPLICATE_WINDOW_DAYS),
+							),
+						),
+					),
+					// Parcelas mantêm a data da compra original.
+					sql`${transactions.installmentCount} IS NOT NULL`,
+				),
+			),
+		);
+
+	// Lançamentos que já casaram exatamente com outra linha não contam.
+	const consumed = new Set(
+		exactMatches.flatMap((match) =>
+			match.existingTransactionId ? [match.existingTransactionId] : [],
+		),
+	);
+	const available = candidates
+		.filter((candidate) => !consumed.has(candidate.id))
+		.map((candidate) => ({
+			id: candidate.id,
+			name: candidate.name,
+			amount: Number(candidate.amount),
+			purchaseDate: candidate.purchaseDate,
+			transactionType: candidate.transactionType,
+			installmentCount: candidate.installmentCount,
+			currentInstallment: candidate.currentInstallment,
+		}));
+	const byId = new Map(available.map((candidate) => [candidate.id, candidate]));
+
+	const matches = matchLinesToTransactions(
+		pendingRows.map((row, position) => ({
+			description: row.description ?? row.sourceDescription,
+			amount: row.amount,
+			date: dates[position] as Date,
+			transactionType: row.transactionType === "income" ? "Receita" : "Despesa",
+			installment:
+				row.installmentTotal && row.installmentCurrent
+					? { current: row.installmentCurrent, total: row.installmentTotal }
+					: null,
+		})),
+		available,
+	);
+
+	const result: (PossibleDuplicate | null)[] = rows.map(() => null);
+	pendingIndexes.forEach((rowIndex, position) => {
+		const match = matches[position];
+		const candidate = match ? byId.get(match.transactionId) : null;
+		if (!candidate) return;
+		result[rowIndex] = {
+			transactionId: candidate.id,
+			name: candidate.name,
+			purchaseDate: toDateOnlyString(candidate.purchaseDate) ?? "",
+			amount: candidate.amount,
+		};
+	});
+
+	return result;
 }
 
 export async function importTransactionsAction(

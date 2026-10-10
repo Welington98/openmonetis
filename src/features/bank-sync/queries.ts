@@ -23,6 +23,10 @@ import {
 } from "@/shared/lib/cost-centers/queries";
 import { db } from "@/shared/lib/db";
 import { fetchPluggyAccounts } from "./lib/pluggy-client";
+import {
+	fetchPossibleDuplicates,
+	type StatementLinePossibleDuplicate,
+} from "./lib/possible-duplicates";
 
 export type BankConnectionWithDisplay = Omit<
 	BankConnection,
@@ -59,6 +63,8 @@ export type StatementLineWithCategory = StatementLine & {
 	categoryName: string | null;
 	linkedFinancialAccountId: string | null;
 	linkedCardId: string | null;
+	/** Lançamento existente que parece ser a mesma transação (só sugestão). */
+	possibleDuplicate?: StatementLinePossibleDuplicate | null;
 };
 
 export async function fetchStatementLines(
@@ -302,11 +308,20 @@ export async function fetchReconciliationWorkspaceData(
 		fetchBankSyncDialogData(userId),
 	]);
 
+	const visibleLines = lines.filter((line) => line.status !== "ignored");
+	const possibleDuplicates = await fetchPossibleDuplicates(
+		userId,
+		visibleLines,
+	);
+
 	return {
 		connections,
 		linkedAccounts,
 		linkedCards,
-		statementLines: lines.filter((line) => line.status !== "ignored"),
+		statementLines: visibleLines.map((line) => ({
+			...line,
+			possibleDuplicate: possibleDuplicates.get(line.id) ?? null,
+		})),
 		pluggyConfigured,
 		statementCategorizationMode,
 		...dialogData,
