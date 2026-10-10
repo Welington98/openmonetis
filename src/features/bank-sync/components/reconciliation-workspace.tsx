@@ -69,7 +69,7 @@ import {
 	toLocalDateString,
 } from "@/shared/utils/date";
 
-type FilterKey = "todos" | "pendentes" | "classificados" | "ia";
+type FilterKey = "todos" | "pendentes" | "classificados" | "ia" | "duplicatas";
 
 const ALL_CONNECTIONS_VALUE = "__all__";
 
@@ -166,6 +166,9 @@ export function ReconciliationWorkspace({
 			).length,
 			ia: searchAndDateFilteredLines.filter((l) => l.categorySource === "ai")
 				.length,
+			duplicatas: searchAndDateFilteredLines.filter(
+				(l) => l.status === "unmatched" && l.possibleDuplicate,
+			).length,
 		}),
 		[searchAndDateFilteredLines],
 	);
@@ -175,6 +178,9 @@ export function ReconciliationWorkspace({
 			if (filter === "pendentes") return line.status === "unmatched";
 			if (filter === "classificados") return line.status === "matched";
 			if (filter === "ia") return line.categorySource === "ai";
+			if (filter === "duplicatas") {
+				return line.status === "unmatched" && Boolean(line.possibleDuplicate);
+			}
 			return true;
 		});
 	}, [searchAndDateFilteredLines, filter]);
@@ -604,21 +610,26 @@ export function ReconciliationWorkspace({
 									["pendentes", "Pendentes"],
 									["classificados", "Classificados"],
 									["ia", "Categorizado por IA"],
+									["duplicatas", "Possíveis duplicatas"],
 								] as [FilterKey, string][]
-							).map(([key, label]) => (
-								<button
-									key={key}
-									type="button"
-									onClick={() => setFilter(key)}
-									className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
-										filter === key
-											? "border-primary bg-primary/10 text-primary"
-											: "border-border text-muted-foreground hover:bg-accent"
-									}`}
-								>
-									{label} ({counts[key]})
-								</button>
-							))}
+							)
+								.filter(
+									([key]) => key !== "duplicatas" || counts.duplicatas > 0,
+								)
+								.map(([key, label]) => (
+									<button
+										key={key}
+										type="button"
+										onClick={() => setFilter(key)}
+										className={`rounded-full border px-2.5 py-1 text-xs transition-colors ${
+											filter === key
+												? "border-primary bg-primary/10 text-primary"
+												: "border-border text-muted-foreground hover:bg-accent"
+										}`}
+									>
+										{label} ({counts[key]})
+									</button>
+								))}
 						</div>
 						{selectableLines.length > 0 && (
 							<label className="flex items-center gap-2 px-0.5 text-muted-foreground text-xs">
@@ -697,6 +708,15 @@ export function ReconciliationWorkspace({
 												{line.status === "matched" && (
 													<RiCheckLine className="size-3.5 text-emerald-600" />
 												)}
+												{line.status === "unmatched" &&
+													line.possibleDuplicate && (
+														<Badge
+															variant="outline"
+															className="border-amber-500/40 text-[10px] text-amber-700 dark:text-amber-400"
+														>
+															Possível duplicata
+														</Badge>
+													)}
 											</div>
 										</button>
 									</div>
@@ -778,6 +798,9 @@ export function ReconciliationWorkspace({
 										categoryOptions={categoryOptions}
 										costCenterOptions={costCenterOptions}
 										onDone={() =>
+											handleLineResolved(selectedLine.id, "matched")
+										}
+										onMatchedExisting={() =>
 											handleLineResolved(selectedLine.id, "matched")
 										}
 									/>

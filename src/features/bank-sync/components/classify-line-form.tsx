@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { matchStatementLineAction } from "@/features/bank-sync/actions";
 import { createTransactionAction } from "@/features/transactions/actions/single-actions";
 import type { SelectOption } from "@/features/transactions/components/types";
 import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
@@ -16,7 +17,8 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
-import { toDateOnlyString } from "@/shared/utils/date";
+import { formatCurrency } from "@/shared/utils/currency";
+import { formatDateOnly, toDateOnlyString } from "@/shared/utils/date";
 import type { StatementLineWithCategory } from "../queries";
 
 interface ClassifyLineFormProps {
@@ -28,6 +30,8 @@ interface ClassifyLineFormProps {
 	categoryOptions: SelectOption[];
 	costCenterOptions: SelectOption[];
 	onDone: (transactionId: string) => void;
+	/** Chamado depois de vincular a linha ao lançamento já existente sugerido. */
+	onMatchedExisting?: () => void;
 }
 
 const MIN_INSTALLMENTS = 2;
@@ -65,9 +69,12 @@ export function ClassifyLineForm({
 	categoryOptions,
 	costCenterOptions,
 	onDone,
+	onMatchedExisting,
 }: ClassifyLineFormProps) {
 	const isCardLine = line.pluggyAccountType === "CREDIT";
 	const [isSaving, setIsSaving] = useState(false);
+	const [isLinking, setIsLinking] = useState(false);
+	const possibleDuplicate = line.possibleDuplicate ?? null;
 	const [transactionType, setTransactionType] = useState<"Despesa" | "Receita">(
 		line.type === "receita" ? "Receita" : "Despesa",
 	);
@@ -142,6 +149,25 @@ export function ClassifyLineForm({
 		!!purchaseDate &&
 		!!description.trim();
 
+	const handleLinkExisting = async () => {
+		if (!possibleDuplicate) return;
+		setIsLinking(true);
+		try {
+			const result = await matchStatementLineAction({
+				statementLineId: line.id,
+				transactionId: possibleDuplicate.transactionId,
+			});
+			if (!result.success) {
+				toast.error(result.error);
+				return;
+			}
+			toast.success("Vinculado ao lançamento existente.");
+			onMatchedExisting?.();
+		} finally {
+			setIsLinking(false);
+		}
+	};
+
 	const handleSubmit = async () => {
 		if (!canSave || !categoryId) return;
 		if (isCardLine && !cardId) return;
@@ -194,6 +220,30 @@ export function ClassifyLineForm({
 
 	return (
 		<div className="flex flex-col gap-4">
+			{possibleDuplicate && (
+				<div className="flex flex-col gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+					<p>
+						Possível duplicata: já existe o lançamento{" "}
+						<strong>{possibleDuplicate.name}</strong> (
+						{formatDateOnly(possibleDuplicate.purchaseDate)},{" "}
+						{formatCurrency(Math.abs(possibleDuplicate.amount))}).
+					</p>
+					<div className="flex gap-2">
+						<Button
+							type="button"
+							size="sm"
+							variant="outline"
+							onClick={handleLinkExisting}
+							disabled={isLinking || isSaving}
+						>
+							{isLinking ? "Vinculando..." : "Vincular a este lançamento"}
+						</Button>
+						<span className="self-center text-muted-foreground text-xs">
+							ou continue abaixo para criar um novo
+						</span>
+					</div>
+				</div>
+			)}
 			<div className="grid grid-cols-2 gap-4">
 				<div className="space-y-1.5">
 					<Label>Tipo</Label>

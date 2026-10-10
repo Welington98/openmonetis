@@ -44,6 +44,7 @@ import {
 	fetchPluggyTransactions,
 	isPluggyConfigured,
 } from "./lib/pluggy-client";
+import { fetchPossibleDuplicates } from "./lib/possible-duplicates";
 import { syncBankConnection } from "./lib/sync";
 import { fetchBankSyncDialogData, fetchStatementLines } from "./queries";
 
@@ -764,11 +765,21 @@ export async function bulkImportStatementLinesAction(
 			};
 		}
 
+		// Linhas que parecem lançamentos já existentes ficam pra revisão manual
+		// (vincular ou importar mesmo assim) em vez de duplicar em massa.
+		const possibleDuplicates = await fetchPossibleDuplicates(userId, lines);
+
 		let imported = 0;
 		let skippedNoAccount = 0;
 		let skippedNoCategory = 0;
+		let skippedPossibleDuplicate = 0;
 
 		for (const line of lines) {
+			if (possibleDuplicates.has(line.id)) {
+				skippedPossibleDuplicate++;
+				continue;
+			}
+
 			const isCardLine = line.pluggyAccountType === "CREDIT";
 			if (isCardLine ? !line.linkedCardId : !line.linkedFinancialAccountId) {
 				skippedNoAccount++;
@@ -833,6 +844,11 @@ export async function bulkImportStatementLinesAction(
 		}
 		if (skippedNoCategory > 0) {
 			parts.push(`${skippedNoCategory} sem categoria conhecida`);
+		}
+		if (skippedPossibleDuplicate > 0) {
+			parts.push(
+				`${skippedPossibleDuplicate} possível(is) duplicata(s) para conferir`,
+			);
 		}
 
 		return {
