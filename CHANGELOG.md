@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.52.0](https://github.com/Welington98/openmonetis/compare/v2.51.0...v2.52.0) (2026-10-10)
+
+### Adicionado
+
+* **import:** detecta e cria parcelas ao importar OFX, planilha ou fatura em PDF ([a186976](https://github.com/Welington98/openmonetis/commit/a18697699455a5e6194b47b80e50ec615a1ac814))
+
 ## [2.51.0](https://github.com/Welington98/openmonetis/compare/v2.50.0...v2.51.0) (2026-10-10)
 
 ### Adicionado
