@@ -5,6 +5,13 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.53.0](https://github.com/Welington98/openmonetis/compare/v2.52.0...v2.53.0) (2026-10-10)
+
+### Adicionado
+
+* **bank-sync:** sinaliza possíveis duplicatas na conciliação via Pluggy ([4496762](https://github.com/Welington98/openmonetis/commit/4496762a7a96072d5bf62d577605c861f5a75c31))
+* **import:** detecta duplicatas por conteúdo e possíveis duplicatas na revisão ([6b1eb46](https://github.com/Welington98/openmonetis/commit/6b1eb4652b29b666757599d61ea71d8dffee2e45))
+
 ## [2.52.0](https://github.com/Welington98/openmonetis/compare/v2.51.0...v2.52.0) (2026-10-10)
 
 ### Adicionado
