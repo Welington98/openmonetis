@@ -562,14 +562,29 @@ export const toggleSettlementSchema = z.object({
 		.optional(),
 });
 
-export const convertToInstallmentSchema = z.object({
-	id: uuidSchema("Lançamento"),
-	installmentCount: z.coerce
-		.number({ message: "Informe em quantas parcelas dividir." })
-		.int()
-		.min(2, "O parcelamento deve ter ao menos duas parcelas.")
-		.max(60, "Selecione até 60 parcelas."),
-});
+export const convertToInstallmentSchema = z
+	.object({
+		id: uuidSchema("Lançamento"),
+		installmentCount: z.coerce
+			.number({ message: "Informe em quantas parcelas dividir." })
+			.int()
+			.min(2, "O parcelamento deve ter ao menos duas parcelas.")
+			.max(60, "Selecione até 60 parcelas."),
+		// Número da parcela que este lançamento representa (as anteriores não
+		// são criadas).
+		startInstallment: z.coerce
+			.number({ message: "Informe a parcela inicial." })
+			.int()
+			.min(1, "A parcela inicial deve ser ao menos 1.")
+			.default(1),
+		// "total": o valor do lançamento é dividido entre as parcelas.
+		// "each": o valor do lançamento é o de cada parcela.
+		amountMode: z.enum(["total", "each"]).default("total"),
+	})
+	.refine((data) => data.startInstallment <= data.installmentCount, {
+		message: "A parcela inicial não pode ser maior que o total.",
+		path: ["startInstallment"],
+	});
 
 export const convertToRecurringSchema = z.object({
 	id: uuidSchema("Lançamento"),
