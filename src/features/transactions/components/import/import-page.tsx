@@ -109,6 +109,11 @@ export function ImportPage({
 				: null;
 			setAccountCardValue(defaultAccountCardValue);
 
+			// "Casa Do Oleo (2/4)" → parcela 2 de 4 e nome "Casa Do Oleo".
+			const installments = stmt.transactions.map((t) =>
+				detectInstallmentFromName(t.description),
+			);
+
 			try {
 				const [duplicateResult, categoryMappings] = await Promise.all([
 					destination
@@ -116,13 +121,19 @@ export function ImportPage({
 								source: stmt.source,
 								accountNumber: stmt.accountNumber,
 								destination,
-								rows: stmt.transactions,
+								rows: stmt.transactions.map((t, index) => ({
+									...t,
+									description: installments[index]?.name ?? t.description,
+									installmentCurrent:
+										installments[index]?.currentInstallment ?? null,
+									installmentTotal:
+										installments[index]?.installmentCount ?? null,
+								})),
 							})
 						: Promise.resolve({ success: true as const, rows: [] }),
 					fetchCategoryMappings(
 						stmt.transactions.map(
-							(t) =>
-								detectInstallmentFromName(t.description)?.name ?? t.description,
+							(t, index) => installments[index]?.name ?? t.description,
 						),
 					),
 				]);
@@ -133,14 +144,17 @@ export function ImportPage({
 
 				setRows(
 					stmt.transactions.map((t, index) => {
-						// "Casa Do Oleo (2/4)" → parcela 2 de 4 e nome "Casa Do Oleo".
-						const installment = detectInstallmentFromName(t.description);
+						const installment = installments[index];
 						const description = installment?.name ?? t.description;
 						let mappedCategoryId =
 							categoryMappings[normalizeDescriptionKey(description)] ?? null;
 						const existingTransactionId = duplicateResult.success
 							? (duplicateResult.rows[index]?.existingTransactionId ?? null)
 							: null;
+						const possibleDuplicate =
+							duplicateResult.success && !existingTransactionId
+								? (duplicateResult.rows[index]?.possibleDuplicate ?? null)
+								: null;
 
 						if (t.categoryRaw) {
 							const categoryRaw = normalizeCategoryName(t.categoryRaw);
@@ -160,7 +174,8 @@ export function ImportPage({
 							reviewId: createClientSafeId(),
 							existingTransactionId,
 							isDuplicate: existingTransactionId !== null,
-							selected: existingTransactionId === null,
+							possibleDuplicate,
+							selected: existingTransactionId === null && !possibleDuplicate,
 							payerId,
 							categoryId: isCategoryCompatible(
 								mappedCategoryId,
@@ -214,13 +229,18 @@ export function ImportPage({
 					const existingTransactionId =
 						result.rows[index]?.existingTransactionId ?? null;
 					const isDuplicate = existingTransactionId !== null;
+					const possibleDuplicate = isDuplicate
+						? null
+						: (result.rows[index]?.possibleDuplicate ?? null);
+					const wasFlagged = row.isDuplicate || row.possibleDuplicate !== null;
+					const isFlagged = isDuplicate || possibleDuplicate !== null;
 
 					return {
 						...row,
 						existingTransactionId,
-						selected:
-							row.isDuplicate === isDuplicate ? row.selected : !isDuplicate,
+						selected: wasFlagged === isFlagged ? row.selected : !isFlagged,
 						isDuplicate,
+						possibleDuplicate,
 					};
 				}),
 			);
@@ -327,6 +347,7 @@ export function ImportPage({
 	const {
 		selectedRows,
 		duplicateCount,
+		possibleDuplicateCount,
 		uncategorizedCount,
 		withoutPayerCount,
 		invalidInstallmentCount,
@@ -336,6 +357,7 @@ export function ImportPage({
 		return {
 			selectedRows: selected,
 			duplicateCount: rows.filter((r) => r.isDuplicate).length,
+			possibleDuplicateCount: rows.filter((r) => r.possibleDuplicate).length,
 			uncategorizedCount: selected.filter((r) => !r.categoryId).length,
 			withoutPayerCount: selected.filter((r) => !r.payerId).length,
 			invalidInstallmentCount: selected.filter((r) => !isInstallmentValid(r))
@@ -481,6 +503,7 @@ export function ImportPage({
 								selected={selectedRows.length}
 								selectedTotal={selectedTotal}
 								duplicates={duplicateCount}
+								possibleDuplicates={possibleDuplicateCount}
 								uncategorized={uncategorizedCount}
 								withoutPayer={withoutPayerCount}
 							/>

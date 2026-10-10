@@ -1,3 +1,4 @@
+import { assignContentOccurrences } from "./ofx-identity";
 import type { ImportedTransaction, ImportStatement } from "./types";
 
 /**
@@ -175,7 +176,7 @@ function parseTransactionRow(
 		date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
 		amount: Math.abs(signedAmount),
 		description,
-		sourceDescription: baseDescription,
+		sourceDescription: description,
 		// Convenção da fatura: valor negativo = crédito/estorno na fatura
 		// (pagamentos já são excluídos acima).
 		transactionType: signedAmount < 0 ? "income" : "expense",
@@ -240,6 +241,6 @@ export async function parseSicrediFatura(file: File): Promise<ImportStatement> {
 		accountNumber,
 		period,
 		isCreditCard: true,
-		transactions,
+		transactions: assignContentOccurrences(transactions),
 	};
 }

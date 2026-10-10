@@ -1,3 +1,4 @@
+import { assignContentOccurrences } from "./ofx-identity";
 import type { ImportedTransaction, ImportStatement } from "./types";
 
 /**
@@ -225,7 +226,7 @@ function parseTransactionRow(
 		date: `${year}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`,
 		amount: Math.abs(signedAmount),
 		description,
-		sourceDescription: baseDescription,
+		sourceDescription: description,
 		// Convenção da fatura: valor negativo = crédito/estorno na fatura.
 		transactionType: signedAmount < 0 ? "income" : "expense",
 	};
@@ -339,7 +340,7 @@ export function parseItauFaturaFromPages(
 		accountNumber,
 		period,
 		isCreditCard: true,
-		transactions,
+		transactions: assignContentOccurrences(transactions),
 	};
 }
 

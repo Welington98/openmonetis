@@ -3,6 +3,7 @@ import type {
 	ImportedTransaction,
 	ImportStatement,
 } from "@/shared/lib/import/types";
+import { assignContentOccurrences } from "./ofx-identity";
 
 /**
  * Converte serial number do Excel (1900 date system) para ano/mês/dia.
@@ -201,7 +202,7 @@ export async function parseXls(buffer: ArrayBuffer): Promise<ImportStatement> {
 		accountNumber: null,
 		period,
 		isCreditCard: false,
-		transactions,
+		transactions: assignContentOccurrences(transactions),
 	};
 }
 
