@@ -85,6 +85,8 @@ type FilterKey =
 
 const ALL_CONNECTIONS_VALUE = "__all__";
 
+type SourceKey = "conta" | "cartao";
+
 interface ReconciliationWorkspaceProps {
 	data: ReconciliationWorkspaceData;
 }
@@ -111,6 +113,8 @@ export function ReconciliationWorkspace({
 	const [selectedConnectionId, setSelectedConnectionId] = useState<string>(
 		connections[0]?.id ?? ALL_CONNECTIONS_VALUE,
 	);
+	// Linhas de cartão de crédito não se misturam com as da conta corrente.
+	const [source, setSource] = useState<SourceKey>("conta");
 	const [search, setSearch] = useState("");
 	const [filter, setFilter] = useState<FilterKey>("todos");
 	const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
@@ -156,10 +160,26 @@ export function ReconciliationWorkspace({
 		return () => window.removeEventListener("beforeunload", warn);
 	}, [draftCount]);
 
-	const scopedLines = useMemo(() => {
+	const connectionLines = useMemo(() => {
 		if (selectedConnectionId === ALL_CONNECTIONS_VALUE) return lines;
 		return lines.filter((l) => l.bankConnectionId === selectedConnectionId);
 	}, [lines, selectedConnectionId]);
+
+	const sourceCounts = useMemo(() => {
+		const pending = connectionLines.filter((l) => l.status === "unmatched");
+		const cartao = pending.filter(
+			(l) => l.pluggyAccountType === "CREDIT",
+		).length;
+		return { cartao, conta: pending.length - cartao };
+	}, [connectionLines]);
+
+	const scopedLines = useMemo(
+		() =>
+			connectionLines.filter(
+				(l) => (l.pluggyAccountType === "CREDIT") === (source === "cartao"),
+			),
+		[connectionLines, source],
+	);
 
 	// Linhas depois de busca + período, mas antes do pill de status — é a base
 	// tanto dos contadores dos pills quanto da lista final, pra "Todos (N)" e
@@ -704,6 +724,31 @@ export function ReconciliationWorkspace({
 									</div>
 								</PopoverContent>
 							</Popover>
+						</div>
+						<div className="flex gap-1.5">
+							{(
+								[
+									["conta", "Conta corrente"],
+									["cartao", "Cartão de crédito"],
+								] as [SourceKey, string][]
+							).map(([key, label]) => (
+								<button
+									key={key}
+									type="button"
+									onClick={() => {
+										setSource(key);
+										setSelectedIds(new Set());
+										setSelectedLineId(null);
+									}}
+									className={`flex-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+										source === key
+											? "border-primary bg-primary/10 text-primary"
+											: "border-border text-muted-foreground hover:bg-accent"
+									}`}
+								>
+									{label} ({sourceCounts[key]})
+								</button>
+							))}
 						</div>
 						<div className="flex flex-wrap gap-1.5">
 							{(
