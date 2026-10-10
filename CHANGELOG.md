@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.50.0](https://github.com/Welington98/openmonetis/compare/v2.49.0...v2.50.0) (2026-10-10)
+
+### Adicionado
+
+* **bank-sync:** permite parcelar o lançamento ao classificar uma linha importada ([5eda282](https://github.com/Welington98/openmonetis/commit/5eda2823a853dd15bb156500e55e283b85676f33))
+
 ## [2.49.0](https://github.com/Welington98/openmonetis/compare/v2.48.0...v2.49.0) (2026-10-09)
 
 ### Adicionado
