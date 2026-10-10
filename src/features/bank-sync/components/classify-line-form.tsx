@@ -16,6 +16,7 @@ import {
 	SelectTrigger,
 	SelectValue,
 } from "@/shared/components/ui/select";
+import { formatCurrency } from "@/shared/utils/currency";
 import { toDateOnlyString } from "@/shared/utils/date";
 import type { StatementLineWithCategory } from "../queries";
 
@@ -94,6 +95,11 @@ export function ClassifyLineForm({
 	const [currentInstallment, setCurrentInstallment] = useState(
 		String(detected?.current ?? 1),
 	);
+	// "each": o valor é o de cada parcela (caso típico do extrato, que traz só
+	// uma parcela). "total": o valor é o total da compra e será dividido.
+	const [amountMode, setAmountMode] = useState<"each" | "total">(
+		detected ? "each" : "total",
+	);
 
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset do formulário quando a linha selecionada muda
 	useEffect(() => {
@@ -111,6 +117,7 @@ export function ClassifyLineForm({
 		setCondition(next ? "Parcelado" : "À vista");
 		setInstallmentCount(String(next?.total ?? MIN_INSTALLMENTS));
 		setCurrentInstallment(String(next?.current ?? 1));
+		setAmountMode(next ? "each" : "total");
 	}, [line.id]);
 
 	const filteredCategoryOptions = categoryOptions.filter(
@@ -152,11 +159,12 @@ export function ClassifyLineForm({
 			const result = await createTransactionAction({
 				name: description,
 				transactionType,
-				// A action divide o valor pelo total de parcelas; o valor do
-				// extrato é o de UMA parcela, então multiplica de volta.
-				amount: isParcelado
-					? Math.round(Number(amount) * totalInstallments * 100) / 100
-					: Number(amount),
+				// A action divide o valor pelo total de parcelas; se o valor
+				// informado é o de UMA parcela, multiplica de volta.
+				amount:
+					isParcelado && amountMode === "each"
+						? Math.round(Number(amount) * totalInstallments * 100) / 100
+						: Number(amount),
 				paymentMethod: isCardLine
 					? "Cartão de crédito"
 					: (paymentMethod as (typeof PAYMENT_METHODS)[number]),
@@ -303,11 +311,29 @@ export function ClassifyLineForm({
 					</div>
 				)}
 			</div>
-			{isParcelado && areInstallmentsValid && (
-				<p className="text-muted-foreground text-xs">
-					O valor acima é o de cada parcela. Serão criadas as parcelas{" "}
-					{startInstallment} a {totalInstallments}, uma por mês.
-				</p>
+			{isParcelado && (
+				<div className="space-y-1.5">
+					<Label>O valor informado é</Label>
+					<Select
+						value={amountMode}
+						onValueChange={(v) => setAmountMode(v as "each" | "total")}
+					>
+						<SelectTrigger className="w-full">
+							<SelectValue />
+						</SelectTrigger>
+						<SelectContent>
+							<SelectItem value="each">O valor de cada parcela</SelectItem>
+							<SelectItem value="total">O total a parcelar</SelectItem>
+						</SelectContent>
+					</Select>
+					{areInstallmentsValid && (
+						<p className="text-muted-foreground text-xs">
+							{amountMode === "each"
+								? `Serão criadas as parcelas ${startInstallment} a ${totalInstallments}, de ${formatCurrency(Number(amount) || 0)} cada, uma por mês.`
+								: `${formatCurrency(Number(amount) || 0)} será dividido em ${totalInstallments} parcelas (${formatCurrency((Number(amount) || 0) / totalInstallments)} cada); serão criadas as parcelas ${startInstallment} a ${totalInstallments}, uma por mês.`}
+						</p>
+					)}
+				</div>
 			)}
 
 			<div className="space-y-1.5">
