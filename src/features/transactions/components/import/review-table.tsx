@@ -49,6 +49,30 @@ export type ReviewRow = ImportedTransaction & {
 	existingTransactionId: string | null;
 	categoryId: string | null;
 	payerId: string | null;
+	// Compra parcelada: `installmentTotal` preenchido (2..60). `amount` é o valor
+	// de uma parcela e a linha é a `installmentCurrent`.
+	installmentCurrent: number | null;
+	installmentTotal: number | null;
+};
+
+export function isInstallmentValid(row: ReviewRow) {
+	if (row.installmentTotal === null && row.installmentCurrent === null) {
+		return true;
+	}
+	return (
+		row.installmentTotal !== null &&
+		row.installmentTotal >= 2 &&
+		row.installmentTotal <= 60 &&
+		(row.installmentCurrent === null ||
+			(row.installmentCurrent >= 1 &&
+				row.installmentCurrent <= row.installmentTotal))
+	);
+}
+
+const parseInstallmentInput = (value: string) => {
+	if (value.trim() === "") return null;
+	const parsed = Number(value);
+	return Number.isInteger(parsed) ? parsed : null;
 };
 
 interface ReviewTableProps {
@@ -60,6 +84,10 @@ interface ReviewTableProps {
 	onPayerChange: (index: number, payerId: string | null) => void;
 	onCategoryChange: (index: number, categoryId: string | null) => void;
 	onDescriptionChange: (index: number, description: string) => void;
+	onInstallmentChange: (
+		index: number,
+		installment: { current: number | null; total: number | null },
+	) => void;
 	onUndoDuplicate: (index: number) => void;
 }
 
@@ -72,6 +100,7 @@ export function ReviewTable({
 	onPayerChange,
 	onCategoryChange,
 	onDescriptionChange,
+	onInstallmentChange,
 	onUndoDuplicate,
 }: ReviewTableProps) {
 	const allSelected = rows.every((r) => r.selected);
@@ -116,6 +145,7 @@ export function ReviewTable({
 							</TableHead>
 							<TableHead className="w-24">Data</TableHead>
 							<TableHead>Descrição</TableHead>
+							<TableHead className="w-28">Parcela</TableHead>
 							<TableHead className="w-44">Pessoa</TableHead>
 							<TableHead className="w-44">Categoria</TableHead>
 							<TableHead className="w-20">Tipo</TableHead>
@@ -126,7 +156,7 @@ export function ReviewTable({
 						{paddingTop > 0 && (
 							<TableRow>
 								<TableCell
-									colSpan={7}
+									colSpan={8}
 									style={{ height: paddingTop, padding: 0 }}
 								/>
 							</TableRow>
@@ -203,6 +233,47 @@ export function ReviewTable({
 										)}
 									</TableCell>
 									<TableCell>
+										<div
+											className={`flex items-center gap-1 text-xs ${
+												isInstallmentValid(row) ? "" : "text-destructive"
+											}`}
+										>
+											<input
+												type="number"
+												inputMode="numeric"
+												min={1}
+												max={60}
+												placeholder="—"
+												aria-label={`Parcela atual de ${row.description}`}
+												value={row.installmentCurrent ?? ""}
+												onChange={(e) =>
+													onInstallmentChange(index, {
+														current: parseInstallmentInput(e.target.value),
+														total: row.installmentTotal,
+													})
+												}
+												className="h-8 w-10 rounded border bg-transparent px-1 text-center outline-none focus:ring-1 focus:ring-ring"
+											/>
+											<span>/</span>
+											<input
+												type="number"
+												inputMode="numeric"
+												min={2}
+												max={60}
+												placeholder="—"
+												aria-label={`Total de parcelas de ${row.description}`}
+												value={row.installmentTotal ?? ""}
+												onChange={(e) =>
+													onInstallmentChange(index, {
+														current: row.installmentCurrent,
+														total: parseInstallmentInput(e.target.value),
+													})
+												}
+												className="h-8 w-10 rounded border bg-transparent px-1 text-center outline-none focus:ring-1 focus:ring-ring"
+											/>
+										</div>
+									</TableCell>
+									<TableCell>
 										<Select
 											value={row.payerId ?? ""}
 											onValueChange={(v) => onPayerChange(index, v || null)}
@@ -270,7 +341,7 @@ export function ReviewTable({
 						{paddingBottom > 0 && (
 							<TableRow>
 								<TableCell
-									colSpan={7}
+									colSpan={8}
 									style={{ height: paddingBottom, padding: 0 }}
 								/>
 							</TableRow>

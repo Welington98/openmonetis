@@ -21,6 +21,7 @@ import {
 import { uuidSchema } from "@/shared/lib/schemas/common";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import { parseLocalDateString, toDateOnlyString } from "@/shared/utils/date";
+import { addMonthsToPeriod } from "@/shared/utils/period";
 
 const ofxIdentityRowSchema = z.object({
 	externalId: z.string().nullable(),
@@ -43,11 +44,24 @@ const duplicateCheckSchema = z.object({
 	rows: z.array(ofxIdentityRowSchema),
 });
 
-const importRowSchema = ofxIdentityRowSchema.extend({
-	description: z.string().min(1, "Descrição obrigatória."),
-	categoryId: uuidSchema("Category").nullable().optional(),
-	payerId: uuidSchema("Payer").nullable().optional(),
-});
+const importRowSchema = ofxIdentityRowSchema
+	.extend({
+		description: z.string().min(1, "Descrição obrigatória."),
+		categoryId: uuidSchema("Category").nullable().optional(),
+		payerId: uuidSchema("Payer").nullable().optional(),
+		// Linha de uma compra parcelada: `amount` é o valor de UMA parcela, a
+		// linha importada é a `currentInstallment` e as seguintes até
+		// `installmentCount` são criadas nos meses seguintes.
+		installmentCount: z.number().int().min(2).max(60).nullable().optional(),
+		currentInstallment: z.number().int().min(1).nullable().optional(),
+	})
+	.refine(
+		(row) =>
+			!row.installmentCount ||
+			!row.currentInstallment ||
+			row.currentInstallment <= row.installmentCount,
+		{ message: "A parcela atual não pode ser maior que o total." },
+	);
 
 const importSchema = z.object({
 	source: z.string().min(1),
@@ -361,44 +375,101 @@ export async function importTransactionsAction(
 	// Cartão de crédito: fatura pode ainda não ter sido paga
 	const isSettled = paymentMethod !== "Cartão de crédito";
 
-	const records = rowsToImport.map(({ row, payerId, fingerprint }) => {
+	const entries = rowsToImport.map(({ row, payerId, fingerprint }) => {
 		const purchaseDate = parseLocalDateString(row.date);
 		const period =
 			invoicePeriod ??
 			`${purchaseDate.getFullYear()}-${String(purchaseDate.getMonth() + 1).padStart(2, "0")}`;
+		const installmentTotal = row.installmentCount ?? null;
+		const firstInstallment = installmentTotal
+			? (row.currentInstallment ?? 1)
+			: null;
+		const seriesId = installmentTotal ? crypto.randomUUID() : null;
 
-		return {
+		const base = {
 			name: row.description,
 			transactionType: row.transactionType === "income" ? "Receita" : "Despesa",
-			condition: "À vista" as const,
+			condition: installmentTotal
+				? ("Parcelado" as const)
+				: ("À vista" as const),
 			paymentMethod,
 			amount: (row.transactionType === "expense"
 				? -row.amount
 				: row.amount
 			).toFixed(2),
 			purchaseDate,
-			period,
-			isSettled,
 			userId,
 			payerId,
 			accountId: accountId ?? null,
 			cardId: cardId ?? null,
 			categoryId: row.categoryId ?? null,
+			importBatchId,
+			seriesId,
+			installmentCount: installmentTotal,
+		};
+
+		const primary = {
+			...base,
+			period,
+			isSettled,
+			currentInstallment: firstInstallment,
 			ofxFitId: row.externalId,
 			ofxImportFingerprint: fingerprint,
-			importBatchId,
 		};
+
+		// Parcelas seguintes (sem identidade OFX, que pertence à linha importada).
+		const followUps =
+			installmentTotal && firstInstallment
+				? Array.from(
+						{ length: installmentTotal - firstInstallment },
+						(_, offset) => ({
+							...base,
+							period: addMonthsToPeriod(period, offset + 1),
+							isSettled: isSettled === null ? null : false,
+							currentInstallment: firstInstallment + offset + 1,
+							ofxFitId: null,
+							ofxImportFingerprint: null,
+						}),
+					)
+				: [];
+
+		return { primary, followUps };
 	});
 
 	// O índice de fingerprint protege contra importações concorrentes do mesmo OFX.
-	const inserted = await db
-		.insert(transactions)
-		.values(records)
-		.onConflictDoNothing({
-			target: [transactions.userId, transactions.ofxImportFingerprint],
-			where: sql`ofx_import_fingerprint IS NOT NULL`,
-		})
-		.returning({ id: transactions.id });
+	const inserted = await db.transaction(async (tx: typeof db) => {
+		const insertedPrimaries = await tx
+			.insert(transactions)
+			.values(entries.map((entry) => entry.primary))
+			.onConflictDoNothing({
+				target: [transactions.userId, transactions.ofxImportFingerprint],
+				where: sql`ofx_import_fingerprint IS NOT NULL`,
+			})
+			.returning({
+				id: transactions.id,
+				fingerprint: transactions.ofxImportFingerprint,
+			});
+
+		// Só cria as parcelas seguintes de linhas que realmente entraram.
+		const insertedFingerprints = new Set(
+			insertedPrimaries.flatMap((row) =>
+				row.fingerprint ? [row.fingerprint] : [],
+			),
+		);
+		const followUps = entries
+			.filter(
+				(entry) =>
+					!entry.primary.ofxImportFingerprint ||
+					insertedFingerprints.has(entry.primary.ofxImportFingerprint),
+			)
+			.flatMap((entry) => entry.followUps);
+
+		if (followUps.length > 0) {
+			await tx.insert(transactions).values(followUps);
+		}
+
+		return insertedPrimaries;
+	});
 
 	await revalidateForEntity("transactions", userId);
 
