@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.53.1](https://github.com/Welington98/openmonetis/compare/v2.53.0...v2.53.1) (2026-10-10)
+
+### Corrigido
+
+* **transactions:** limite do cartão considera só as parcelas que serão criadas ([65c84c8](https://github.com/Welington98/openmonetis/commit/65c84c8b4b4555fd39b52c1a0a1e2d86a686147b))
+
 ## [2.53.0](https://github.com/Welington98/openmonetis/compare/v2.52.0...v2.53.0) (2026-10-10)
 
 ### Adicionado
