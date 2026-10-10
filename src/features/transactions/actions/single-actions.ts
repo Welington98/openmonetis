@@ -200,7 +200,16 @@ export async function createTransactionAction(
 				const limitCheck = await validateCardLimit({
 					userId: user.id,
 					cardId: data.cardId,
-					addAmount: Math.abs(data.amount),
+					// Parcelado: só conta as parcelas que serão criadas (a partir da
+					// parcela inicial); as anteriores já passaram e não ocupam o limite
+					// novo. Demais condições mantêm o valor informado.
+					addAmount:
+						data.condition === "Parcelado"
+							? records.reduce(
+									(acc, record) => acc + Math.abs(Number(record.amount)),
+									0,
+								)
+							: Math.abs(data.amount),
 				});
 				if (!limitCheck.ok) {
 					return {
