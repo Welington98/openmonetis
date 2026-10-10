@@ -997,6 +997,181 @@ export async function bulkClassifyStatementLinesAction(
 	}
 }
 
+export type ImportClassifiedSummary = {
+	imported: number;
+	/** Linhas que não viraram lançamento, com o motivo, pra o usuário corrigir. */
+	failed: { statementLineId: string; reason: string }[];
+	/** Ids das linhas importadas, pra a tela marcar como conciliadas. */
+	importedLineIds: string[];
+};
+
+/**
+ * Importa em lote as linhas que o usuário já classificou na tela (rascunhos
+ * mantidos no navegador). Cada item traz os valores finais da linha — tipo,
+ * valor por parcela, data, conta/cartão, categoria, centro de custo, pessoa,
+ * forma de pagamento e parcelamento. Falha em uma linha não aborta as demais:
+ * ela volta em `failed` e continua como rascunho na tela.
+ */
+const importClassifiedItemSchema = z.object({
+	statementLineId: z.string().uuid(),
+	name: z.string().trim().min(1),
+	transactionType: z.enum(["Despesa", "Receita"]),
+	// Valor de UMA parcela (igual ao do extrato); a action multiplica abaixo.
+	amount: z.number().positive(),
+	purchaseDate: z.string().min(1),
+	accountId: z.string().uuid().nullable(),
+	cardId: z.string().uuid().nullable(),
+	categoryId: z.string().uuid(),
+	costCenterId: z.string().uuid().nullable(),
+	payerId: z.string().uuid().nullable(),
+	paymentMethod: z.string().min(1),
+	condition: z.enum(["À vista", "Parcelado"]),
+	installmentCount: z.number().int().min(2).max(60).optional(),
+	startInstallment: z.number().int().min(1).max(60).optional(),
+});
+
+const importClassifiedSchema = z.object({
+	items: z.array(importClassifiedItemSchema).min(1).max(500),
+});
+
+export async function importClassifiedStatementLinesAction(
+	input: z.infer<typeof importClassifiedSchema>,
+): Promise<ActionResult<ImportClassifiedSummary>> {
+	try {
+		const userId = await getUserId();
+		const { items } = importClassifiedSchema.parse(input);
+
+		const pendingLines = await db
+			.select({
+				id: statementLines.id,
+				pluggyAccountType: statementLines.pluggyAccountType,
+			})
+			.from(statementLines)
+			.where(
+				and(
+					eq(statementLines.userId, userId),
+					eq(statementLines.status, "unmatched"),
+					inArray(
+						statementLines.id,
+						items.map((item) => item.statementLineId),
+					),
+				),
+			);
+		const pendingById = new Map(pendingLines.map((line) => [line.id, line]));
+
+		let imported = 0;
+		const importedLineIds: string[] = [];
+		const failed: ImportClassifiedSummary["failed"] = [];
+
+		for (const item of items) {
+			const line = pendingById.get(item.statementLineId);
+			if (!line) {
+				failed.push({
+					statementLineId: item.statementLineId,
+					reason: "Linha não encontrada ou já conciliada.",
+				});
+				continue;
+			}
+
+			const isCardLine = line.pluggyAccountType === "CREDIT";
+			if (isCardLine ? !item.cardId : !item.accountId) {
+				failed.push({
+					statementLineId: item.statementLineId,
+					reason: "Sem conta/cartão.",
+				});
+				continue;
+			}
+			if (item.transactionType === "Despesa" && !item.costCenterId) {
+				failed.push({
+					statementLineId: item.statementLineId,
+					reason: "Sem centro de custo.",
+				});
+				continue;
+			}
+
+			const isParcelado = item.condition === "Parcelado";
+			if (isParcelado && !item.installmentCount) {
+				failed.push({
+					statementLineId: item.statementLineId,
+					reason: "Parcelamento inválido.",
+				});
+				continue;
+			}
+
+			const result = await createTransactionAction({
+				name: item.name,
+				transactionType: item.transactionType,
+				// A action divide o valor pelo total de parcelas; o valor do extrato
+				// é o de UMA parcela, então multiplica de volta.
+				amount:
+					isParcelado && item.installmentCount
+						? Math.round(item.amount * item.installmentCount * 100) / 100
+						: item.amount,
+				paymentMethod: isCardLine
+					? "Cartão de crédito"
+					: (item.paymentMethod as (typeof PAYMENT_METHODS)[number]),
+				condition: item.condition,
+				...(isParcelado
+					? {
+							installmentCount: item.installmentCount,
+							startInstallment: item.startInstallment ?? 1,
+						}
+					: {}),
+				purchaseDate: item.purchaseDate,
+				accountId: isCardLine ? null : item.accountId,
+				cardId: isCardLine ? item.cardId : null,
+				categoryId: item.categoryId,
+				costCenterId:
+					item.transactionType === "Despesa" ? item.costCenterId : null,
+				payerId: item.payerId,
+				isSettled: true,
+				isSplit: false,
+				note: null,
+			});
+
+			if (!result.success || !result.data) {
+				failed.push({
+					statementLineId: item.statementLineId,
+					reason: !result.success ? result.error : "Falha ao criar lançamento.",
+				});
+				continue;
+			}
+
+			await db
+				.update(statementLines)
+				.set({
+					status: "matched",
+					matchedTransactionId: result.data.ids[0],
+				})
+				.where(
+					and(
+						eq(statementLines.id, item.statementLineId),
+						eq(statementLines.userId, userId),
+					),
+				);
+
+			imported++;
+			importedLineIds.push(item.statementLineId);
+		}
+
+		revalidateBankSync(userId);
+		revalidateForEntity("transactions", userId);
+
+		const message =
+			failed.length > 0
+				? `${imported} lançamento(s) importado(s), ${failed.length} com pendência.`
+				: `${imported} lançamento(s) importado(s).`;
+
+		return {
+			success: true,
+			message,
+			data: { imported, failed, importedLineIds },
+		};
+	} catch (error) {
+		return handleActionError(error) as ActionResult<ImportClassifiedSummary>;
+	}
+}
+
 /**
  * Preenche `pluggy_conta_id`/`pluggy_conta_tipo` em linhas de extrato antigas,
  * sincronizadas antes desses campos existirem (por isso vieram nulos e nunca

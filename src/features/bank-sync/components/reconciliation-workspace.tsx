@@ -9,14 +9,14 @@ import {
 	RiRefreshLine,
 	RiSparklingLine,
 } from "@remixicon/react";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import {
-	type BulkClassifySummary,
 	backfillStatementLineAccountsAction,
 	bulkImportStatementLinesAction,
 	deleteBankConnectionAction,
 	ignoreStatementLineAction,
+	importClassifiedStatementLinesAction,
 	suggestCategoriesForPendingLinesAction,
 	triggerManualSyncAction,
 } from "@/features/bank-sync/actions";
@@ -27,6 +27,12 @@ import { LinkAccountsDialog } from "@/features/bank-sync/components/link-account
 import { LinkCardsDialog } from "@/features/bank-sync/components/link-cards-dialog";
 import { MatchExistingTab } from "@/features/bank-sync/components/match-existing-tab";
 import { RenameConnectionDialog } from "@/features/bank-sync/components/rename-connection-dialog";
+import {
+	applyBulkOverrides,
+	type BulkOverrides,
+	isDraftComplete,
+	type LineDraft,
+} from "@/features/bank-sync/lib/line-draft";
 import type {
 	ReconciliationWorkspaceData,
 	StatementLineWithCategory,
@@ -69,9 +75,17 @@ import {
 	toLocalDateString,
 } from "@/shared/utils/date";
 
-type FilterKey = "todos" | "pendentes" | "classificados" | "ia" | "duplicatas";
+type FilterKey =
+	| "todos"
+	| "pendentes"
+	| "prontos"
+	| "classificados"
+	| "ia"
+	| "duplicatas";
 
 const ALL_CONNECTIONS_VALUE = "__all__";
+
+type SourceKey = "conta" | "cartao";
 
 interface ReconciliationWorkspaceProps {
 	data: ReconciliationWorkspaceData;
@@ -99,6 +113,8 @@ export function ReconciliationWorkspace({
 	const [selectedConnectionId, setSelectedConnectionId] = useState<string>(
 		connections[0]?.id ?? ALL_CONNECTIONS_VALUE,
 	);
+	// Linhas de cartão de crédito não se misturam com as da conta corrente.
+	const [source, setSource] = useState<SourceKey>("conta");
 	const [search, setSearch] = useState("");
 	const [filter, setFilter] = useState<FilterKey>("todos");
 	const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
@@ -132,11 +148,38 @@ export function ReconciliationWorkspace({
 	const [isSuggesting, startSuggest] = useTransition();
 	const [isBulkImporting, startBulkImport] = useTransition();
 	const [isBackfilling, startBackfill] = useTransition();
+	const [isImportingClassified, startImportClassified] = useTransition();
+	// Classificações feitas na tela e ainda não importadas (só no navegador).
+	const [drafts, setDrafts] = useState<Record<string, LineDraft>>({});
+	const draftCount = Object.keys(drafts).length;
 
-	const scopedLines = useMemo(() => {
+	useEffect(() => {
+		if (draftCount === 0) return;
+		const warn = (event: BeforeUnloadEvent) => event.preventDefault();
+		window.addEventListener("beforeunload", warn);
+		return () => window.removeEventListener("beforeunload", warn);
+	}, [draftCount]);
+
+	const connectionLines = useMemo(() => {
 		if (selectedConnectionId === ALL_CONNECTIONS_VALUE) return lines;
 		return lines.filter((l) => l.bankConnectionId === selectedConnectionId);
 	}, [lines, selectedConnectionId]);
+
+	const sourceCounts = useMemo(() => {
+		const pending = connectionLines.filter((l) => l.status === "unmatched");
+		const cartao = pending.filter(
+			(l) => l.pluggyAccountType === "CREDIT",
+		).length;
+		return { cartao, conta: pending.length - cartao };
+	}, [connectionLines]);
+
+	const scopedLines = useMemo(
+		() =>
+			connectionLines.filter(
+				(l) => (l.pluggyAccountType === "CREDIT") === (source === "cartao"),
+			),
+		[connectionLines, source],
+	);
 
 	// Linhas depois de busca + período, mas antes do pill de status — é a base
 	// tanto dos contadores dos pills quanto da lista final, pra "Todos (N)" e
@@ -161,6 +204,9 @@ export function ReconciliationWorkspace({
 			pendentes: searchAndDateFilteredLines.filter(
 				(l) => l.status === "unmatched",
 			).length,
+			prontos: searchAndDateFilteredLines.filter(
+				(l) => l.status === "unmatched" && drafts[l.id],
+			).length,
 			classificados: searchAndDateFilteredLines.filter(
 				(l) => l.status === "matched",
 			).length,
@@ -170,12 +216,15 @@ export function ReconciliationWorkspace({
 				(l) => l.status === "unmatched" && l.possibleDuplicate,
 			).length,
 		}),
-		[searchAndDateFilteredLines],
+		[searchAndDateFilteredLines, drafts],
 	);
 
 	const filteredLines = useMemo(() => {
 		return searchAndDateFilteredLines.filter((line) => {
 			if (filter === "pendentes") return line.status === "unmatched";
+			if (filter === "prontos") {
+				return line.status === "unmatched" && Boolean(drafts[line.id]);
+			}
 			if (filter === "classificados") return line.status === "matched";
 			if (filter === "ia") return line.categorySource === "ai";
 			if (filter === "duplicatas") {
@@ -183,7 +232,7 @@ export function ReconciliationWorkspace({
 			}
 			return true;
 		});
-	}, [searchAndDateFilteredLines, filter]);
+	}, [searchAndDateFilteredLines, filter, drafts]);
 
 	const selectedLine =
 		filteredLines.find((l) => l.id === selectedLineId) ??
@@ -222,13 +271,39 @@ export function ReconciliationWorkspace({
 		});
 	};
 
-	const handleBulkClassifyDone = (_summary: BulkClassifySummary) => {
-		// Como a action processa em massa e pode pular linhas sem conta/categoria,
-		// não dá pra saber localmente quais ids específicos foram conciliados —
-		// mesma limitação já existente nas outras ações em massa desta tela
-		// (Importar todos, Sugerir categorias). `revalidateBankSync` no server
-		// atualiza os dados na próxima navegação/refetch.
-		setSelectedIds(new Set());
+	const stageDraft = (lineId: string, draft: LineDraft) => {
+		setDrafts((prev) => ({ ...prev, [lineId]: draft }));
+	};
+
+	const unstageDraft = (lineId: string) => {
+		setDrafts((prev) => {
+			const { [lineId]: _removed, ...rest } = prev;
+			return rest;
+		});
+	};
+
+	const handleBulkApply = (overrides: BulkOverrides) => {
+		const nextDrafts: Record<string, LineDraft> = {};
+		let skipped = 0;
+		for (const line of selectedLinesData) {
+			const draft = applyBulkOverrides(
+				line,
+				drafts[line.id],
+				defaultPayerId,
+				overrides,
+			);
+			if (draft) nextDrafts[line.id] = draft;
+			else skipped++;
+		}
+		const staged = Object.keys(nextDrafts).length;
+		setDrafts((prev) => ({ ...prev, ...nextDrafts }));
+		// Mantém selecionadas só as que ainda precisam de ajuste.
+		setSelectedIds((prev) => {
+			const next = new Set(prev);
+			for (const id of Object.keys(nextDrafts)) next.delete(id);
+			return next;
+		});
+		return { staged, skipped };
 	};
 
 	const selectedConnection = connections.find(
@@ -300,6 +375,43 @@ export function ReconciliationWorkspace({
 				toast.success(result.message);
 			} else {
 				toast.error(result.error);
+			}
+		});
+	};
+
+	const handleImportClassified = () => {
+		const items = Object.entries(drafts)
+			.filter(([lineId, draft]) => {
+				const line = lines.find((l) => l.id === lineId);
+				return line?.status === "unmatched" && isDraftComplete(line, draft);
+			})
+			.map(([statementLineId, draft]) => ({ statementLineId, ...draft }));
+		if (items.length === 0) return;
+
+		startImportClassified(async () => {
+			const result = await importClassifiedStatementLinesAction({ items });
+			if (!result.success || !result.data) {
+				toast.error(!result.success ? result.error : "Falha ao importar.");
+				return;
+			}
+			const { importedLineIds, failed } = result.data;
+			const importedSet = new Set(importedLineIds);
+			setLines((prev) =>
+				prev.map((l) =>
+					importedSet.has(l.id) ? { ...l, status: "matched" } : l,
+				),
+			);
+			setDrafts((prev) => {
+				const next = { ...prev };
+				for (const id of importedLineIds) delete next[id];
+				return next;
+			});
+			if (failed.length > 0) {
+				toast.warning(
+					`${result.message} Pendências: ${[...new Set(failed.map((f) => f.reason))].join("; ")}`,
+				);
+			} else {
+				toast.success(result.message);
 			}
 		});
 	};
@@ -509,6 +621,16 @@ export function ReconciliationWorkspace({
 					{isBulkImporting ? "Importando..." : "Importar todos"}
 				</Button>
 				<Button
+					size="sm"
+					disabled={isImportingClassified || draftCount === 0}
+					onClick={handleImportClassified}
+				>
+					<RiCheckLine className="size-4" />
+					{isImportingClassified
+						? "Importando..."
+						: `Importar classificados (${draftCount})`}
+				</Button>
+				<Button
 					variant="ghost"
 					size="sm"
 					disabled={isBackfilling}
@@ -603,18 +725,46 @@ export function ReconciliationWorkspace({
 								</PopoverContent>
 							</Popover>
 						</div>
+						<div className="flex gap-1.5">
+							{(
+								[
+									["conta", "Conta corrente"],
+									["cartao", "Cartão de crédito"],
+								] as [SourceKey, string][]
+							).map(([key, label]) => (
+								<button
+									key={key}
+									type="button"
+									onClick={() => {
+										setSource(key);
+										setSelectedIds(new Set());
+										setSelectedLineId(null);
+									}}
+									className={`flex-1 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+										source === key
+											? "border-primary bg-primary/10 text-primary"
+											: "border-border text-muted-foreground hover:bg-accent"
+									}`}
+								>
+									{label} ({sourceCounts[key]})
+								</button>
+							))}
+						</div>
 						<div className="flex flex-wrap gap-1.5">
 							{(
 								[
 									["todos", "Todos"],
 									["pendentes", "Pendentes"],
+									["prontos", "Prontos para importar"],
 									["classificados", "Classificados"],
 									["ia", "Categorizado por IA"],
 									["duplicatas", "Possíveis duplicatas"],
 								] as [FilterKey, string][]
 							)
 								.filter(
-									([key]) => key !== "duplicatas" || counts.duplicatas > 0,
+									([key]) =>
+										(key !== "duplicatas" || counts.duplicatas > 0) &&
+										(key !== "prontos" || counts.prontos > 0 || filter === key),
 								)
 								.map(([key, label]) => (
 									<button
@@ -708,6 +858,14 @@ export function ReconciliationWorkspace({
 												{line.status === "matched" && (
 													<RiCheckLine className="size-3.5 text-emerald-600" />
 												)}
+												{line.status === "unmatched" && drafts[line.id] && (
+													<Badge
+														variant="outline"
+														className="border-emerald-500/40 text-[10px] text-emerald-700 dark:text-emerald-400"
+													>
+														Pronto para importar
+													</Badge>
+												)}
 												{line.status === "unmatched" &&
 													line.possibleDuplicate && (
 														<Badge
@@ -735,7 +893,7 @@ export function ReconciliationWorkspace({
 							cardOptions={cardOptions}
 							categoryOptions={categoryOptions}
 							costCenterOptions={costCenterOptions}
-							onDone={handleBulkClassifyDone}
+							onApply={handleBulkApply}
 							onCancel={() => setSelectedIds(new Set())}
 						/>
 					) : !selectedLine ? (
@@ -797,9 +955,12 @@ export function ReconciliationWorkspace({
 										cardOptions={cardOptions}
 										categoryOptions={categoryOptions}
 										costCenterOptions={costCenterOptions}
-										onDone={() =>
-											handleLineResolved(selectedLine.id, "matched")
-										}
+										draft={drafts[selectedLine.id]}
+										onStage={(draft) => {
+											stageDraft(selectedLine.id, draft);
+											selectNext(selectedLine.id);
+										}}
+										onUnstage={() => unstageDraft(selectedLine.id)}
 										onMatchedExisting={() =>
 											handleLineResolved(selectedLine.id, "matched")
 										}
