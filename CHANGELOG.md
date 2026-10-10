@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.51.0](https://github.com/Welington98/openmonetis/compare/v2.50.0...v2.51.0) (2026-10-10)
+
+### Adicionado
+
+* **transactions:** escolhe valor da parcela e parcela inicial ao converter em parcelamento ([69d5507](https://github.com/Welington98/openmonetis/commit/69d5507068620c5b8e677638f8f82f43f0d369a7))
+
 ## [2.50.0](https://github.com/Welington98/openmonetis/compare/v2.49.0...v2.50.0) (2026-10-10)
 
 ### Adicionado
