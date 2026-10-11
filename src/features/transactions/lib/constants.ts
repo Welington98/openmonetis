@@ -14,6 +14,7 @@ export const TRANSACTION_CONDITIONS = ["À vista", "Parcelado", "Fixa"] as const
  * momento apagando as próximas ocorrências da série.
  */
 export const INDEFINITE_RECURRENCE_MONTHS = 60;
+export const MAX_TRANSACTION_INSTALLMENTS = 420;
 
 export const PAYMENT_METHODS = [
 	"Cartão de crédito",

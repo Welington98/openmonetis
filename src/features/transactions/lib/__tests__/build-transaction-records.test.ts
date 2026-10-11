@@ -16,6 +16,34 @@ const baseData = {
 };
 
 describe("buildTransactionRecords", () => {
+	it("preserves the total in cents with many installments", () => {
+		const records = buildTransactionRecords({
+			data: {
+				...baseData,
+				condition: "Parcelado",
+				amount: 1000,
+				installmentCount: 120,
+				startInstallment: 1,
+			},
+			userId: "user-1",
+			period: "2026-01",
+			purchaseDate: new Date("2026-01-10T00:00:00.000Z"),
+			dueDate: new Date("2026-01-10T00:00:00.000Z"),
+			paymentDate: null,
+			shares: [{ payerId: "payer-1", amountCents: 100000 }],
+			amountSign: -1,
+			shouldNullifySettled: false,
+			seriesId: "series-1",
+		});
+
+		expect(records).toHaveLength(120);
+		const totalCents = records.reduce(
+			(sum, r) => sum + Math.round(Number(r.amount) * 100),
+			0,
+		);
+		expect(totalCents).toBe(-100000);
+	});
+
 	it("steps installments by the configured interval (months)", () => {
 		const records = buildTransactionRecords({
 			data: {
