@@ -322,6 +322,25 @@ Rota: `src/app/api/mcp/route.ts`. Tools: `src/features/mcp/server.ts` (`register
 - Reaproveitar as queries que ja existem nas features (`fetchTransactionsPageWithRelations`, `fetchDashboardAccounts`, `fetchCategoryReport`, etc.) em vez de duplicar logica de negocio.
 - Sem rate limiting implementado (diferente do inbox — ver Security Rules abaixo). Considerar antes de expor a rota publicamente sem proxy/WAF na frente.
 
+### Contas de empréstimo (MCP e app)
+
+**O MCP não tem tools específicas de empréstimo — e isso é intencional.** O commit `6038c51` (`refactor(loans)`) removeu toda a maquinaria de empréstimo: tabelas `emprestimos`/`emprestimo_parcelas` (migração `0056`), `src/features/loans/` e a tela `/accounts/[id]/loan`. A decisão foi simplificar por pedido do usuário (a versão anterior era confusa), seguindo o padrão do Meu Dinheiro Web.
+
+Estado atual:
+
+- Empréstimo é uma **conta comum** (`financialAccounts`, `accountType` texto livre) com os tipos "Empréstimo Contratado" (dívida) e "Empréstimo Concedido" (recebível). Saldo inicial, extrato e saldo do dia funcionam como em qualquer conta.
+- Pagamento de parcela é uma **"Transferência entre contas"** normal (a mesma tela de qualquer transferência, com suporte a transferência parcelada e edição em lote). Não há bloqueio de edição nem regra especial para parcelas de empréstimo.
+- A única lógica específica restante é a classificação **passivo vs. ativo** no balanço patrimonial: `src/features/reports/lib/balance-sheet-classification.ts` (palavras-chave `"emprestimo contratado"`; frase completa de propósito para não pegar "concedido").
+- `generateAmortizationSchedule` foi realocada para `src/shared/lib/amortization.ts` (matemática pura, sem DB) e hoje serve ao **parcelamento de fatura de cartão**, não a empréstimos.
+
+O que o MCP cobre hoje para empréstimos (via contas comuns): `list_accounts` (saldo atual da conta de empréstimo), `account_statement` (extrato), `balance_sheet` (classificação como passivo) e `get_balance_projection`. Não existe tool para tabela de amortização, taxa, número de parcelas ou saldo devedor projetado, e **não deve existir** tool de transferência (regra acima: nunca expor pagamento de fatura, transferência ou exclusão de conta/cartão).
+
+Regras para agentes:
+
+- Não recriar as tabelas `emprestimos`/`emprestimo_parcelas`, `src/features/loans/` nem a tela dedicada sem pedido explícito do usuário — foi uma remoção deliberada.
+- Se pedirem "tools de empréstimo" no MCP, primeiro confirmar o escopo: leitura derivada de contas do tipo empréstimo (ex.: filtrar `list_accounts` por tipo, ou expor `generateAmortizationSchedule` como cálculo de simulação sem persistência) é compatível com a decisão atual; reintroduzir tabelas e fluxo de parcelas não é.
+- Qualquer tool nova segue as regras de MCP acima (`userId` sempre de `requireUserId(ctx)`, escrita exige `finance:write`).
+
 ---
 
 ## Dashboard Fetcher
