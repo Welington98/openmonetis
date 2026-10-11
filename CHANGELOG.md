@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.54.1](https://github.com/Welington98/openmonetis/compare/v2.54.0...v2.54.1) (2026-10-11)
+
+### Corrigido
+
+* **accounts:** libera seleção da conta de origem na transferência entre contas ([d905e4f](https://github.com/Welington98/openmonetis/commit/d905e4fba86fe2a139f35030f19c951a20fbb1d3))
+
 ## [2.54.0](https://github.com/Welington98/openmonetis/compare/v2.53.1...v2.54.0) (2026-10-11)
 
 ### Adicionado
