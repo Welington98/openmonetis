@@ -2,6 +2,7 @@
 
 import {
 	INDEFINITE_RECURRENCE_MONTHS,
+	MAX_TRANSACTION_INSTALLMENTS,
 	TRANSACTION_CONDITIONS,
 } from "@/features/transactions/lib/constants";
 import { Checkbox } from "@/shared/components/ui/checkbox";
@@ -84,28 +85,23 @@ export function ConditionSection({
 				{showInstallments ? (
 					<div className="space-y-1 w-full md:w-1/2">
 						<Label htmlFor="installmentCount">Parcelado em</Label>
-						<Select
+						<Input
+							id="installmentCount"
+							type="number"
+							inputMode="numeric"
+							min={2}
+							max={MAX_TRANSACTION_INSTALLMENTS}
+							placeholder="Ex: 12"
 							value={formState.installmentCount}
-							onValueChange={(value) =>
-								onFieldChange("installmentCount", value)
+							onChange={(event) =>
+								onFieldChange("installmentCount", event.target.value)
 							}
-						>
-							<SelectTrigger id="installmentCount" className="w-full">
-								<SelectValue placeholder="Selecione">
-									{installmentSummary}
-								</SelectValue>
-							</SelectTrigger>
-							<SelectContent>
-								{[...Array(24)].map((_, index) => {
-									const count = index + 2;
-									return (
-										<SelectItem key={count} value={String(count)}>
-											{getInstallmentLabel(count)}
-										</SelectItem>
-									);
-								})}
-							</SelectContent>
-						</Select>
+						/>
+						{installmentSummary ? (
+							<p className="text-muted-foreground text-xs">
+								{installmentSummary}
+							</p>
+						) : null}
 					</div>
 				) : null}
 

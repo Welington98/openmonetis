@@ -11,6 +11,7 @@ import {
 	transactions,
 } from "@/db/schema";
 import {
+	MAX_TRANSACTION_INSTALLMENTS,
 	PAYMENT_METHODS,
 	TRANSACTION_CONDITIONS,
 	TRANSACTION_TYPES,
@@ -364,13 +365,13 @@ const baseFields = z.object({
 		.number()
 		.int()
 		.min(1, "Selecione uma quantidade válida.")
-		.max(60, "Selecione uma quantidade válida.")
+		.max(MAX_TRANSACTION_INSTALLMENTS, "Selecione uma quantidade válida.")
 		.optional(),
 	startInstallment: z.coerce
 		.number()
 		.int()
 		.min(1, "Selecione uma parcela válida.")
-		.max(60, "Selecione uma parcela válida.")
+		.max(MAX_TRANSACTION_INSTALLMENTS, "Selecione uma parcela válida.")
 		.optional(),
 	recurrenceCount: z.coerce
 		.number()
@@ -569,7 +570,10 @@ export const convertToInstallmentSchema = z
 			.number({ message: "Informe em quantas parcelas dividir." })
 			.int()
 			.min(2, "O parcelamento deve ter ao menos duas parcelas.")
-			.max(60, "Selecione até 60 parcelas."),
+			.max(
+				MAX_TRANSACTION_INSTALLMENTS,
+				`Selecione até ${MAX_TRANSACTION_INSTALLMENTS} parcelas.`,
+			),
 		// Número da parcela que este lançamento representa (as anteriores não
 		// são criadas).
 		startInstallment: z.coerce
