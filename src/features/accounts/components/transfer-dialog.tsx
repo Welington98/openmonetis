@@ -70,7 +70,7 @@ interface TransferDialogProps {
 export function TransferDialog({
 	trigger,
 	accounts,
-	fromAccountId,
+	fromAccountId: initialFromAccountId,
 	currentPeriod,
 	open,
 	onOpenChange,
@@ -91,6 +91,9 @@ export function TransferDialog({
 	const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
 	// Form state
+	// Origem editável só na criação; em modo edição fica travada na conta da
+	// perna de saída da transferência existente.
+	const [fromAccountId, setFromAccountId] = useState(initialFromAccountId);
 	const [toAccountId, setToAccountId] = useState(initialToAccountId ?? "");
 	const [amount, setAmount] = useState(
 		initialAmount !== undefined ? initialAmount.toFixed(2) : "",
@@ -112,6 +115,11 @@ export function TransferDialog({
 	const availableAccounts = accounts.filter(
 		(account) => account.id !== fromAccountId,
 	);
+
+	const handleFromAccountChange = (value: string) => {
+		setFromAccountId(value);
+		if (value === toAccountId) setToAccountId("");
+	};
 
 	// Source account info
 	const fromAccount = accounts.find((account) => account.id === fromAccountId);
@@ -292,7 +300,11 @@ export function TransferDialog({
 
 						<div className="flex flex-col gap-2 sm:col-span-2">
 							<Label htmlFor="from-account">Conta de origem</Label>
-							<Select value={fromAccountId} disabled>
+							<Select
+								value={fromAccountId}
+								onValueChange={handleFromAccountChange}
+								disabled={isEditMode || isPending}
+							>
 								<SelectTrigger id="from-account" className="w-full">
 									<SelectValue>
 										{fromAccount && (
@@ -305,15 +317,15 @@ export function TransferDialog({
 									</SelectValue>
 								</SelectTrigger>
 								<SelectContent>
-									{fromAccount && (
-										<SelectItem value={fromAccount.id}>
+									{accounts.map((account) => (
+										<SelectItem key={account.id} value={account.id}>
 											<AccountCardSelectContent
-												label={fromAccount.name}
-												logo={fromAccount.logo}
+												label={account.name}
+												logo={account.logo}
 												isCartao={false}
 											/>
 										</SelectItem>
-									)}
+									))}
 								</SelectContent>
 							</Select>
 						</div>
