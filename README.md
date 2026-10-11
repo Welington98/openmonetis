@@ -60,7 +60,7 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 
 **1. Não há versão hospedada online** — Este projeto é self-hosted. Você precisa rodar no seu próprio computador ou servidor.
 
-**2. Open Finance é opcional e experimental** — Por padrão não há conexão automática com bancos: você pode registrar transações manualmente, usar o app companion para capturar notificações bancárias ou importar extratos nos formatos OFX e XLS/XLSX. Quem quiser sincronização automática pode configurar `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` (ver [Variáveis de Ambiente](#-variáveis-de-ambiente)) — o [Pluggy](https://pluggy.ai) cobra por conexão ativa, então isso é opt-in e por sua conta.
+**2. Open Finance é opcional e experimental** — Por padrão não há conexão automática com bancos: você pode registrar transações manualmente, usar o app companion para capturar notificações bancárias ou importar extratos nos formatos OFX e XLS/XLSX. Quem quiser sincronização automática pode configurar `PLUGGY_CLIENT_ID`/`PLUGGY_CLIENT_SECRET` (ver [Variáveis de Ambiente](#-variáveis-de-ambiente)) — o [Pluggy](https://pluggy.ai) cobra por conexão ativa, então isso é opt-in e por sua conta. Na tela de conciliação você classifica as linhas do extrato primeiro (uma a uma ou em lote) e só depois importa todas de uma vez com **Importar classificados**.
 
 **3. Requer disciplina** — O OpenMonetis funciona melhor para quem tem disciplina de registrar os gastos regularmente, quer controle total sobre seus dados e gosta de entender exatamente onde o dinheiro está indo.
 
