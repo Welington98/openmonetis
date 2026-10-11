@@ -5,6 +5,13 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.54.0](https://github.com/Welington98/openmonetis/compare/v2.53.1...v2.54.0) (2026-10-11)
+
+### Adicionado
+
+* **bank-sync:** classifica linhas do extrato antes de importar em lote ([da0eed2](https://github.com/Welington98/openmonetis/commit/da0eed216480c710f420e2879343a84b857ef36c))
+* **bank-sync:** separa lançamentos de cartão de crédito da conta corrente na análise ([f7ca096](https://github.com/Welington98/openmonetis/commit/f7ca09675fe6f9bf1f3bf560735d46610f9eecd2))
+
 ## [2.53.1](https://github.com/Welington98/openmonetis/compare/v2.53.0...v2.53.1) (2026-10-10)
 
 ### Corrigido
