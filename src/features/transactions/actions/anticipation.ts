@@ -28,6 +28,17 @@ import type { ActionResult } from "@/shared/lib/types/actions";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import { comparePeriods } from "@/shared/utils/period";
 
+/** Divide `totalCents` em `parts` partes; o resto vai de 1 em 1 centavo para as primeiras. */
+function splitCentsEvenly(totalCents: number, parts: number): number[] {
+	if (parts <= 0) return [];
+	const base = Math.trunc(totalCents / parts);
+	const remainder = totalCents % parts;
+	return Array.from(
+		{ length: parts },
+		(_, i) => base + (i < remainder ? 1 : 0),
+	);
+}
+
 /**
  * Schema de validação para criar antecipação
  */
@@ -218,7 +229,7 @@ export async function createInstallmentAnticipationAction(
 
 		// 2. Calcular valor total
 		const totalAmountCents = installments.reduce(
-			(sum, inst) => sum + Number(inst.amount) * 100,
+			(sum, inst) => sum + Math.round(Number(inst.amount) * 100),
 			0,
 		);
 		const totalAmount = totalAmountCents / 100;
@@ -304,6 +315,9 @@ export async function createInstallmentAnticipationAction(
 					anticipationPeriod: data.anticipationPeriod,
 					anticipationDate: new Date(),
 					anticipatedInstallmentIds: data.installmentIds,
+					anticipatedInstallmentAmounts: Object.fromEntries(
+						installments.map((inst) => [inst.id, inst.amount]),
+					),
 					totalAmount: formatDecimalForDbRequired(totalAmount),
 					installmentCount: installments.length,
 					discount: formatDecimalForDbRequired(discount),
@@ -367,6 +381,8 @@ export async function cancelInstallmentAnticipationAction(
 					anticipationDate: installmentAnticipations.anticipationDate,
 					anticipatedInstallmentIds:
 						installmentAnticipations.anticipatedInstallmentIds,
+					anticipatedInstallmentAmounts:
+						installmentAnticipations.anticipatedInstallmentAmounts,
 					totalAmount: installmentAnticipations.totalAmount,
 					installmentCount: installmentAnticipations.installmentCount,
 					discount: installmentAnticipations.discount,
@@ -404,28 +420,36 @@ export async function cancelInstallmentAnticipationAction(
 				);
 			}
 
-			// 3. Calcular valor original por parcela (totalAmount sem desconto / quantidade)
-			const originalTotalAmount = Number(anticipation.totalAmount);
-			const originalValuePerInstallment =
-				originalTotalAmount / anticipation.installmentCount;
+			// 3. Restaurar o valor original de cada parcela. Antecipações antigas
+			// não guardaram os valores: distribui o total em centavos (as
+			// primeiras parcelas levam o resto), igual à criação do parcelamento.
+			const installmentIds = anticipation.anticipatedInstallmentIds as string[];
+			const savedAmounts = anticipation.anticipatedInstallmentAmounts;
+			const fallbackAmounts = splitCentsEvenly(
+				Math.round(Number(anticipation.totalAmount) * 100),
+				installmentIds.length,
+			);
 
 			// 4. Remover flag de antecipação e restaurar valores das parcelas
-			await tx
-				.update(transactions)
-				.set({
-					isAnticipated: false,
-					anticipationId: null,
-					amount: formatDecimalForDbRequired(originalValuePerInstallment),
-				})
-				.where(
-					and(
-						inArray(
-							transactions.id,
-							anticipation.anticipatedInstallmentIds as string[],
+			for (const [index, installmentId] of installmentIds.entries()) {
+				const restoredAmount =
+					savedAmounts?.[installmentId] ??
+					formatDecimalForDbRequired((fallbackAmounts[index] ?? 0) / 100);
+
+				await tx
+					.update(transactions)
+					.set({
+						isAnticipated: false,
+						anticipationId: null,
+						amount: restoredAmount,
+					})
+					.where(
+						and(
+							eq(transactions.id, installmentId),
+							eq(transactions.userId, user.id),
 						),
-						eq(transactions.userId, user.id),
-					),
-				);
+					);
+			}
 
 			// 5. Deletar lançamento de antecipação
 			await tx

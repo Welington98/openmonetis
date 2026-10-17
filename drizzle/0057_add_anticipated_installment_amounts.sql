@@ -1,0 +1,1 @@
+ALTER TABLE "antecipacoes_parcelas" ADD COLUMN "valores_parcelas_antecipadas" jsonb;

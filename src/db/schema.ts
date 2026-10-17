@@ -865,6 +865,11 @@ export const installmentAnticipations = pgTable(
 		anticipatedInstallmentIds: jsonb("parcelas_antecipadas")
 			.notNull()
 			.$type<string[]>(),
+		// Valor original de cada parcela (id -> "123.45") antes de ser zerada;
+		// null em antecipações antigas, que restauram por média.
+		anticipatedInstallmentAmounts: jsonb("valores_parcelas_antecipadas").$type<
+			Record<string, string>
+		>(),
 		totalAmount: numeric("valor_total", { precision: 12, scale: 2 }).notNull(),
 		installmentCount: smallint("qtde_parcelas").notNull(),
 		discount: numeric("desconto", { precision: 12, scale: 2 })
