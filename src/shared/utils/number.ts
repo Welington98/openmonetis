@@ -31,3 +31,37 @@ export function safeToNumber(value: unknown, defaultValue: number = 0): number {
 	const parsed = Number(value);
 	return Number.isNaN(parsed) ? defaultValue : parsed;
 }
+
+/**
+ * Converte texto monetário (pt-BR ou US) em número. O último separador
+ * encontrado é o decimal e o outro é milhar: "1.234,56" e "1,234.56" viram
+ * 1234.56. Com um único tipo de separador, vírgula é decimal ("12,5") e
+ * ponto repetido é milhar ("1.234.567"); ponto único é decimal ("12.5").
+ * @returns O número, ou null se não houver valor numérico
+ */
+export function parseLocalizedNumber(raw: string): number | null {
+	const cleaned = raw.replace(/[^\d.,-]/g, "");
+	const isNegative = cleaned.startsWith("-");
+	const unsigned = cleaned.replace(/-/g, "");
+	const lastComma = unsigned.lastIndexOf(",");
+	const lastDot = unsigned.lastIndexOf(".");
+
+	let normalized: string;
+	if (lastComma !== -1 && lastDot !== -1) {
+		const decimalIndex = Math.max(lastComma, lastDot);
+		normalized = `${unsigned.slice(0, decimalIndex).replace(/[.,]/g, "")}.${unsigned.slice(decimalIndex + 1)}`;
+	} else if (lastComma !== -1) {
+		const commaCount = unsigned.split(",").length - 1;
+		normalized =
+			commaCount > 1 ? unsigned.replace(/,/g, "") : unsigned.replace(",", ".");
+	} else {
+		const dotCount = unsigned.split(".").length - 1;
+		normalized = dotCount > 1 ? unsigned.replace(/\./g, "") : unsigned;
+	}
+
+	const value = Number.parseFloat(normalized);
+	if (Number.isNaN(value)) {
+		return null;
+	}
+	return isNegative ? -value : value;
+}

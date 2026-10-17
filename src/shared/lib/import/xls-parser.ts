@@ -3,6 +3,7 @@ import type {
 	ImportedTransaction,
 	ImportStatement,
 } from "@/shared/lib/import/types";
+import { parseLocalizedNumber } from "@/shared/utils/number";
 import { assignContentOccurrences } from "./ofx-identity";
 
 /**
@@ -68,12 +69,7 @@ function parseAmountValue(value: unknown): number | null {
 function parseSignedAmountValue(value: unknown): number | null {
 	if (value == null || value === "") return null;
 	if (typeof value === "number") return value;
-	const num = Number.parseFloat(
-		String(value)
-			.replace(",", ".")
-			.replace(/[^\d.-]/g, ""),
-	);
-	return Number.isNaN(num) ? null : num;
+	return parseLocalizedNumber(String(value));
 }
 
 // Cabeçalhos usados pelo relatório de exportação do app "Meu Dinheiro".
