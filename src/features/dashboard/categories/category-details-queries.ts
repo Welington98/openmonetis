@@ -1,10 +1,8 @@
 import { and, desc, eq, isNull, ne, or, sql } from "drizzle-orm";
 import { categories, financialAccounts, transactions } from "@/db/schema";
 import { mapTransactionsData } from "@/features/transactions/lib/page-helpers";
-import {
-	ACCOUNT_AUTO_INVOICE_NOTE_PREFIX,
-	INITIAL_BALANCE_NOTE,
-} from "@/shared/lib/accounts/constants";
+import { INITIAL_BALANCE_NOTE } from "@/shared/lib/accounts/constants";
+import { excludeInvoiceSettlementEntries } from "@/shared/lib/accounts/query-filters";
 import {
 	type CategoryType,
 	INVOICE_PAYMENT_CATEGORY_NAME,
@@ -51,10 +49,7 @@ export async function fetchCategoryDetails(
 	const adminPayerId = await getAdminPayerId(userId);
 	const isInvoiceCategory = category.name === INVOICE_PAYMENT_CATEGORY_NAME;
 
-	const sanitizedNote = or(
-		isNull(transactions.note),
-		sql`${transactions.note} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-	);
+	const sanitizedNote = excludeInvoiceSettlementEntries();
 
 	const currentRows = adminPayerId
 		? await db.query.transactions.findMany({

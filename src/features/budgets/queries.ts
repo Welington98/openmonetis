@@ -1,12 +1,14 @@
-import { and, asc, eq, inArray, isNull, or, sql, sum } from "drizzle-orm";
+import { and, asc, eq, inArray, sum } from "drizzle-orm";
 import {
 	budgets,
 	categories,
 	financialAccounts,
 	transactions,
 } from "@/db/schema";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
-import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+import {
+	excludeInvoiceSettlementEntries,
+	excludeTransactionsFromExcludedAccounts,
+} from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 
@@ -92,10 +94,7 @@ export async function fetchBudgetsForUser(
 					eq(transactions.transactionType, "Despesa"),
 					eq(transactions.payerId, adminPayerId),
 					inArray(transactions.categoryId, categoryIds),
-					or(
-						isNull(transactions.note),
-						sql`${transactions.note} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-					),
+					excludeInvoiceSettlementEntries(),
 					excludeTransactionsFromExcludedAccounts(),
 				),
 			)
@@ -179,10 +178,7 @@ export async function fetchCategoryBudgetSummary(
 				eq(transactions.transactionType, "Despesa"),
 				eq(transactions.payerId, adminPayerId),
 				eq(transactions.categoryId, categoryId),
-				or(
-					isNull(transactions.note),
-					sql`${transactions.note} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-				),
+				excludeInvoiceSettlementEntries(),
 				excludeTransactionsFromExcludedAccounts(),
 			),
 		);

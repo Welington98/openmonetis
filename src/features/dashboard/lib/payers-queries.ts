@@ -1,7 +1,7 @@
-import { and, desc, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { financialAccounts, payers, transactions } from "@/db/schema";
 import { excludeTransactionsFromExcludedAccounts } from "@/features/dashboard/lib/transaction-filters";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
+import { excludeInvoiceSettlementEntries } from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { PAYER_ROLE_ADMIN } from "@/shared/lib/payers/constants";
 import { calculatePercentageChange } from "@/shared/utils/math";
@@ -52,10 +52,7 @@ export async function fetchDashboardPayers(
 				inArray(transactions.period, [period, previousPeriod]),
 				eq(transactions.transactionType, "Despesa"),
 				excludeTransactionsFromExcludedAccounts(),
-				or(
-					isNull(transactions.note),
-					sql`${transactions.note} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-				),
+				excludeInvoiceSettlementEntries(),
 			),
 		)
 		.groupBy(

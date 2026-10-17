@@ -1,19 +1,9 @@
-import {
-	and,
-	asc,
-	eq,
-	gte,
-	ilike,
-	isNull,
-	lte,
-	not,
-	or,
-	sql,
-	sum,
-} from "drizzle-orm";
+import { and, asc, eq, gte, lte, sql, sum } from "drizzle-orm";
 import { cards, financialAccounts, transactions } from "@/db/schema";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
-import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+import {
+	excludeInvoiceSettlementEntries,
+	excludeTransactionsFromExcludedAccounts,
+} from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { toDateOnlyString } from "@/shared/utils/date";
 import { safeToNumber as toNumber } from "@/shared/utils/number";
@@ -74,11 +64,7 @@ export type PayerPaymentStatusData = {
 	totalAmount: number;
 };
 
-const excludeAutoInvoiceEntries = () =>
-	or(
-		isNull(transactions.note),
-		not(ilike(transactions.note, `${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`)),
-	);
+const excludeAutoInvoiceEntries = excludeInvoiceSettlementEntries;
 
 type BaseFilters = {
 	userId: string;

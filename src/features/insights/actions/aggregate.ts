@@ -1,5 +1,5 @@
 import { getDay } from "date-fns";
-import { and, eq, inArray, isNull, ne, or, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { cacheLife, cacheTag } from "next/cache";
 import {
 	budgets,
@@ -8,8 +8,10 @@ import {
 	financialAccounts,
 	transactions,
 } from "@/db/schema";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
-import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+import {
+	excludeInvoiceSettlementEntries,
+	excludeTransactionsFromExcludedAccounts,
+} from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { safeToNumber } from "@/shared/utils/number";
@@ -22,11 +24,7 @@ async function aggregateMonthDataInternal(userId: string, period: string) {
 	const twoMonthsAgo = getPreviousPeriod(previousPeriod);
 	const threeMonthsAgo = getPreviousPeriod(twoMonthsAgo);
 	const adminPayerId = await getAdminPayerId(userId);
-	const autoInvoiceExclusion =
-		or(
-			isNull(transactions.note),
-			sql`${transactions.note} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-		) ?? sql`true`;
+	const autoInvoiceExclusion = excludeInvoiceSettlementEntries();
 	const adminPayerCondition = adminPayerId
 		? eq(transactions.payerId, adminPayerId)
 		: sql`false`;

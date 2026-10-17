@@ -1,3 +1,4 @@
+import type { SQL } from "drizzle-orm";
 import { and, eq, gt, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import {
 	budgets,
@@ -46,7 +47,10 @@ import {
 } from "@/features/daily-budget/lib/real-available-balance";
 import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
-import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+import {
+	excludeInvoiceSettlementEntries,
+	excludeTransactionsFromExcludedAccounts,
+} from "@/shared/lib/accounts/query-filters";
 import type { CostCenterKind } from "@/shared/lib/cost-centers/constants";
 import { db } from "@/shared/lib/db";
 import { INVOICE_PAYMENT_STATUS } from "@/shared/lib/invoices";
@@ -92,6 +96,12 @@ export type DailyBudgetOverview = {
 	};
 };
 
+/** Para gasto/receita do mês: ignora pagamento de fatura, saldo financiado e parcelas de fatura. */
+function notInvoiceSettlementFilter() {
+	return excludeInvoiceSettlementEntries();
+}
+
+/** Para dívida de cartão a pagar: só o pagamento automático fica de fora; saldo financiado e parcelas são dívida real. */
 function notAutoInvoiceFilter() {
 	return or(
 		isNull(transactions.note),
@@ -134,11 +144,11 @@ async function fetchExpenseAndIncomeTotals(
 	},
 ): Promise<{ income: number; expenses: number }> {
 	const matchPeriod = options?.matchPeriod ?? true;
-	const conditions = [
+	const conditions: (SQL | undefined)[] = [
 		eq(transactions.userId, userId),
 		eq(transactions.payerId, adminPayerId),
 		inArray(transactions.transactionType, ["Receita", "Despesa"]),
-		notAutoInvoiceFilter(),
+		notInvoiceSettlementFilter(),
 		excludeTransactionsFromExcludedAccounts(),
 	];
 
@@ -217,7 +227,7 @@ async function fetchDailyMovementRows(
 				eq(transactions.payerId, adminPayerId),
 				eq(transactions.period, period),
 				inArray(transactions.transactionType, ["Receita", "Despesa"]),
-				notAutoInvoiceFilter(),
+				notInvoiceSettlementFilter(),
 				excludeTransactionsFromExcludedAccounts(),
 			),
 		)
@@ -322,9 +332,17 @@ async function fetchUnpaidCardDebtForPeriod(
 					)
 			: [];
 
+	// Parcial e parcelada também já não saem da conta neste período: o que
+	// sobrou virou lançamento em outra fatura (saldo financiado/parcelas), que
+	// entra aqui quando aquele período for calculado.
+	const resolvedStatuses: string[] = [
+		INVOICE_PAYMENT_STATUS.PAID,
+		INVOICE_PAYMENT_STATUS.PARTIAL,
+		INVOICE_PAYMENT_STATUS.INSTALLED,
+	];
 	const paidCardIds = new Set(
 		invoiceRows
-			.filter((row) => row.paymentStatus === INVOICE_PAYMENT_STATUS.PAID)
+			.filter((row) => resolvedStatuses.includes(row.paymentStatus ?? ""))
 			.map((row) => row.cardId),
 	);
 

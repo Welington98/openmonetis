@@ -1,10 +1,10 @@
 import { eq, ilike, isNull, ne, not, or } from "drizzle-orm";
 import { financialAccounts, transactions } from "@/db/schema";
 import {
-	ACCOUNT_AUTO_INVOICE_NOTE_PREFIX,
 	INITIAL_BALANCE_NOTE,
 	REFUND_NOTE_PREFIX,
 } from "@/shared/lib/accounts/constants";
+import { excludeInvoiceSettlementEntries } from "@/shared/lib/accounts/query-filters";
 
 export { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
 
@@ -22,11 +22,7 @@ export const buildDashboardAdminFilters = ({
 		eq(transactions.payerId, adminPayerId),
 	] as const;
 
-export const excludeAutoInvoiceEntries = () =>
-	or(
-		isNull(transactions.note),
-		not(ilike(transactions.note, `${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`)),
-	);
+export const excludeAutoInvoiceEntries = excludeInvoiceSettlementEntries;
 
 export const excludeRefundEntries = () =>
 	or(
