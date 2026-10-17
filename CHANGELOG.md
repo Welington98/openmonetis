@@ -5,6 +5,14 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.55.1](https://github.com/Welington98/openmonetis/compare/v2.55.0...v2.55.1) (2026-10-17)
+
+### Corrigido
+
+* **import:** ler valores com milhar (1.234,56) na importação XLS ([7ec8793](https://github.com/Welington98/openmonetis/commit/7ec8793ad98e77399602d490929ce59696913e06))
+* **reports:** não contar saldo financiado e parcelas de fatura como nova despesa ([8da8bc7](https://github.com/Welington98/openmonetis/commit/8da8bc74a38022707ca35179a600fcae1207cfba))
+* **transactions:** restaurar valor original das parcelas ao cancelar antecipação ([cb8f4cc](https://github.com/Welington98/openmonetis/commit/cb8f4ccbf75a92bcd8a3cf20f90bb4c927889c11))
+
 ## [2.55.0](https://github.com/Welington98/openmonetis/compare/v2.54.1...v2.55.0) (2026-10-12)
 
 ### Adicionado
