@@ -1,6 +1,6 @@
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import { categories, transactions } from "@/db/schema";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
+import { excludeInvoiceSettlementEntries } from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { CATEGORY_COLORS } from "@/shared/utils/category-colors";
@@ -113,12 +113,7 @@ export async function fetchCategoryHistory(
 				eq(categories.userId, userId),
 				inArray(transactions.period, periods),
 				eq(transactions.payerId, adminPayerId),
-				or(
-					isNull(transactions.note),
-					sql`${
-						transactions.note
-					} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-				),
+				excludeInvoiceSettlementEntries(),
 			),
 		)
 		.groupBy(

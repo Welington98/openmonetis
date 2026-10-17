@@ -4,22 +4,20 @@ import {
 	desc,
 	eq,
 	gte,
-	ilike,
 	inArray,
 	isNull,
 	lte,
 	ne,
-	not,
 	or,
 	sql,
 	sum,
 } from "drizzle-orm";
 import { categories, financialAccounts, transactions } from "@/db/schema";
+import { INITIAL_BALANCE_NOTE } from "@/shared/lib/accounts/constants";
 import {
-	ACCOUNT_AUTO_INVOICE_NOTE_PREFIX,
-	INITIAL_BALANCE_NOTE,
-} from "@/shared/lib/accounts/constants";
-import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+	excludeInvoiceSettlementEntries,
+	excludeTransactionsFromExcludedAccounts,
+} from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { safeToNumber } from "@/shared/utils/number";
@@ -109,10 +107,7 @@ export async function fetchTopEstablishmentsData(
 		eq(transactions.transactionType, DESPESA),
 	] as const;
 	const exclusionConditions = [
-		or(
-			isNull(transactions.note),
-			not(ilike(transactions.note, `${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`)),
-		),
+		excludeInvoiceSettlementEntries(),
 		or(
 			isNull(transactions.note),
 			ne(transactions.note, INITIAL_BALANCE_NOTE),

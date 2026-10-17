@@ -1,7 +1,9 @@
-import { and, eq, inArray, isNull, or, sql } from "drizzle-orm";
+import { and, eq, inArray, or, sql } from "drizzle-orm";
 import { categories, financialAccounts, transactions } from "@/db/schema";
-import { ACCOUNT_AUTO_INVOICE_NOTE_PREFIX } from "@/shared/lib/accounts/constants";
-import { excludeTransactionsFromExcludedAccounts } from "@/shared/lib/accounts/query-filters";
+import {
+	excludeInvoiceSettlementEntries,
+	excludeTransactionsFromExcludedAccounts,
+} from "@/shared/lib/accounts/query-filters";
 import { db } from "@/shared/lib/db";
 import { getAdminPayerId } from "@/shared/lib/payers/get-admin-id";
 import { safeToNumber as toNumber } from "@/shared/utils/number";
@@ -46,10 +48,7 @@ export async function fetchCategoryChartData(
 		eq(transactions.payerId, adminPayerId),
 		inArray(transactions.period, periods),
 		or(eq(categories.type, "despesa"), eq(categories.type, "receita")),
-		or(
-			isNull(transactions.note),
-			sql`${transactions.note} NOT LIKE ${`${ACCOUNT_AUTO_INVOICE_NOTE_PREFIX}%`}`,
-		),
+		excludeInvoiceSettlementEntries(),
 		excludeTransactionsFromExcludedAccounts(),
 	];
 
