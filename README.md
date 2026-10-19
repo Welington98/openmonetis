@@ -94,6 +94,8 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 
 🔌 **Servidor MCP** — Exponha seus lançamentos, categorias, contas e resumos por categoria como tools somente-leitura para assistentes de IA compatíveis com [Model Context Protocol](https://modelcontextprotocol.io) (Claude Code, Claude Desktop), autenticado com o mesmo token pessoal usado pelo Companion. Veja [Servidor MCP](#-servidor-mcp).
 
+📘 **Manual no app** — A página `/manual` explica o sistema tela por tela (lançamentos, cartões, orçamento diário, previsão de diário, conciliação, metas, integrações), com busca, rotina recomendada e solução de problemas comuns. O acesso fica em Ferramentas → Manual e no menu do usuário.
+
 ⚙️ **Personalização** — Tema dark/light, modo privacidade, ordem das colunas, agrupamento por data em lançamentos, exibição de anotações, tamanho máximo de anexos, resumo opcional no modal de lançamento e changelog visual para acompanhar as novidades do app.
 
 📶 **PWA e notificações push** — Instale como app (Android/iOS/desktop) com suporte offline via Service Worker. Ative notificações push do navegador para avisos de faturas/boletos vencendo e orçamentos estourados, mesmo com o app fechado.

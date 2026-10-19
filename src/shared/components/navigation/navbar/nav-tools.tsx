@@ -1,6 +1,12 @@
 "use client";
 
-import { RiCalculatorLine, RiEyeLine, RiEyeOffLine } from "@remixicon/react";
+import {
+	RiBookOpenLine,
+	RiCalculatorLine,
+	RiEyeLine,
+	RiEyeOffLine,
+} from "@remixicon/react";
+import Link from "next/link";
 import { usePrivacyMode } from "@/shared/components/providers/privacy-provider";
 import { Badge } from "@/shared/components/ui/badge";
 
@@ -16,6 +22,19 @@ export function NavToolsDropdown({ onOpenCalculator }: NavToolsDropdownProps) {
 
 	return (
 		<ul className="grid w-72 gap-0.5 p-2">
+			<li>
+				<Link href="/manual" className={itemClass}>
+					<span className="text-primary shrink-0">
+						<RiBookOpenLine className="size-4" />
+					</span>
+					<span className="flex flex-col flex-1 text-left">
+						<span className="font-semibold">Manual</span>
+						<span className="text-xs text-muted-foreground lowercase">
+							Como usar cada função do sistema
+						</span>
+					</span>
+				</Link>
+			</li>
 			<li>
 				<button type="button" className={itemClass} onClick={onOpenCalculator}>
 					<span className="text-primary shrink-0">
@@ -68,6 +87,16 @@ export function MobileTools({ onClose, onOpenCalculator }: MobileToolsProps) {
 
 	return (
 		<>
+			<Link
+				href="/manual"
+				onClick={onClose}
+				className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors text-muted-foreground hover:text-foreground hover:bg-accent"
+			>
+				<span className="text-muted-foreground shrink-0">
+					<RiBookOpenLine className="size-4" />
+				</span>
+				<span className="flex-1 text-left">manual</span>
+			</Link>
 			<button
 				type="button"
 				onClick={() => {
