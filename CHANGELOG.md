@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.55.2](https://github.com/Welington98/openmonetis/compare/v2.55.1...v2.55.2) (2026-10-19)
+
+### Corrigido
+
+* **devcontainer:** corrige caminhos relativos do compose do workspace ([6f9632a](https://github.com/Welington98/openmonetis/commit/6f9632ab333471eecabdf6d5f02aad81d8a27eb9))
+
 ## [2.55.1](https://github.com/Welington98/openmonetis/compare/v2.55.0...v2.55.1) (2026-10-17)
 
 ### Corrigido
