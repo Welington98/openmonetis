@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.56.0](https://github.com/Welington98/openmonetis/compare/v2.55.2...v2.56.0) (2026-10-19)
+
+### Adicionado
+
+* adiciona previsão de diário ao orçamento diário ([9a7ee34](https://github.com/Welington98/openmonetis/commit/9a7ee34c72cbae3bea64da4152d8b769261bc3cd))
+
 ## [2.55.2](https://github.com/Welington98/openmonetis/compare/v2.55.1...v2.55.2) (2026-10-19)
 
 ### Corrigido
