@@ -1,6 +1,7 @@
 "use client";
 
 import {
+	RiBookOpenLine,
 	RiCheckLine,
 	RiFileCopyLine,
 	RiHistoryLine,
@@ -158,6 +159,11 @@ export function NavbarUser({
 						<Link href="/settings" className={cn(itemClass, "text-foreground")}>
 							<RiSettings2Line className="size-4 text-muted-foreground shrink-0" />
 							Ajustes
+						</Link>
+
+						<Link href="/manual" className={cn(itemClass, "text-foreground")}>
+							<RiBookOpenLine className="size-4 text-muted-foreground shrink-0" />
+							Manual
 						</Link>
 
 						<Link
