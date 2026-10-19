@@ -13,7 +13,10 @@ import {
 	type DailyBudgetView,
 	DailyBudgetViewTabs,
 } from "@/features/daily-budget/components/daily-budget-view-tabs";
-import { fetchDailyBudgetOverview } from "@/features/daily-budget/queries";
+import {
+	fetchDailyBudgetOverview,
+	fetchDailyForecastItems,
+} from "@/features/daily-budget/queries";
 import { fetchTransactionDialogOptionsAction } from "@/features/transactions/actions/fetch-dialog-options";
 import { MobileAddFab } from "@/features/transactions/components/page/mobile-add-fab";
 import { InfoTooltip } from "@/shared/components/info-tooltip";
@@ -51,7 +54,10 @@ const getSingleParam = (
 };
 
 async function DailyBudgetTodayContent({ userId }: { userId: string }) {
-	const overview = await fetchDailyBudgetOverview(userId);
+	const [overview, forecastItems] = await Promise.all([
+		fetchDailyBudgetOverview(userId),
+		fetchDailyForecastItems(userId),
+	]);
 	const today = getBusinessDateString();
 
 	return (
@@ -62,6 +68,8 @@ async function DailyBudgetTodayContent({ userId }: { userId: string }) {
 					customDailyLimit={overview.customDailyLimit}
 					targetSavings={overview.targetSavings || null}
 					safetyBuffer={overview.safetyBuffer || null}
+					forecastItems={forecastItems}
+					daysInMonth={overview.monthProgress.daysInMonth}
 				/>
 			</div>
 			<DailyBudgetHero overview={overview} />

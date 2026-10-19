@@ -548,6 +548,30 @@ export const dailyBudgetSettings = pgTable(
 	}),
 );
 
+// Previsão de diário (método do Breno): lista de gastos variáveis esperados
+// por mês (mercado, combustível...). A soma dividida pelos dias do mês vira o
+// limite diário sugerido. Não tem período: vale pra todo mês até ser editada.
+export const dailyForecastItems = pgTable(
+	"previsao_diario_itens",
+	{
+		id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+		userId: text("user_id")
+			.notNull()
+			.references(() => user.id, { onDelete: "cascade" }),
+		name: text("nome").notNull(),
+		amount: numeric("valor_mensal", { precision: 12, scale: 2 }).notNull(),
+		createdAt: timestamp("created_at", { mode: "date", withTimezone: true })
+			.notNull()
+			.defaultNow(),
+	},
+	(table) => ({
+		userIdIdx: index("previsao_diario_itens_user_id_idx").on(table.userId),
+	}),
+);
+
+export type DailyForecastItem = typeof dailyForecastItems.$inferSelect;
+export type NewDailyForecastItem = typeof dailyForecastItems.$inferInsert;
+
 export type DailyBudgetSettings = typeof dailyBudgetSettings.$inferSelect;
 export type NewDailyBudgetSettings = typeof dailyBudgetSettings.$inferInsert;
 

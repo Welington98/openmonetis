@@ -400,6 +400,13 @@
       "when": 1792200133134,
       "tag": "0057_add_anticipated_installment_amounts",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1792411945847,
+      "tag": "0058_previsao_diario_itens",
+      "breakpoints": true
     }
   ]
 }

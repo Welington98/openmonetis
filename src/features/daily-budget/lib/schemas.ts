@@ -51,3 +51,23 @@ export const dailyBudgetSettingsInputSchema = z.object({
 export type DailyBudgetSettingsInput = z.input<
 	typeof dailyBudgetSettingsInputSchema
 >;
+
+export const dailyForecastItemsInputSchema = z
+	.array(
+		z.object({
+			name: z
+				.string()
+				.trim()
+				.min(1, "Informe o nome do gasto.")
+				.max(60, "O nome deve ter no máximo 60 caracteres."),
+			amount: z
+				.number({ message: "Informe um valor válido." })
+				.positive("O valor deve ser maior que zero.")
+				.max(1_000_000, "Valor muito alto."),
+		}),
+	)
+	.max(30, "Use no máximo 30 itens na previsão.");
+
+export type DailyForecastItemsInput = z.input<
+	typeof dailyForecastItemsInputSchema
+>;
