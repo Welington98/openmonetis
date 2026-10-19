@@ -4,6 +4,7 @@ import {
 	budgets,
 	costCenters,
 	dailyBudgetSettings,
+	dailyForecastItems,
 	financialAccounts,
 	invoices,
 	transactions,
@@ -745,4 +746,28 @@ export async function fetchDailyBudgetOverview(
 			cardExpenses: cardExpensesToday,
 		},
 	};
+}
+
+export type DailyForecastItemRow = {
+	name: string;
+	amount: number;
+};
+
+/** Itens da previsão de diário do usuário, na ordem em que foram criados. */
+export async function fetchDailyForecastItems(
+	userId: string,
+): Promise<DailyForecastItemRow[]> {
+	const rows = await db
+		.select({
+			name: dailyForecastItems.name,
+			amount: dailyForecastItems.amount,
+		})
+		.from(dailyForecastItems)
+		.where(eq(dailyForecastItems.userId, userId))
+		.orderBy(dailyForecastItems.createdAt);
+
+	return rows.map((row) => ({
+		name: row.name,
+		amount: safeToNumber(row.amount),
+	}));
 }

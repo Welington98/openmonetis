@@ -1,9 +1,12 @@
 "use server";
 
-import { dailyBudgetSettings } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { dailyBudgetSettings, dailyForecastItems } from "@/db/schema";
 import {
 	type DailyBudgetSettingsInput,
+	type DailyForecastItemsInput,
 	dailyBudgetSettingsInputSchema,
+	dailyForecastItemsInputSchema,
 } from "@/features/daily-budget/lib/schemas";
 import {
 	handleActionError,
@@ -57,6 +60,42 @@ export async function saveDailyBudgetSettingsAction(
 			success: true,
 			message: "Configurações do orçamento diário salvas.",
 		};
+	} catch (error) {
+		return handleActionError(error);
+	}
+}
+
+/** Substitui a lista de previsão de diário do usuário (lista pequena, então apaga e regrava). */
+export async function saveDailyForecastItemsAction(
+	input: DailyForecastItemsInput,
+): Promise<ActionResult> {
+	try {
+		const user = await getUser();
+		const items = dailyForecastItemsInputSchema.parse(input);
+
+		await db.transaction(async (tx) => {
+			await tx
+				.delete(dailyForecastItems)
+				.where(eq(dailyForecastItems.userId, user.id));
+
+			if (items.length > 0) {
+				// created_at escalonado em 1 ms preserva a ordem digitada, já que
+				// defaultNow() devolve o mesmo instante dentro de uma transação.
+				const baseTime = Date.now();
+				await tx.insert(dailyForecastItems).values(
+					items.map((item, index) => ({
+						userId: user.id,
+						name: item.name,
+						amount: item.amount.toFixed(2),
+						createdAt: new Date(baseTime + index),
+					})),
+				);
+			}
+		});
+
+		revalidateForEntity("dailyBudget", user.id);
+
+		return { success: true, message: "Previsão de diário salva." };
 	} catch (error) {
 		return handleActionError(error);
 	}

@@ -74,7 +74,7 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 
 🎯 **Orçamentos** — Defina limites por categoria e acompanhe o progresso.
 
-📈 **Orçamento diário** — Duas visões do mesmo orçamento, em abas: **Hoje** mostra quanto você pode gastar sem comprometer o resto do mês; **Projeção** mostra o saldo de caixa real projetado dia a dia por até 12 meses à frente, ancorado no saldo das contas, com entradas, contas fixas e faturas de cartão nas datas certas, cota diária de gasto variável e mapa de calor do ano inteiro — para saber com antecedência em que dia a conta fica negativa.
+📈 **Orçamento diário** — Duas visões do mesmo orçamento, em abas: **Hoje** mostra quanto você pode gastar sem comprometer o resto do mês; **Projeção** mostra o saldo de caixa real projetado dia a dia por até 12 meses à frente, ancorado no saldo das contas, com entradas, contas fixas e faturas de cartão nas datas certas, cota diária de gasto variável e mapa de calor do ano inteiro — para saber com antecedência em que dia a conta fica negativa. Nas configurações há a **Previsão de diário**: você lista os gastos variáveis esperados no mês (mercado, combustível...), o total é dividido pelos dias e um botão aplica o resultado como limite diário.
 
 💸 **Parcelamentos avançados** — Séries de parcelas, antecipação com cálculo de desconto, análise consolidada.
 
