@@ -36,6 +36,7 @@ export type DashboardAccount = {
 	initialBalance: number;
 	balance: number;
 	excludeFromBalance: boolean;
+	pluggyBalance: number | null;
 };
 
 export type DashboardAccountsSnapshot = {
@@ -57,6 +58,7 @@ export async function fetchDashboardAccounts(
 			logo: financialAccounts.logo,
 			initialBalance: financialAccounts.initialBalance,
 			excludeFromBalance: financialAccounts.excludeFromBalance,
+			pluggyBalance: financialAccounts.pluggyBalance,
 			balanceMovements: sql<number>`
         coalesce(
           sum(
@@ -88,12 +90,16 @@ export async function fetchDashboardAccounts(
 			financialAccounts.logo,
 			financialAccounts.initialBalance,
 			financialAccounts.excludeFromBalance,
+			financialAccounts.pluggyBalance,
 		);
 
 	const accounts = rows
 		.map(
 			(
-				row: RawDashboardAccount & { excludeFromBalance: boolean },
+				row: RawDashboardAccount & {
+					excludeFromBalance: boolean;
+					pluggyBalance: string | null;
+				},
 			): DashboardAccount => {
 				const initialBalance = toNumber(row.initialBalance);
 				const balanceMovements = toNumber(row.balanceMovements);
@@ -107,6 +113,8 @@ export async function fetchDashboardAccounts(
 					initialBalance,
 					balance: initialBalance + balanceMovements,
 					excludeFromBalance: row.excludeFromBalance,
+					pluggyBalance:
+						row.pluggyBalance === null ? null : toNumber(row.pluggyBalance),
 				};
 			},
 		)

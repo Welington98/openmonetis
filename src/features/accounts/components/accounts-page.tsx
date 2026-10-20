@@ -151,6 +151,7 @@ export function AccountsPage({
 								account.excludeInitialBalanceFromIncome
 							}
 							pluggyConnectorName={account.pluggyConnectorName}
+							pluggyBalance={account.pluggyBalance}
 							icon={
 								logoSrc ? (
 									<Image
