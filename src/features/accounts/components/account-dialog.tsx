@@ -23,6 +23,10 @@ import {
 } from "@/shared/components/ui/dialog";
 import { useControlledState } from "@/shared/hooks/use-controlled-state";
 import { useFormState } from "@/shared/hooks/use-form-state";
+import {
+	ACCOUNT_STATUSES,
+	ACCOUNT_TYPES,
+} from "@/shared/lib/accounts/constants";
 import { getLogoDisplayName, normalizeLogo } from "@/shared/lib/logo";
 import {
 	formatInitialBalanceInput,
@@ -33,19 +37,8 @@ import { getTodayDateString } from "@/shared/utils/date";
 import { AccountFormFields } from "./account-form-fields";
 import type { Account, AccountFormValues } from "./types";
 
-const DEFAULT_ACCOUNT_TYPES = [
-	"Conta Corrente",
-	"Conta Poupança",
-	"Carteira Digital",
-	"Conta Investimento",
-	"Dinheiro",
-	"Pré-Pago | VR/VA",
-	"Empréstimo Contratado",
-	"Empréstimo Concedido",
-	"Outros",
-] as const;
-
-const DEFAULT_ACCOUNT_STATUS = ["Ativa", "Inativa"] as const;
+const DEFAULT_ACCOUNT_TYPES = ACCOUNT_TYPES;
+const DEFAULT_ACCOUNT_STATUS = ACCOUNT_STATUSES;
 
 interface AccountDialogProps {
 	mode: "create" | "update";

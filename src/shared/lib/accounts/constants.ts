@@ -69,3 +69,17 @@ export const isRefundNote = (note: string | null | undefined) =>
 
 export const isAccountInactive = (status: string | null | undefined) =>
 	status?.toLowerCase() === "inativa";
+
+export const ACCOUNT_TYPES = [
+	"Conta Corrente",
+	"Conta Poupança",
+	"Carteira Digital",
+	"Conta Investimento",
+	"Dinheiro",
+	"Pré-Pago | VR/VA",
+	"Empréstimo Contratado",
+	"Empréstimo Concedido",
+	"Outros",
+] as const;
+
+export const ACCOUNT_STATUSES = ["Ativa", "Inativa"] as const;
