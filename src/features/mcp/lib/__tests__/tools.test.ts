@@ -180,6 +180,9 @@ const WRITE_TOOLS = [
 	"create_savings_goal",
 	"process_inbox_item",
 	"discard_inbox_item",
+	"create_account",
+	"create_card",
+	"create_transfer",
 ];
 
 describe("MCP tools — registro e autorização", () => {
@@ -225,6 +228,20 @@ describe("MCP tools — registro e autorização", () => {
 			},
 			process_inbox_item: { inboxItemId: UUID, transactionId: UUID2 },
 			discard_inbox_item: { inboxItemId: UUID },
+			create_account: { name: "Conta", accountType: "Conta Corrente" },
+			create_card: {
+				name: "Havan",
+				brand: "Visa",
+				limit: 1000,
+				closingDay: 24,
+				dueDay: 10,
+				accountId: UUID,
+			},
+			create_transfer: {
+				fromAccountId: UUID,
+				toAccountId: UUID2,
+				amount: 10,
+			},
 		};
 		for (const name of WRITE_TOOLS) {
 			await expect(
@@ -234,6 +251,42 @@ describe("MCP tools — registro e autorização", () => {
 		}
 		expect(mocks.inserted).toHaveLength(0);
 		expect(mocks.updated).toHaveLength(0);
+	});
+
+	it("create_card valida dias do mês e limite", () => {
+		const schema = tools.get("create_card")?.schema;
+		const base = {
+			name: "Havan",
+			brand: "Visa",
+			limit: 1000,
+			closingDay: 24,
+			dueDay: 10,
+			accountId: UUID,
+		};
+
+		expect(schema?.safeParse(base).success).toBe(true);
+		expect(schema?.safeParse({ ...base, closingDay: 32 }).success).toBe(false);
+		expect(schema?.safeParse({ ...base, dueDay: 0 }).success).toBe(false);
+		expect(schema?.safeParse({ ...base, limit: -1 }).success).toBe(false);
+	});
+
+	it("create_account só aceita os tipos de conta do app", () => {
+		const schema = tools.get("create_account")?.schema;
+
+		expect(
+			schema?.safeParse({ name: "X", accountType: "Dinheiro" }).success,
+		).toBe(true);
+		expect(
+			schema?.safeParse({ name: "X", accountType: "Qualquer coisa" }).success,
+		).toBe(false);
+	});
+
+	it("create_transfer exige valor positivo", () => {
+		const schema = tools.get("create_transfer")?.schema;
+		const base = { fromAccountId: UUID, toAccountId: UUID2 };
+
+		expect(schema?.safeParse({ ...base, amount: 10 }).success).toBe(true);
+		expect(schema?.safeParse({ ...base, amount: 0 }).success).toBe(false);
 	});
 
 	it("schemas não aceitam userId como argumento", () => {
