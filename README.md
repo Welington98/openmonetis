@@ -38,6 +38,7 @@
 - [Backup](#-backup)
 - [Storage S3 Compatível](#-storage-s3-compatível)
 - [Servidor MCP](#-servidor-mcp)
+- [Observabilidade (OpenTelemetry)](#-observabilidade-opentelemetry)
 - [Variáveis de Ambiente](#-variáveis-de-ambiente)
 - [Design System](#-design-system)
 - [Arquitetura](#-arquitetura)
@@ -106,6 +107,7 @@ A ideia é simples: ter um lugar onde consigo ver todas as minhas contas, cartõ
 - **shadcn/ui** (Radix UI) + **Tailwind CSS**
 - **Bricolage Grotesque** via `next/font`
 - **Docker** (multi-stage build)
+- **OpenTelemetry** (traces, métricas e logs via OTLP, opcional)
 - **Biome** (linting + formatting)
 - **Vercel AI SDK** (Claude, GPT, Gemini, MiniMax, OpenRouter, Ollama)
 
@@ -512,6 +514,34 @@ Em desenvolvimento local, use `http://localhost:3000/api/mcp` no lugar de `SEU_D
 ### Arquitetura
 
 O `userId` que escopa todas as consultas vem exclusivamente do token Bearer verificado — nunca de argumentos passados pela IA na chamada da tool, então não há como uma tool ler dados de outro usuário. A validação do token (`verifyOpmApiToken` em `src/shared/lib/auth/api-token.ts`) reaproveita a mesma tabela `tokens_api` usada pelo Companion, incluindo expiração, revogação e registro de último uso. O handler é construído com [`mcp-handler`](https://www.npmjs.com/package/mcp-handler) sobre `@modelcontextprotocol/server`, expondo um handler HTTP compatível com Route Handlers do Next.js App Router.
+
+---
+
+## 📡 Observabilidade (OpenTelemetry)
+
+O servidor exporta **traces, métricas e logs** via OTLP/HTTP para qualquer backend compatível (Grafana Cloud/Tempo/Loki, SigNoz, Jaeger + collector, Honeycomb, etc.). É **opt-in**: sem endpoint configurado, nada é inicializado.
+
+### Como ativar
+
+```env
+OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+# OTEL_EXPORTER_OTLP_HEADERS=Authorization=Bearer xxx   # backends hospedados
+# OTEL_SERVICE_NAME=openmonetis                          # padrão
+# OTEL_METRIC_EXPORT_INTERVAL=60000                      # ms
+# OTEL_SDK_DISABLED=true                                 # desliga mesmo com endpoint
+```
+
+Também valem as variantes por sinal (`OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`, `..._METRICS_...`, `..._LOGS_...`) e as demais variáveis padrão `OTEL_*`.
+
+### O que é coletado
+
+- **Traces:** spans do Next.js (rotas, render, Server Actions; `NEXT_OTEL_VERBOSE=1` para mais detalhe), requisições HTTP e queries PostgreSQL (`pg`).
+- **Métricas:** duração de requisições HTTP, runtime do Node (event loop, GC, heap), host (CPU/memória) e `openmonetis.request.errors` (erros não tratados por rota).
+- **Logs:** todo `console.*` do servidor é encaminhado ao OTel (com correlação ao trace/span ativo) e erros de requisição são registrados via `onRequestError`. A saída normal no stdout continua igual.
+
+### Arquitetura
+
+`src/instrumentation.ts` (hook do Next) → `src/instrumentation-node.ts` (NodeSDK, só runtime Node) e helpers em `src/shared/lib/telemetry/`.
 
 ---
 
