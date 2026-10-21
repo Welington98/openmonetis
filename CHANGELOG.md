@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.57.0](https://github.com/Welington98/openmonetis/compare/v2.56.0...v2.57.0) (2026-10-21)
+
+### Adicionado
+
+* **observability:** adiciona OpenTelemetry para traces, métricas e logs ([e92c1de](https://github.com/Welington98/openmonetis/commit/e92c1de152d5fc3a6e1bee5a817ccddafe9afe8b))
+
 ## [2.56.0](https://github.com/Welington98/openmonetis/compare/v2.55.2...v2.56.0) (2026-10-19)
 
 ### Adicionado
