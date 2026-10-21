@@ -5,6 +5,18 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.58.0](https://github.com/Welington98/openmonetis/compare/v2.57.0...v2.58.0) (2026-10-21)
+
+### Adicionado
+
+* **mcp:** adiciona create_account, create_card e create_transfer ([9e59353](https://github.com/Welington98/openmonetis/commit/9e593536c133c7a6224383bf8d9292c4ae5a2bbd))
+* **mcp:** lançamento no cartão, parcelado e recorrente, centros de custo e exclusão de série ([9836042](https://github.com/Welington98/openmonetis/commit/98360428b67751fd05269c877a6f756f808fd1f6))
+
+### Alterado
+
+* extrai a criação de lançamentos para um serviço reutilizável ([9395908](https://github.com/Welington98/openmonetis/commit/9395908a87d4642e37f407a08338c7df93b370fe))
+* extrai criação de conta, cartão e transferência para serviços ([7f18ccd](https://github.com/Welington98/openmonetis/commit/7f18ccdbc2f9e737af39547824ebea1d9ddaf71c))
+
 ## [2.57.0](https://github.com/Welington98/openmonetis/compare/v2.56.0...v2.57.0) (2026-10-21)
 
 ### Adicionado
