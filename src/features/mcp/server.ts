@@ -1,13 +1,16 @@
 import type { McpServer } from "@modelcontextprotocol/server";
-import { and, eq, gte, ilike, lte } from "drizzle-orm";
+import { and, eq, gte, ilike, inArray, lte } from "drizzle-orm";
 import { z } from "zod";
 import {
 	attachments,
+	cards,
 	categories,
 	costCenters,
 	financialAccounts,
+	payers,
 	transactionAttachments,
 	transactions,
+	user,
 } from "@/db/schema";
 import { fetchDashboardAccounts } from "@/features/dashboard/lib/accounts-queries";
 import {
@@ -26,9 +29,16 @@ import { cleanupAttachmentsAfterTransactionDelete } from "@/features/transaction
 import {
 	isInitialBalanceTransaction,
 	resolvePeriod,
+	resolveUserLabel,
 	revalidate,
 } from "@/features/transactions/actions/core";
-import { PAYMENT_METHODS } from "@/features/transactions/lib/constants";
+import {
+	CREDIT_CARD_PAYMENT_METHOD,
+	MAX_TRANSACTION_INSTALLMENTS,
+	PAYMENT_METHODS,
+} from "@/features/transactions/lib/constants";
+import { createTransactionsForUser } from "@/features/transactions/lib/create-transactions";
+import { deriveCreditCardPeriod } from "@/features/transactions/lib/form-helpers";
 import {
 	fetchTransactionsPageWithRelations,
 	fetchTransactionsWithRelations,
@@ -244,6 +254,23 @@ export function registerFinanceTools(server: McpServer) {
 	);
 
 	server.registerTool(
+		"list_cost_centers",
+		{
+			title: "Listar centros de custo",
+			description:
+				"Lista os centros de custo do usuário (Fixa, Variável e Economia). O tipo decide como o lançamento entra no orçamento diário: fixa é pré-alocada do mês, variável consome a cota do dia, economia só rotula. Use o id em create_transaction/update_transaction (costCenterId).",
+			inputSchema: z.object({}),
+		},
+		async (_args, ctx) => {
+			const userId = requireUserId(ctx);
+			const rows = await fetchOrSeedCostCentersForUser(userId);
+			return jsonResult(
+				rows.map((c) => ({ id: c.id, name: c.name, kind: c.kind })),
+			);
+		},
+	);
+
+	server.registerTool(
 		"category_summary",
 		{
 			title: "Resumo de gastos por categoria",
@@ -294,7 +321,7 @@ export function registerFinanceTools(server: McpServer) {
 		{
 			title: "Adicionar lançamento",
 			description:
-				"Cria um novo lançamento (despesa ou receita) à vista para o usuário autenticado. Descubra os IDs de categoria e conta antes com list_categories e list_accounts — a categoria precisa ser do mesmo tipo (despesa/receita) do lançamento. Não cobre parcelamento, recorrência, pagamento no cartão de crédito nem divisão entre pessoas — para esses casos, oriente o usuário a usar o app.",
+				"Cria lançamentos (despesa ou receita) para o usuário autenticado: à vista em conta, compra no cartão de crédito (cardId), parcelada (condition=Parcelado + installmentCount) ou recorrente mensal (condition=Fixa + recurrenceCount). Descubra os IDs com list_categories, list_accounts, list_cards, list_cost_centers e list_payers — a categoria precisa ser do mesmo tipo (despesa/receita) do lançamento. Compra no cartão não usa accountId: a fatura é escolhida pelo dia de fechamento do cartão. Em parcelado o valor informado é o TOTAL, dividido nas parcelas; em recorrente é o valor de CADA mês. Não cobre divisão entre pessoas — para esse caso, oriente o usuário a usar o app.",
 			inputSchema: z.object({
 				name: z
 					.string()
@@ -305,7 +332,7 @@ export function registerFinanceTools(server: McpServer) {
 					.number()
 					.positive()
 					.describe(
-						"Valor do lançamento, sempre positivo — o campo type define o sinal",
+						"Valor do lançamento, sempre positivo — o campo type define o sinal. Parcelado: valor total. Fixa: valor de cada mês.",
 					),
 				type: z.enum(["despesa", "receita"]).describe("Tipo do lançamento"),
 				categoryId: z
@@ -317,8 +344,16 @@ export function registerFinanceTools(server: McpServer) {
 				accountId: z
 					.string()
 					.uuid()
+					.optional()
 					.describe(
-						"ID da conta financeira que paga/recebe (ver list_accounts)",
+						"ID da conta financeira que paga/recebe (ver list_accounts). Obrigatório, exceto em compra no cartão (cardId).",
+					),
+				cardId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe(
+						"ID do cartão de crédito (ver list_cards) para registrar uma compra no cartão. Só vale para despesa.",
 					),
 				date: dateSchema
 					.optional()
@@ -327,14 +362,52 @@ export function registerFinanceTools(server: McpServer) {
 					.enum(WRITABLE_PAYMENT_METHODS)
 					.optional()
 					.describe(
-						"Forma de pagamento (padrão: Pix). Pagamento no cartão de crédito não é suportado aqui.",
+						"Forma de pagamento (padrão: Pix). Em compra no cartão é sempre Cartão de crédito.",
 					),
+				condition: z
+					.enum(["À vista", "Parcelado", "Fixa"])
+					.optional()
+					.describe(
+						"Condição: À vista (padrão), Parcelado (exige installmentCount) ou Fixa, recorrência mensal (exige recurrenceCount)",
+					),
+				installmentCount: z
+					.number()
+					.int()
+					.min(2)
+					.max(MAX_TRANSACTION_INSTALLMENTS)
+					.optional()
+					.describe("Total de parcelas (condition=Parcelado)"),
+				startInstallment: z
+					.number()
+					.int()
+					.min(1)
+					.optional()
+					.describe(
+						"Parcela em que começa o lançamento (padrão 1). Use para registrar só as parcelas restantes de uma compra antiga.",
+					),
+				recurrenceCount: z
+					.number()
+					.int()
+					.min(2)
+					.max(60)
+					.optional()
+					.describe("Por quantos meses repete (condition=Fixa), de 2 a 60"),
+				dueDate: dateSchema
+					.optional()
+					.describe("Data de vencimento YYYY-MM-DD (opcional)"),
 				costCenterId: z
 					.string()
 					.uuid()
 					.optional()
 					.describe(
-						"ID do centro de custo — só relevante para despesa; se omitido, usa o centro de custo padrão 'Variável' do usuário",
+						"ID do centro de custo (ver list_cost_centers) — só relevante para despesa; se omitido, usa o padrão 'Variável' do usuário",
+					),
+				payerId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe(
+						"ID da pessoa (ver list_payers). Padrão: a pessoa administradora. Despesas de outras pessoas ficam fora do orçamento diário.",
 					),
 				note: z
 					.string()
@@ -345,7 +418,9 @@ export function registerFinanceTools(server: McpServer) {
 				isSettled: z
 					.boolean()
 					.optional()
-					.describe("Já foi pago/recebido? (padrão: true)"),
+					.describe(
+						"Já foi pago/recebido? Padrão: true para à vista em conta; false em parcelado/recorrente (vale para a primeira ocorrência). Ignorado em compra no cartão.",
+					),
 			}),
 		},
 		async (
@@ -355,9 +430,16 @@ export function registerFinanceTools(server: McpServer) {
 				type,
 				categoryId,
 				accountId,
+				cardId,
 				date,
 				paymentMethod,
+				condition,
+				installmentCount,
+				startInstallment,
+				recurrenceCount,
+				dueDate,
 				costCenterId,
+				payerId,
 				note,
 				isSettled,
 			},
@@ -378,15 +460,38 @@ export function registerFinanceTools(server: McpServer) {
 				);
 			}
 
-			const account = await db.query.financialAccounts.findFirst({
-				where: and(
-					eq(financialAccounts.id, accountId),
-					eq(financialAccounts.userId, userId),
-				),
-			});
-			if (!account) throw new Error("Conta não encontrada.");
+			const resolvedCondition = condition ?? "À vista";
+			if (resolvedCondition === "Parcelado" && !installmentCount) {
+				throw new Error("Informe installmentCount para lançamento parcelado.");
+			}
+			if (resolvedCondition === "Fixa" && !recurrenceCount) {
+				throw new Error("Informe recurrenceCount para lançamento recorrente.");
+			}
 
-			let resolvedCostCenterId: string | null = null;
+			const purchaseDateString = date ?? getBusinessDateString();
+			let resolvedPeriod: string | undefined;
+			let resolvedPaymentMethod: (typeof PAYMENT_METHODS)[number] =
+				paymentMethod ?? "Pix";
+
+			if (cardId) {
+				if (type !== "despesa") {
+					throw new Error("Compra no cartão só pode ser uma despesa.");
+				}
+				const card = await db.query.cards.findFirst({
+					where: and(eq(cards.id, cardId), eq(cards.userId, userId)),
+				});
+				if (!card) throw new Error("Cartão não encontrado.");
+				resolvedPaymentMethod = CREDIT_CARD_PAYMENT_METHOD;
+				resolvedPeriod = deriveCreditCardPeriod(
+					purchaseDateString,
+					card.closingDay,
+					card.dueDay,
+				);
+			} else if (!accountId) {
+				throw new Error("Informe accountId (ou cardId para compra no cartão).");
+			}
+
+			let resolvedCostCenterId: string | undefined;
 			if (costCenterId) {
 				const costCenter = await db.query.costCenters.findFirst({
 					where: and(
@@ -401,56 +506,76 @@ export function registerFinanceTools(server: McpServer) {
 				const defaultCostCenter =
 					userCostCenters.find((c) => c.kind === "variavel") ??
 					userCostCenters[0];
-				resolvedCostCenterId = defaultCostCenter?.id ?? null;
+				resolvedCostCenterId = defaultCostCenter?.id;
 			}
 
-			const adminPayerId = await getAdminPayerId(userId);
-			if (!adminPayerId) {
+			const resolvedPayerId = payerId ?? (await getAdminPayerId(userId));
+			if (!resolvedPayerId) {
 				throw new Error(
 					"Pessoa com papel administrador não encontrada para este usuário.",
 				);
 			}
 
-			const purchaseDateString = date ?? getBusinessDateString();
-			const period = resolvePeriod(purchaseDateString);
-			const amountSign = type === "despesa" ? -1 : 1;
+			const [authUser] = await db
+				.select({ name: user.name, email: user.email })
+				.from(user)
+				.where(eq(user.id, userId))
+				.limit(1);
 
-			const [inserted] = await db
-				.insert(transactions)
-				.values({
-					condition: "À vista",
+			const result = await createTransactionsForUser({
+				userId,
+				userLabel: resolveUserLabel(authUser ?? {}),
+				input: {
+					purchaseDate: purchaseDateString,
+					period: resolvedPeriod,
 					name: name.trim(),
-					paymentMethod: paymentMethod ?? "Pix",
-					note: note && note.length > 0 ? note : null,
-					amount: formatDecimalForDbRequired(amount * amountSign),
-					purchaseDate: parseLocalDateString(purchaseDateString),
 					transactionType: TRANSACTION_TYPE_LABEL[type],
-					period,
-					isSettled: isSettled ?? true,
-					costCenterId: resolvedCostCenterId,
-					userId,
-					accountId,
+					amount,
+					condition: resolvedCondition,
+					paymentMethod: resolvedPaymentMethod,
+					payerId: resolvedPayerId,
+					isSplit: false,
+					accountId: cardId ? null : (accountId ?? null),
+					cardId: cardId ?? null,
 					categoryId,
-					payerId: adminPayerId,
-				})
-				.returning({ id: transactions.id });
+					costCenterId: resolvedCostCenterId ?? null,
+					note: note && note.length > 0 ? note : null,
+					installmentCount:
+						resolvedCondition === "Parcelado" ? installmentCount : undefined,
+					startInstallment:
+						resolvedCondition === "Parcelado" ? startInstallment : undefined,
+					recurrenceCount:
+						resolvedCondition === "Fixa" ? recurrenceCount : undefined,
+					dueDate,
+					isSettled: cardId
+						? null
+						: (isSettled ?? resolvedCondition === "À vista"),
+				},
+			});
 
-			if (!inserted) {
+			if (!result.success) {
+				throw new Error(result.error);
+			}
+			const createdIds = result.data?.ids ?? [];
+			if (createdIds.length === 0) {
 				throw new Error("Não foi possível criar o lançamento.");
 			}
 
-			const [row] = await fetchTransactionsWithRelations({
+			const rows = await fetchTransactionsWithRelations({
 				filters: [
 					eq(transactions.userId, userId),
-					eq(transactions.id, inserted.id),
+					inArray(transactions.id, createdIds),
 				],
 			});
 
-			revalidate(userId);
-
 			return jsonResult({
-				message: "Lançamento criado com sucesso.",
-				transaction: row ? serializeTransaction(row) : { id: inserted.id },
+				message:
+					createdIds.length > 1
+						? `${createdIds.length} lançamentos criados com sucesso.`
+						: "Lançamento criado com sucesso.",
+				transactions: rows
+					.map(serializeTransaction)
+					.sort((a, b) => a.purchaseDate.localeCompare(b.purchaseDate)),
 			});
 		},
 	);
@@ -460,7 +585,7 @@ export function registerFinanceTools(server: McpServer) {
 		{
 			title: "Editar lançamento",
 			description:
-				"Edita um lançamento existente (à vista) do usuário autenticado. Todos os campos além de `id` são opcionais — só os informados são alterados, o resto mantém o valor atual. Não cobre lançamentos de cartão de crédito, transferências, parcelas de empréstimo, lançamentos divididos ou detalhados, pagamentos automáticos de fatura nem saldo inicial — para esses casos, oriente o usuário a usar o app.",
+				"Edita um lançamento existente (à vista ou ocorrência de série) do usuário autenticado. Todos os campos além de `id` são opcionais — só os informados são alterados, o resto mantém o valor atual. Edita só aquele lançamento, nunca a série inteira. Permite trocar centro de custo (costCenterId) e pessoa (payerId). Não cobre lançamentos de cartão de crédito, transferências, parcelas de empréstimo, lançamentos divididos ou detalhados, pagamentos automáticos de fatura nem saldo inicial — para esses casos, oriente o usuário a usar o app.",
 			inputSchema: z.object({
 				id: z
 					.string()
@@ -506,6 +631,18 @@ export function registerFinanceTools(server: McpServer) {
 					.describe(
 						"Nova forma de pagamento. Pagamento no cartão de crédito não é suportado aqui.",
 					),
+				costCenterId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe(
+						"Novo centro de custo (ver list_cost_centers) — só para despesa",
+					),
+				payerId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe("Nova pessoa responsável (ver list_payers)"),
 				note: z.string().trim().max(500).optional().describe("Nova anotação"),
 				isSettled: z
 					.boolean()
@@ -523,6 +660,8 @@ export function registerFinanceTools(server: McpServer) {
 				accountId,
 				date,
 				paymentMethod,
+				costCenterId,
+				payerId,
 				note,
 				isSettled,
 			},
@@ -613,6 +752,30 @@ export function registerFinanceTools(server: McpServer) {
 				resolvedAccountId = account.id;
 			}
 
+			let resolvedCostCenterId = existing.costCenterId;
+			if (costCenterId) {
+				if (resolvedTypeLabel !== "Despesa") {
+					throw new Error("Centro de custo só vale para despesas.");
+				}
+				const costCenter = await db.query.costCenters.findFirst({
+					where: and(
+						eq(costCenters.id, costCenterId),
+						eq(costCenters.userId, userId),
+					),
+				});
+				if (!costCenter) throw new Error("Centro de custo não encontrado.");
+				resolvedCostCenterId = costCenter.id;
+			}
+
+			let resolvedPayerId = existing.payerId;
+			if (payerId) {
+				const payer = await db.query.payers.findFirst({
+					where: and(eq(payers.id, payerId), eq(payers.userId, userId)),
+				});
+				if (!payer) throw new Error("Pessoa não encontrada.");
+				resolvedPayerId = payer.id;
+			}
+
 			const amountMagnitude =
 				amount !== undefined ? amount : Math.abs(Number(existing.amount));
 			const amountSign = resolvedTypeLabel === "Despesa" ? -1 : 1;
@@ -639,6 +802,8 @@ export function registerFinanceTools(server: McpServer) {
 					paymentMethod: paymentMethod ?? existing.paymentMethod,
 					accountId: resolvedAccountId,
 					categoryId: resolvedCategoryId,
+					costCenterId: resolvedCostCenterId,
+					payerId: resolvedPayerId,
 					note:
 						note !== undefined
 							? note.length > 0
@@ -668,18 +833,24 @@ export function registerFinanceTools(server: McpServer) {
 		{
 			title: "Excluir lançamento",
 			description:
-				"Exclui definitivamente um lançamento do usuário autenticado. Exige confirm=true. Não cobre lançamentos de cartão de crédito, transferências, parcelas de empréstimo, lançamentos divididos ou detalhados, pagamentos automáticos de fatura nem saldo inicial — para esses casos, oriente o usuário a usar o app.",
+				'Exclui definitivamente um lançamento do usuário autenticado. Exige confirm=true. Com scope="series", exclui também as demais ocorrências ainda não pagas da mesma série (parcelas ou recorrência), mantendo as já pagas — útil para remover uma série duplicada. Não cobre lançamentos de cartão de crédito, transferências, parcelas de empréstimo, lançamentos divididos ou detalhados, pagamentos automáticos de fatura nem saldo inicial — para esses casos, oriente o usuário a usar o app.',
 			inputSchema: z.object({
 				id: z
 					.string()
 					.uuid()
 					.describe("ID do lançamento (ver list_transactions)"),
+				scope: z
+					.enum(["single", "series"])
+					.optional()
+					.describe(
+						"single (padrão): só este lançamento. series: este e as demais ocorrências não pagas da mesma série.",
+					),
 				confirm: z
 					.literal(true)
 					.describe("Confirmação explícita e obrigatória da exclusão"),
 			}),
 		},
-		async ({ id }, ctx) => {
+		async ({ id, scope }, ctx) => {
 			const userId = requireWriteScope(ctx);
 
 			const existing = await db.query.transactions.findFirst({
@@ -722,6 +893,30 @@ export function registerFinanceTools(server: McpServer) {
 				);
 			}
 
+			// scope=series: além deste lançamento, remove as demais ocorrências NÃO
+			// pagas da mesma série; as já pagas ficam (são histórico real).
+			let idsToDelete = [id];
+			let keptSettled = 0;
+			if (scope === "series") {
+				if (!existing.seriesId) {
+					throw new Error("Este lançamento não faz parte de uma série.");
+				}
+				const siblings = await db
+					.select({ id: transactions.id, isSettled: transactions.isSettled })
+					.from(transactions)
+					.where(
+						and(
+							eq(transactions.userId, userId),
+							eq(transactions.seriesId, existing.seriesId),
+						),
+					);
+				const deletable = siblings.filter(
+					(row) => row.id === id || !row.isSettled,
+				);
+				keptSettled = siblings.length - deletable.length;
+				idsToDelete = deletable.map((row) => row.id);
+			}
+
 			const linkedAttachments = await db
 				.select({ id: attachments.id, fileKey: attachments.fileKey })
 				.from(transactionAttachments)
@@ -729,18 +924,28 @@ export function registerFinanceTools(server: McpServer) {
 					attachments,
 					eq(transactionAttachments.attachmentId, attachments.id),
 				)
-				.where(eq(transactionAttachments.transactionId, id));
+				.where(inArray(transactionAttachments.transactionId, idsToDelete));
 
 			await db
 				.delete(transactions)
-				.where(and(eq(transactions.id, id), eq(transactions.userId, userId)));
+				.where(
+					and(
+						eq(transactions.userId, userId),
+						inArray(transactions.id, idsToDelete),
+					),
+				);
 
 			await cleanupAttachmentsAfterTransactionDelete(linkedAttachments);
 
 			revalidate(userId);
 
 			return jsonResult({
-				message: "Lançamento removido com sucesso.",
+				message:
+					idsToDelete.length > 1
+						? `${idsToDelete.length} lançamentos da série removidos com sucesso.`
+						: "Lançamento removido com sucesso.",
+				removedCount: idsToDelete.length,
+				keptSettledCount: keptSettled,
 				transaction: rowBeforeDelete
 					? serializeTransaction(rowBeforeDelete)
 					: { id },

@@ -445,6 +445,7 @@ O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model C
 - **`list_transactions`** — lista lançamentos com filtros de data, tipo, categoria e busca por nome
 - **`get_transaction`** — detalha um lançamento específico pelo ID
 - **`list_categories`** — lista as categorias cadastradas
+- **`list_cost_centers`** — lista os centros de custo (Fixa, Variável, Economia) para classificar lançamentos
 - **`list_accounts`** — lista contas com saldo atual calculado e saldo total consolidado
 - **`account_statement`** — extrato de uma conta, com filtro de datas
 - **`category_summary`** — soma receitas/despesas por categoria em um intervalo de meses, com comparação mês a mês
@@ -466,14 +467,17 @@ O OpenMonetis expõe um servidor [MCP](https://modelcontextprotocol.io) (Model C
 
 **Escrita** (exigem o escopo `finance:write`)
 
-- **`create_transaction`**, **`update_transaction`**, **`delete_transaction`** — lançamentos à vista (não cobrem cartão, transferência, parcelas, divisão nem saldo inicial)
+- **`create_transaction`** — cria lançamentos à vista em conta, compras no cartão de crédito (`cardId`, com a fatura escolhida pelo dia de fechamento), parcelados (`installmentCount`, `startInstallment`) e recorrentes mensais (`recurrenceCount`), com centro de custo e pessoa (`costCenterId`, `payerId`). Não cobre divisão entre pessoas
+- **`update_transaction`**, **`delete_transaction`** — editam ou excluem um lançamento (inclusive uma ocorrência de série; `scope: "series"` exclui as demais ocorrências ainda não pagas). Não cobrem cartão de crédito, transferências, divisão, detalhamento, pagamento automático de fatura nem saldo inicial
+- **`create_account`**, **`create_card`** — cadastram uma conta (com saldo inicial e a opção de excluir do saldo) e um cartão de crédito (limite, fechamento, vencimento e conta pagadora)
+- **`create_transfer`** — registra uma transferência entre duas contas do próprio usuário (só no sistema, não move dinheiro no banco)
 - **`create_category`** — cria categoria de receita ou despesa
 - **`create_budget`** — cria o orçamento de uma categoria de despesa em um período
 - **`create_savings_goal`** — cria uma meta de economia
 - **`process_inbox_item`** / **`discard_inbox_item`** — triagem de itens pendentes do inbox
 - **`ignore_statement_line`** / **`match_statement_line`** / **`set_statement_line_category`** — triagem de linhas de extrato pendentes da conciliação bancária (Pluggy)
 
-Por segurança, nenhuma tool paga fatura, faz transferência entre contas, exclui contas e cartões ou conecta, sincroniza e remove conexões bancárias — esses fluxos ficam só no app.
+Por segurança, nenhuma tool paga fatura, exclui contas e cartões ou conecta, sincroniza e remove conexões bancárias — esses fluxos ficam só no app.
 
 ### Como gerar um token
 

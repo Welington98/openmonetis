@@ -2,7 +2,7 @@
 
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
-import { cards, financialAccounts } from "@/db/schema";
+import { cards } from "@/db/schema";
 import {
 	type ActionResult,
 	handleActionError,
@@ -18,6 +18,7 @@ import {
 } from "@/shared/lib/schemas/common";
 import { formatDecimalForDbRequired } from "@/shared/utils/currency";
 import { normalizeFilePath } from "@/shared/utils/string";
+import { assertAccountOwnership, createCardForUser } from "./lib/card-services";
 
 const cardBaseSchema = z.object({
 	name: z
@@ -55,20 +56,6 @@ type CardCreateInput = z.infer<typeof createCardSchema>;
 type CardUpdateInput = z.infer<typeof updateCardSchema>;
 type CardDeleteInput = z.infer<typeof deleteCardSchema>;
 
-async function assertAccountOwnership(userId: string, accountId: string) {
-	const account = await db.query.financialAccounts.findFirst({
-		columns: { id: true },
-		where: and(
-			eq(financialAccounts.id, accountId),
-			eq(financialAccounts.userId, userId),
-		),
-	});
-
-	if (!account) {
-		throw new Error("Conta vinculada não encontrada.");
-	}
-}
-
 export async function createCardAction(
 	input: CardCreateInput,
 ): Promise<ActionResult> {
@@ -76,22 +63,7 @@ export async function createCardAction(
 		const user = await getUser();
 		const data = createCardSchema.parse(input);
 
-		await assertAccountOwnership(user.id, data.accountId);
-
-		const logoFile = normalizeFilePath(data.logo);
-
-		await db.insert(cards).values({
-			name: data.name,
-			brand: data.brand,
-			status: data.status,
-			closingDay: data.closingDay,
-			dueDay: data.dueDay,
-			note: data.note ?? null,
-			limit: formatDecimalForDbRequired(data.limit),
-			logo: logoFile,
-			accountId: data.accountId,
-			userId: user.id,
-		});
+		await createCardForUser(user.id, data);
 
 		revalidateForEntity("cards", user.id);
 
