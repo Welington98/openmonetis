@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.58.1](https://github.com/Welington98/openmonetis/compare/v2.58.0...v2.58.1) (2026-10-24)
+
+### Corrigido
+
+* **docker:** inclui forwarded-parse no standalone para o OpenTelemetry ([a48c007](https://github.com/Welington98/openmonetis/commit/a48c007a1344815b1e299b850d6f23ae0ac12522))
+
 ## [2.58.0](https://github.com/Welington98/openmonetis/compare/v2.57.0...v2.58.0) (2026-10-21)
 
 ### Adicionado
