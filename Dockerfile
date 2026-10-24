@@ -95,6 +95,12 @@ COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
+# `@opentelemetry/instrumentation-http` faz `createRequire(...)("forwarded-parse")`
+# ancorado no caminho do build, invisível ao file tracing do Next. Sem este
+# COPY o standalone sobe sem o pacote e o hook de instrumentation quebra com
+# MODULE_NOT_FOUND. O COPY segue o symlink do pnpm e grava o diretório real.
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules/forwarded-parse ./node_modules/forwarded-parse
+
 # Copiar arquivos do Drizzle (migrations e schema)
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle.config.ts ./drizzle.config.ts
