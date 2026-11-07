@@ -57,6 +57,32 @@ export const buildInstallmentInvoiceName = (
 	installmentCount: number,
 ) => `Parcelamento de fatura (${installmentNumber}/${installmentCount})`;
 
+/**
+ * Juros embutidos em cada parcela de uma fatura parcelada. Diferente das
+ * parcelas de principal (`AUTO_PARCELAMENTO_FATURA:`), estes lançamentos NÃO são
+ * excluídos dos totais: o principal já foi contado como despesa nas compras
+ * originais, mas os juros são custo novo.
+ */
+export const INSTALLMENT_INTEREST_NOTE_PREFIX = "AUTO_JUROS_FATURA:";
+
+export const buildInstallmentInterestNotePrefix = (
+	cardId: string,
+	period: string,
+) => `${INSTALLMENT_INTEREST_NOTE_PREFIX}${cardId}:${period}:`;
+
+export const buildInstallmentInterestNote = (
+	cardId: string,
+	period: string,
+	installmentNumber: number,
+) =>
+	`${buildInstallmentInterestNotePrefix(cardId, period)}${installmentNumber}`;
+
+export const buildInstallmentInterestName = (
+	installmentNumber: number,
+	installmentCount: number,
+) =>
+	`Juros do parcelamento de fatura (${installmentNumber}/${installmentCount})`;
+
 export const ACCOUNT_BALANCE_ADJUSTMENT_NAME = "Ajuste de saldo";
 
 export const REFUND_NOTE_PREFIX = "AUTO_REEMBOLSO:";

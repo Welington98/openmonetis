@@ -11,8 +11,7 @@ import {
 } from "@/db/schema";
 import {
 	buildCarryOverNote,
-	buildInstallmentInvoiceName,
-	buildInstallmentInvoiceNote,
+	buildInstallmentInterestNotePrefix,
 	buildInstallmentInvoiceNotePrefix,
 	buildInvoicePaymentNote,
 	CARRY_OVER_TRANSACTION_NAME,
@@ -36,6 +35,7 @@ import {
 	parseLocalDateString,
 } from "@/shared/utils/date";
 import { addMonthsToPeriod } from "@/shared/utils/period";
+import { buildInstallmentInvoiceEntries } from "./lib/installment-entries";
 
 const isValidPaymentDate = (value: string) =>
 	!Number.isNaN(parseLocalDateString(value).getTime());
@@ -256,6 +256,17 @@ export async function updateInvoicePaymentStatusAction(
 							like(
 								transactions.note,
 								`${buildInstallmentInvoiceNotePrefix(card.id, data.period)}%`,
+							),
+						),
+					);
+				await tx
+					.delete(transactions)
+					.where(
+						and(
+							eq(transactions.userId, user.id),
+							like(
+								transactions.note,
+								`${buildInstallmentInterestNotePrefix(card.id, data.period)}%`,
 							),
 						),
 					);
@@ -812,6 +823,18 @@ export async function installInvoiceAction(
 				);
 
 			await tx
+				.delete(transactions)
+				.where(
+					and(
+						eq(transactions.userId, user.id),
+						like(
+							transactions.note,
+							`${buildInstallmentInterestNotePrefix(card.id, data.period)}%`,
+						),
+					),
+				);
+
+			await tx
 				.insert(invoices)
 				.values({
 					cardId: data.cardId,
@@ -837,31 +860,33 @@ export async function installInvoiceAction(
 
 			const referenceDate = getBusinessTodayDate();
 
-			for (const installment of schedule) {
+			const entries = buildInstallmentInvoiceEntries({
+				cardId: card.id,
+				period: data.period,
+				installmentCount: data.installmentCount,
+				schedule,
+			});
+
+			for (const entry of entries) {
 				await tx.insert(transactions).values({
 					condition: "À vista",
-					name: buildInstallmentInvoiceName(
-						installment.installmentNumber,
-						data.installmentCount,
-					),
+					name: entry.name,
 					paymentMethod: "Cartão de crédito",
-					note: buildInstallmentInvoiceNote(
-						card.id,
-						data.period,
-						installment.installmentNumber,
-					),
-					amount: `-${formatDecimalForDbRequired(installment.totalAmountCents / 100)}`,
+					note: entry.note,
+					amount: `-${formatDecimalForDbRequired(entry.amountCents / 100)}`,
 					purchaseDate: referenceDate,
 					transactionType: "Despesa" as const,
-					period: addMonthsToPeriod(data.period, installment.installmentNumber),
+					period: entry.period,
 					isSettled: false,
 					userId: user.id,
 					cardId: card.id,
 					accountId: null,
 					categoryId: null,
 					payerId: adminPayerId,
-					installmentCount: data.installmentCount,
-					currentInstallment: installment.installmentNumber,
+					installmentCount:
+						entry.kind === "principal" ? data.installmentCount : null,
+					currentInstallment:
+						entry.kind === "principal" ? entry.installmentNumber : null,
 				});
 			}
 		});
