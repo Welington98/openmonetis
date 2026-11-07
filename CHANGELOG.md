@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.58.2](https://github.com/Welington98/openmonetis/compare/v2.58.1...v2.58.2) (2026-11-07)
+
+### Corrigido
+
+* saldo da conta considera todos os pagadores e juros de fatura parcelada contam como despesa ([f74ad18](https://github.com/Welington98/openmonetis/commit/f74ad1852c9449606a0b799af2fccbc4cacf56ce))
+
 ## [2.58.1](https://github.com/Welington98/openmonetis/compare/v2.58.0...v2.58.1) (2026-10-24)
 
 ### Corrigido
