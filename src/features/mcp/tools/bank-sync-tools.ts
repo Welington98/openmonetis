@@ -2,12 +2,14 @@ import type { McpServer } from "@modelcontextprotocol/server";
 import { and, eq } from "drizzle-orm";
 import { z } from "zod";
 import { categories, statementLines, transactions } from "@/db/schema";
+import { syncBankConnection } from "@/features/bank-sync/lib/sync";
 import {
 	fetchBankConnections,
 	fetchReconciliationOverview,
 	fetchStatementLines,
 } from "@/features/bank-sync/queries";
 import {
+	dateSchema,
 	jsonResult,
 	requireUserId,
 	requireWriteScope,
@@ -19,8 +21,9 @@ import { db } from "@/shared/lib/db";
 /**
  * Tools MCP da conciliação bancária (Pluggy). Toda tool resolve o userId pelo
  * token Bearer — nunca por argumento. As de escrita exigem `finance:write` e só
- * triam linhas de extrato pendentes; não conectam, removem nem sincronizam
- * conexões (esses fluxos ficam só no app). O `pluggyItemId` nunca é exposto.
+ * triam linhas de extrato pendentes. `sync_bank_connection` busca transações
+ * no Pluggy (só cria linhas pendentes). Conectar e remover conexões ficam só
+ * no app. O `pluggyItemId` nunca é exposto.
  */
 export function registerBankSyncTools(server: McpServer) {
 	server.registerTool(
@@ -120,6 +123,63 @@ export function registerBankSyncTools(server: McpServer) {
 							: Number((a.pluggyBalance - a.localBalance).toFixed(2)),
 					pendingCount: a.pendingCount,
 				})),
+			});
+		},
+	);
+
+	server.registerTool(
+		"sync_bank_connection",
+		{
+			title: "Sincronizar conexão bancária (Pluggy)",
+			description:
+				"Busca no Pluggy as transações novas e cria linhas de extrato pendentes de conciliação. Não cria lançamentos nem altera o saldo local: as linhas precisam ser vinculadas ou ignoradas. Sem connectionId, sincroniza todas as conexões ativas do usuário. Sem período, busca só o mês atual; use dateFrom/dateTo (YYYY-MM-DD) para trazer meses anteriores.",
+			inputSchema: z.object({
+				connectionId: z
+					.string()
+					.uuid()
+					.optional()
+					.describe("ID da conexão (ver list_bank_connections)"),
+				dateFrom: dateSchema
+					.optional()
+					.describe("Início do período, YYYY-MM-DD"),
+				dateTo: dateSchema.optional().describe("Fim do período, YYYY-MM-DD"),
+			}),
+		},
+		async ({ connectionId, dateFrom, dateTo }, ctx) => {
+			const userId = requireWriteScope(ctx);
+
+			if (dateFrom && dateTo && dateFrom > dateTo) {
+				throw new Error("A data inicial não pode ser depois da data final.");
+			}
+
+			const targets = connectionId
+				? [{ id: connectionId }]
+				: (await fetchBankConnections(userId))
+						.filter((c) => c.isActive)
+						.map((c) => ({ id: c.id }));
+			if (targets.length === 0) {
+				throw new Error("Nenhuma conexão bancária ativa encontrada.");
+			}
+
+			const results = [];
+			for (const target of targets) {
+				const result = await syncBankConnection(target.id, userId, {
+					dateFrom,
+					dateTo,
+				});
+				results.push({
+					connectionId: result.connectionId,
+					accountsSynced: result.accountsSynced,
+					statementLinesCreated: result.statementLinesCreated,
+				});
+			}
+
+			revalidateForEntity("bankSync", userId);
+
+			return jsonResult({
+				message:
+					"Sincronização concluída. Novas linhas aguardam conciliação; o saldo local só muda quando forem vinculadas.",
+				results,
 			});
 		},
 	);

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
 	fetchBankConnections: vi.fn(),
 	fetchStatementLines: vi.fn(),
 	fetchReconciliationOverview: vi.fn(),
+	syncBankConnection: vi.fn(),
 	revalidateForEntity: vi.fn(),
 	categoryFindFirst: vi.fn(),
 	transactionFindFirst: vi.fn(),
@@ -17,6 +18,9 @@ vi.mock("@/features/bank-sync/queries", () => ({
 	fetchBankConnections: mocks.fetchBankConnections,
 	fetchStatementLines: mocks.fetchStatementLines,
 	fetchReconciliationOverview: mocks.fetchReconciliationOverview,
+}));
+vi.mock("@/features/bank-sync/lib/sync", () => ({
+	syncBankConnection: mocks.syncBankConnection,
 }));
 vi.mock("@/shared/lib/actions/helpers", () => ({
 	revalidateForEntity: mocks.revalidateForEntity,
@@ -108,6 +112,7 @@ const WRITE_ARGS: Record<string, Record<string, unknown>> = {
 	ignore_statement_line: { statementLineId: UUID },
 	match_statement_line: { statementLineId: UUID, transactionId: UUID2 },
 	set_statement_line_category: { statementLineId: UUID, categoryId: UUID2 },
+	sync_bank_connection: {},
 };
 
 describe("MCP tools — bank-sync", () => {
@@ -142,6 +147,59 @@ describe("MCP tools — bank-sync", () => {
 			);
 		}
 		expect(mocks.updated).toHaveLength(0);
+	});
+
+	it("sync_bank_connection sincroniza a conexão informada com o userId do token", async () => {
+		mocks.syncBankConnection.mockResolvedValue({
+			connectionId: UUID,
+			accountsSynced: 2,
+			statementLinesCreated: 5,
+		});
+		const out = await call(
+			tools,
+			"sync_bank_connection",
+			{ connectionId: UUID, dateFrom: "2026-10-01", dateTo: "2026-10-31" },
+			writeCtx,
+		);
+		expect(mocks.syncBankConnection).toHaveBeenCalledWith(UUID, "user-1", {
+			dateFrom: "2026-10-01",
+			dateTo: "2026-10-31",
+		});
+		expect(out.results[0].statementLinesCreated).toBe(5);
+		expect(mocks.revalidateForEntity).toHaveBeenCalledWith(
+			"bankSync",
+			"user-1",
+		);
+	});
+
+	it("sync_bank_connection sem connectionId sincroniza só as conexões ativas", async () => {
+		mocks.fetchBankConnections.mockResolvedValue([
+			{ id: UUID, isActive: true },
+			{ id: UUID2, isActive: false },
+		]);
+		mocks.syncBankConnection.mockResolvedValue({
+			connectionId: UUID,
+			accountsSynced: 1,
+			statementLinesCreated: 0,
+		});
+		await call(tools, "sync_bank_connection", {}, writeCtx);
+		expect(mocks.syncBankConnection).toHaveBeenCalledTimes(1);
+		expect(mocks.syncBankConnection.mock.calls[0][0]).toBe(UUID);
+	});
+
+	it("sync_bank_connection recusa período invertido e exige finance:write", async () => {
+		await expect(
+			call(
+				tools,
+				"sync_bank_connection",
+				{ dateFrom: "2026-11-02", dateTo: "2026-11-01" },
+				writeCtx,
+			),
+		).rejects.toThrow("A data inicial não pode ser depois da data final.");
+		await expect(
+			call(tools, "sync_bank_connection", {}, readCtx),
+		).rejects.toThrow("finance:write");
+		expect(mocks.syncBankConnection).not.toHaveBeenCalled();
 	});
 
 	it("list_bank_connections não expõe o pluggyItemId", async () => {
