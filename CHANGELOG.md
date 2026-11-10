@@ -5,6 +5,12 @@ Todas as mudanças notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.1.0/),
 e este projeto adere ao [Versionamento Semântico](https://semver.org/lang/pt-BR/).
 
+## [2.59.0](https://github.com/Welington98/openmonetis/compare/v2.58.2...v2.59.0) (2026-11-10)
+
+### Adicionado
+
+* **mcp:** adiciona tool sync_bank_connection para sincronizar o Pluggy ([7390e5a](https://github.com/Welington98/openmonetis/commit/7390e5a8083d4cdffc4f3eaf8e6311cbdfdca78c))
+
 ## [2.58.2](https://github.com/Welington98/openmonetis/compare/v2.58.1...v2.58.2) (2026-11-07)
 
 ### Corrigido
