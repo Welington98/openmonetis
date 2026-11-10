@@ -3,7 +3,10 @@
 	// Exclude shared UI primitives from dead code reporting while we focus the
 	// cleanup on feature and domain code first.
 	"ignore": [
-		"src/shared/components/ui/**"
+		"src/shared/components/ui/**",
+		// Stub de `next/cache` resolvido por alias no vitest.integration.config.ts
+		// — o knip não consegue seguir o alias e o marcaria como morto.
+		"src/test/integration/stubs/**"
 	],
 	// Runtime asset referenced by string in the PDF viewer.
 	"ignoreFiles": [
