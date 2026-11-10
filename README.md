@@ -239,15 +239,28 @@ pnpm build            # Build de produção
 pnpm start            # Servidor de produção
 pnpm lint             # Biome check
 pnpm lint:fix         # Biome auto-fix
+pnpm check            # Lint + typecheck + histórico de migrations
 ```
+
+### Testes
+
+```bash
+pnpm test              # Suíte unitária (sem banco)
+pnpm test:coverage     # Unitária + piso de cobertura
+pnpm test:integration  # Integração com PostgreSQL (requer pnpm docker:db)
+```
+
+Ver [TESTING.md](TESTING.md) para o que cada camada cobre e como o
+banco descartável é criado/destruído.
 
 ### Banco de Dados
 
 ```bash
-pnpm db:generate      # Gerar migrations
-pnpm db:migrate       # Executar migrations
-pnpm db:push          # Push schema direto (dev)
-pnpm db:studio        # Drizzle Studio (UI visual)
+pnpm db:generate          # Gerar migrations
+pnpm db:migrate           # Executar migrations
+pnpm db:push              # Push schema direto (dev)
+pnpm db:migrations:check  # Validar histórico (imutável, forward-only)
+pnpm db:studio            # Drizzle Studio (UI visual)
 ```
 
 ### Utilitários
