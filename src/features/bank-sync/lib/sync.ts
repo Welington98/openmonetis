@@ -1,5 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import { bankConnections, statementLines } from "@/db/schema";
+import {
+	bankConnections,
+	financialAccounts,
+	statementLines,
+} from "@/db/schema";
 import { fetchCategoryMappings } from "@/features/transactions/actions/category-memory-action";
 import { normalizeDescriptionKey } from "@/features/transactions/lib/import-utils";
 import { db } from "@/shared/lib/db";
@@ -74,6 +78,23 @@ export async function syncBankConnection(
 	const dateTo = dateRange.dateTo;
 
 	for (const account of pluggyAccounts) {
+		// Guarda o saldo informado pelo Pluggy na conta local vinculada (só contas
+		// bancárias — cartão tem fatura, não saldo) para exibir a diferença.
+		if (account.type === "BANK" && Number.isFinite(account.balance)) {
+			await db
+				.update(financialAccounts)
+				.set({
+					pluggyBalance: account.balance.toFixed(2),
+					pluggyBalanceUpdatedAt: new Date(),
+				})
+				.where(
+					and(
+						eq(financialAccounts.userId, userId),
+						eq(financialAccounts.pluggyAccountId, account.id),
+					),
+				);
+		}
+
 		const pluggyTransactions = await fetchPluggyTransactions(account.id, {
 			dateFrom,
 			dateTo,

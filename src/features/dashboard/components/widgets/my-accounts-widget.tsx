@@ -14,6 +14,7 @@ import { dashboardWidgetListStyles as styles } from "@/features/dashboard/compon
 import type { DashboardAccount } from "@/features/dashboard/lib/accounts-queries";
 import { updateMyAccountsWidgetPreference } from "@/features/dashboard/widget-registry/widget-actions";
 import MoneyValues from "@/shared/components/money-values";
+import { PluggyBalanceHint } from "@/shared/components/pluggy-balance-hint";
 import { Badge } from "@/shared/components/ui/badge";
 import { Button } from "@/shared/components/ui/button";
 import { CardFooter } from "@/shared/components/ui/card";
@@ -201,6 +202,13 @@ export function MyAccountsWidget({
 											)}
 											amount={account.balance}
 										/>
+										{account.pluggyBalance != null ? (
+											<PluggyBalanceHint
+												inline
+												localBalance={account.balance}
+												pluggyBalance={account.pluggyBalance}
+											/>
+										) : null}
 									</div>
 								</li>
 							);

@@ -407,6 +407,13 @@
       "when": 1792411945847,
       "tag": "0058_previsao_diario_itens",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1792412945847,
+      "tag": "0059_pluggy_saldo_conta",
+      "breakpoints": true
     }
   ]
 }

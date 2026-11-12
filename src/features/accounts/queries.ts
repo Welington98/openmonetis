@@ -18,6 +18,7 @@ export type AccountData = {
 	excludeInitialBalanceFromIncome: boolean;
 	bankConnectionId: string | null;
 	pluggyConnectorName: string | null;
+	pluggyBalance: number | null;
 };
 
 async function fetchAccountsByStatus(
@@ -40,6 +41,7 @@ async function fetchAccountsByStatus(
 				excludeInitialBalanceFromIncome:
 					financialAccounts.excludeInitialBalanceFromIncome,
 				bankConnectionId: financialAccounts.bankConnectionId,
+				pluggyBalance: financialAccounts.pluggyBalance,
 				pluggyConnectorName: sql<
 					string | null
 				>`coalesce(${bankConnections.nickname}, ${bankConnections.connectorName})`,
@@ -88,6 +90,7 @@ async function fetchAccountsByStatus(
 				financialAccounts.excludeFromBalance,
 				financialAccounts.excludeInitialBalanceFromIncome,
 				financialAccounts.bankConnectionId,
+				financialAccounts.pluggyBalance,
 				bankConnections.connectorName,
 				bankConnections.nickname,
 			),
@@ -109,6 +112,8 @@ async function fetchAccountsByStatus(
 		excludeInitialBalanceFromIncome: account.excludeInitialBalanceFromIncome,
 		bankConnectionId: account.bankConnectionId,
 		pluggyConnectorName: account.pluggyConnectorName,
+		pluggyBalance:
+			account.pluggyBalance === null ? null : Number(account.pluggyBalance),
 	}));
 
 	return { accounts, logoOptions };

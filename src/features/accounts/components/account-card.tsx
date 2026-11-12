@@ -10,6 +10,7 @@ import {
 } from "@remixicon/react";
 import type React from "react";
 import MoneyValues from "@/shared/components/money-values";
+import { PluggyBalanceHint } from "@/shared/components/pluggy-balance-hint";
 import { Badge } from "@/shared/components/ui/badge";
 import { Card, CardContent, CardFooter } from "@/shared/components/ui/card";
 import {
@@ -29,6 +30,7 @@ interface AccountCardProps {
 	excludeFromBalance?: boolean;
 	excludeInitialBalanceFromIncome?: boolean;
 	pluggyConnectorName?: string | null;
+	pluggyBalance?: number | null;
 	onViewStatement?: () => void;
 	onEdit?: () => void;
 	onRemove?: () => void;
@@ -46,6 +48,7 @@ export function AccountCard({
 	excludeFromBalance,
 	excludeInitialBalanceFromIncome,
 	pluggyConnectorName,
+	pluggyBalance,
 	onViewStatement,
 	onEdit,
 	onRemove,
@@ -169,6 +172,12 @@ export function AccountCard({
 						showPositiveSign
 						className={cn("text-2xl font-semibold", balanceColor)}
 					/>
+					{pluggyBalance != null ? (
+						<PluggyBalanceHint
+							localBalance={balance}
+							pluggyBalance={pluggyBalance}
+						/>
+					) : null}
 				</div>
 			</CardContent>
 

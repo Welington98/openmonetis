@@ -224,6 +224,14 @@ export const financialAccounts = pgTable(
 		// local — permite saber, ao sincronizar, em qual conta local cada
 		// transação do extrato deveria cair por padrão.
 		pluggyAccountId: text("pluggy_conta_id"),
+		// Último saldo informado pelo Pluggy para a conta vinculada (atualizado
+		// a cada sync) — usado só para comparar com o saldo local e sinalizar
+		// que falta conciliação. Nunca entra em cálculo de saldo.
+		pluggyBalance: numeric("pluggy_saldo", { precision: 12, scale: 2 }),
+		pluggyBalanceUpdatedAt: timestamp("pluggy_saldo_atualizado_em", {
+			mode: "date",
+			withTimezone: true,
+		}),
 		createdAt: timestamp("created_at", {
 			mode: "date",
 			withTimezone: true,
